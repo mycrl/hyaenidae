@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* Hide scrollbar in tab strip while keeping scroll functionality */
+.tabs-strip::-webkit-scrollbar {
+    display: none;
+}
+
+.tabs-strip {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}

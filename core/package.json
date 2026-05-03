@@ -1,0 +1,13 @@
+{
+    "name": "@hyaenidae/core",
+    "version": "1.0.0",
+    "description": "",
+    "license": "GPL-3.0-only",
+    "author": "",
+    "main": "dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "preinstall": "tsc"
+    },
+    "dependencies": {}
+}

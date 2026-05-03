@@ -1,0 +1,21 @@
+{
+    "name": "@hyaenidae/app",
+    "version": "1.0.0",
+    "description": "",
+    "license": "GPL-3.0-only",
+    "author": "",
+    "main": "index.js",
+    "scripts": {
+        "start": "electron .",
+        "build-preload": "node build-preload.js",
+        "build": "tsc && node build-preload.js",
+        "dev": "tsc && node build-preload.js && electron ."
+    },
+    "dependencies": {
+        "@hyaenidae/rpc": "1.0.0",
+        "dotenv": "^17.4.2"
+    },
+    "devDependencies": {
+        "esbuild": "^0.28.0"
+    }
+}
