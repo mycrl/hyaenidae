@@ -6,8 +6,10 @@
     "author": "",
     "main": "dist/index.js",
     "scripts": {
-        "build": "tsc",
-        "preinstall": "tsc"
+        "build": "tsc"
     },
-    "dependencies": {}
+    "dependencies": {
+        "@octokit/rest": "^22.0.1",
+        "openai": "^6.36.0"
+    }
 }
