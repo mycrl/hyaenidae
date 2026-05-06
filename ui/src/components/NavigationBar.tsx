@@ -2,7 +2,6 @@ import {
     ArrowLeftIcon,
     ArrowPathIcon,
     ArrowRightIcon,
-    EllipsisVerticalIcon,
     HomeIcon,
     LockClosedIcon,
     XMarkIcon,
@@ -92,15 +91,6 @@ export default function NavigationBar() {
                     className="flex-1 min-w-0 bg-transparent outline-none text-sm text-slate-800 placeholder-slate-400"
                 />
             </div>
-
-            <NavIconButton
-                title={t("nav.more")}
-                onClick={() => {
-                    // TODO
-                }}
-            >
-                <EllipsisVerticalIcon className="w-4 h-4" />
-            </NavIconButton>
         </div>
     );
 }

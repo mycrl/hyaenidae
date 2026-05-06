@@ -16,8 +16,7 @@
         "stop": "停止",
         "refresh": "刷新",
         "home": "主页",
-        "placeholder": "搜索或输入网址",
-        "more": "更多选项"
+        "placeholder": "搜索或输入网址"
     },
     "chat": {
         "newConversation": "新对话",

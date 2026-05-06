@@ -16,8 +16,7 @@
         "stop": "Stop",
         "refresh": "Refresh",
         "home": "Home",
-        "placeholder": "Search or enter address",
-        "more": "More options"
+        "placeholder": "Search or enter address"
     },
     "chat": {
         "newConversation": "New conversation",
