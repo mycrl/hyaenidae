@@ -13,7 +13,7 @@ export const Config: {
     openDevTools: process.env.OPEN_DEVTOOLS === "true",
     frame: {
         uri: process.env.DEFAULT_FRAME_URI || "http://localhost:5173",
-        width: Number(process.env.DEFAULT_FRAME_WIDTH || "800"),
-        height: Number(process.env.DEFAULT_FRAME_HEIGHT || "600"),
+        width: Number(process.env.DEFAULT_FRAME_WIDTH || "1280"),
+        height: Number(process.env.DEFAULT_FRAME_HEIGHT || "760"),
     },
 };

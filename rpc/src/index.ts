@@ -74,10 +74,9 @@ export interface RpcInterfaces {
     "shell:quit": [void, void];
 
     /**
-     * Triggers when the layout of the application changes, such as when tabs
-     * are rearranged or moved between windows
+     * Toggles the visibility of the agent panel
      */
-    "shell:layout-change": [void, void];
+    "shell:toggle-agent-panel": [{ isAgentPanelOpen: boolean }, void];
 
     /**
      * Triggers when a tab's title is updated, providing the tab ID and the new
@@ -150,6 +149,8 @@ interface RpcMessage {
     params: any;
 }
 
+const U32_MAX = 4294967295;
+
 /**
  * Implements a generic RPC service that can be used to send requests and handle
  * responses between the main and renderer processes in an Electron application.
@@ -209,6 +210,10 @@ export class RpcService {
     ): Promise<RpcInterfaces[T][1]> {
         const id = this.counter++;
         const listenerKey = `${method}-relay-${id}`;
+
+        if (id > U32_MAX) {
+            this.counter = 0;
+        }
 
         this.handler.send(method, { id, type: RpcMessageType.Request, params });
 

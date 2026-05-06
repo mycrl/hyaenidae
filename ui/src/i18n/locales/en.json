@@ -1,0 +1,40 @@
+{
+    "tabs": {
+        "newTab": "New Tab",
+        "addTab": "New Tab",
+        "closeTab": "Close tab"
+    },
+    "window": {
+        "minimize": "Minimize",
+        "maximize": "Maximize",
+        "close": "Close"
+    },
+    "nav": {
+        "back": "Back",
+        "forward": "Forward",
+        "stop": "Stop",
+        "refresh": "Refresh",
+        "home": "Home",
+        "placeholder": "Search or enter address",
+        "more": "More options"
+    },
+    "chat": {
+        "newConversation": "New conversation",
+        "add": "Add Chat",
+        "history": "History",
+        "expand": "Expand panel",
+        "collapse": "Collapse panel",
+        "greeting": "Hello! I am your agent. Tell me what you want to do next.",
+        "mode": {
+            "agent": "Agent",
+            "chat": "Chat"
+        },
+        "model": "Model",
+        "prompt": "Ask the agent...",
+        "send": "Send",
+        "sendMessage": "Send message"
+    },
+    "common": {
+        "now": "Now"
+    }
+}

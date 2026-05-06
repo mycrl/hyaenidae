@@ -10,12 +10,15 @@
         "preview": "vite preview"
     },
     "dependencies": {
-        "@hyaenidae/rpc": "1.0.0",
         "@heroicons/react": "^2.2.0",
+        "@hyaenidae/rpc": "1.0.0",
         "@tailwindcss/vite": "^4.1.17",
+        "i18next": "^26.0.9",
         "react": "^19.2.5",
         "react-dom": "^19.2.5",
-        "tailwindcss": "^4.1.13"
+        "react-i18next": "^17.0.6",
+        "tailwindcss": "^4.1.13",
+        "zustand": "^5.0.13"
     },
     "devDependencies": {
         "@types/node": "^24.12.2",

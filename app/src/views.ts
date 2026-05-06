@@ -3,8 +3,8 @@ import EventEmitter from "node:events";
 import { Config } from "./config";
 import { RpcMain } from "@hyaenidae/rpc";
 
-// Height of the browser shell (the UI area at the top of the window)
-const BROWSER_SHELL_HEIGHT = 85;
+const BROWSER_SHELL_HEADER_HEIGHT = 97;
+const BROWSER_SHELL_CHAT_WIDTH = 451;
 
 /**
  * Defines the options for creating a BrowserViews instance.
@@ -30,6 +30,8 @@ export class View extends WebContentsView {
  * Manages the shell UI view and all tab content views inside a single BaseWindow.
  */
 export class BrowserViews extends EventEmitter {
+    private isAgentPanelOpen = true;
+
     public baseWindow: BaseWindow;
     public currentId: number | null = null;
     public tabs: View[] = [];
@@ -49,7 +51,7 @@ export class BrowserViews extends EventEmitter {
 
         this.shell = new View({
             webPreferences: {
-                preload: require.resolve("./preload/shell.js"),
+                preload: require.resolve("./preload.js"),
                 contextIsolation: true,
             },
         });
@@ -89,11 +91,23 @@ export class BrowserViews extends EventEmitter {
         this.tabs.forEach((tab) => {
             tab.setBounds({
                 x: 0,
-                y: BROWSER_SHELL_HEIGHT,
-                width,
-                height: height - BROWSER_SHELL_HEIGHT,
+                y: BROWSER_SHELL_HEADER_HEIGHT,
+                width:
+                    width -
+                    (this.isAgentPanelOpen ? BROWSER_SHELL_CHAT_WIDTH : 0),
+                height: height - BROWSER_SHELL_HEADER_HEIGHT,
             });
         });
+    }
+
+    /**
+     * Toggles the visibility of the agent panel and syncs bounds to reflect the
+     * change.
+     */
+    toggleAgentPanel(isAgentPanelOpen: boolean) {
+        this.isAgentPanelOpen = isAgentPanelOpen;
+
+        this.syncBounds();
     }
 
     /**
@@ -103,7 +117,6 @@ export class BrowserViews extends EventEmitter {
     async create(url: string = "about:blank") {
         const tab = new View({
             webPreferences: {
-                preload: require.resolve("./preload/renderer.js"),
                 contextIsolation: true,
             },
         });
@@ -206,6 +219,7 @@ export class BrowserViews extends EventEmitter {
                 }
             }
 
+            tab.webContents.focus();
             this.baseWindow.contentView.addChildView(tab);
             this.currentId = id;
 

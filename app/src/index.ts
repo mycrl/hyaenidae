@@ -70,6 +70,10 @@ views.shell.rpc.on("shell:tab-go-forward", async ({ id }) => {
     await views.getNavigationHistory(id)?.goForward();
 });
 
+views.shell.rpc.on("shell:toggle-agent-panel", async ({ isAgentPanelOpen }) => {
+    views.toggleAgentPanel(isAgentPanelOpen);
+});
+
 let browserShellIsReady = false;
 
 views.shell.rpc.on("shell:ready", async () => {

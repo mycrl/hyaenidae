@@ -1,0 +1,40 @@
+{
+    "tabs": {
+        "newTab": "新标签页",
+        "addTab": "新建标签页",
+        "closeTab": "关闭标签页"
+    },
+    "window": {
+        "minimize": "最小化",
+        "maximize": "最大化",
+        "close": "关闭"
+    },
+    "nav": {
+        "back": "后退",
+        "forward": "前进",
+        "stop": "停止",
+        "refresh": "刷新",
+        "home": "主页",
+        "placeholder": "搜索或输入网址",
+        "more": "更多选项"
+    },
+    "chat": {
+        "newConversation": "新对话",
+        "add": "新建对话",
+        "history": "历史列表",
+        "expand": "展开面板",
+        "collapse": "收起面板",
+        "greeting": "你好！我是你的 AI 助手，告诉我你下一步想做什么。",
+        "mode": {
+            "agent": "助手",
+            "chat": "聊天"
+        },
+        "model": "模型",
+        "prompt": "请输入你想让 AI 助手做的事...",
+        "send": "发送",
+        "sendMessage": "发送消息"
+    },
+    "common": {
+        "now": "刚刚"
+    }
+}
