@@ -17,8 +17,10 @@ export default function TabBar() {
     const closeTabRpc = useTabStore((state) => state.closeTabRpc);
     const minimizeWindow = useTabStore((state) => state.minimizeWindow);
     const maximizeWindow = useTabStore((state) => state.maximizeWindow);
+    const restoreWindow = useTabStore((state) => state.restoreWindow);
     const quitWindow = useTabStore((state) => state.quitWindow);
     const isAgentPanelOpen = useTabStore((state) => state.isAgentPanelOpen);
+    const isWindowMaximized = useTabStore((state) => state.isWindowMaximized);
     const toggleAgentPanel = useTabStore((state) => state.toggleAgentPanel);
 
     return (
@@ -105,11 +107,21 @@ export default function TabBar() {
                     </button>
 
                     <button
-                        onClick={maximizeWindow}
-                        title={t("window.maximize")}
+                        onClick={
+                            isWindowMaximized ? restoreWindow : maximizeWindow
+                        }
+                        title={
+                            isWindowMaximized
+                                ? t("window.restore")
+                                : t("window.maximize")
+                        }
                         className="w-11 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200/70 transition-colors"
                     >
-                        <WinMaximizeIcon />
+                        {isWindowMaximized ? (
+                            <WinRestoreIcon />
+                        ) : (
+                            <WinMaximizeIcon />
+                        )}
                     </button>
 
                     <button
@@ -144,6 +156,23 @@ function WinMaximizeIcon() {
             strokeWidth="1.2"
         >
             <rect x="0.6" y="0.6" width="8.8" height="8.8" />
+        </svg>
+    );
+}
+
+function WinRestoreIcon() {
+    return (
+        <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.2"
+        >
+            {/* Restore icon: two overlapping rectangles */}
+            <rect x="2" y="3" width="6" height="6" />
+            <rect x="1" y="0.6" width="6" height="6" />
         </svg>
     );
 }

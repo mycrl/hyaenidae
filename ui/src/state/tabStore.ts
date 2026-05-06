@@ -19,6 +19,8 @@ interface TabStoreState {
     rpcInitialized: boolean;
     // Controls whether the right-side agent panel is expanded in layout.
     isAgentPanelOpen: boolean;
+    // Tracks whether the application window is currently maximized.
+    isWindowMaximized: boolean;
     addTab: (tab: Tab) => void;
     focusTab: (id: number) => void;
     removeTab: (id: number) => void;
@@ -42,8 +44,10 @@ interface TabStoreState {
     navigateTo: (url: string) => Promise<void>;
     minimizeWindow: () => Promise<void>;
     maximizeWindow: () => Promise<void>;
+    restoreWindow: () => Promise<void>;
     quitWindow: () => Promise<void>;
     toggleAgentPanel: () => Promise<void>;
+    setWindowMaximized: (maximized: boolean) => void;
 }
 
 export const useTabStore = create<TabStoreState>((set, get) => ({
@@ -51,6 +55,7 @@ export const useTabStore = create<TabStoreState>((set, get) => ({
     activeTabId: null,
     rpcInitialized: false,
     isAgentPanelOpen: true,
+    isWindowMaximized: false,
     addTab: (tab) =>
         set((state) => {
             // RPC may deliver duplicated create events; ignore if the tab already exists.
@@ -222,9 +227,17 @@ export const useTabStore = create<TabStoreState>((set, get) => ({
     },
     maximizeWindow: async () => {
         await hyaenidae.rpc.ask("shell:maximize");
+        set({ isWindowMaximized: true });
+    },
+    restoreWindow: async () => {
+        await hyaenidae.rpc.ask("shell:restore");
+        set({ isWindowMaximized: false });
     },
     quitWindow: async () => {
         await hyaenidae.rpc.ask("shell:quit");
+    },
+    setWindowMaximized: (maximized) => {
+        set({ isWindowMaximized: maximized });
     },
     toggleAgentPanel: async () => {
         await hyaenidae.rpc.ask("shell:toggle-agent-panel", {
