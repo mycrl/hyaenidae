@@ -1,27 +1,22 @@
-import {
-    GlobeAltIcon,
-    PlusIcon,
-    SparklesIcon,
-    XMarkIcon,
-} from "@heroicons/react/24/outline";
+import { GlobeAltIcon, PlusIcon, SparklesIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { useTabStore } from "../state/tabStore";
+import { useShellStore } from "../state/shell";
 
 export default function TabBar() {
     const { t } = useTranslation();
-    const tabs = useTabStore((state) => state.tabs);
-    const activeTabId = useTabStore((state) => state.activeTabId);
-    const createTab = useTabStore((state) => state.createTab);
-    const focusTabRpc = useTabStore((state) => state.focusTabRpc);
-    const closeTabRpc = useTabStore((state) => state.closeTabRpc);
-    const minimizeWindow = useTabStore((state) => state.minimizeWindow);
-    const maximizeWindow = useTabStore((state) => state.maximizeWindow);
-    const restoreWindow = useTabStore((state) => state.restoreWindow);
-    const quitWindow = useTabStore((state) => state.quitWindow);
-    const isAgentPanelOpen = useTabStore((state) => state.isAgentPanelOpen);
-    const isWindowMaximized = useTabStore((state) => state.isWindowMaximized);
-    const toggleAgentPanel = useTabStore((state) => state.toggleAgentPanel);
+    const tabs = useShellStore((state) => state.tabs);
+    const activeTabId = useShellStore((state) => state.activeTabId);
+    const createTab = useShellStore((state) => state.createTab);
+    const focusTabRpc = useShellStore((state) => state.focusTabRpc);
+    const closeTabRpc = useShellStore((state) => state.closeTabRpc);
+    const minimizeWindow = useShellStore((state) => state.minimizeWindow);
+    const maximizeWindow = useShellStore((state) => state.maximizeWindow);
+    const restoreWindow = useShellStore((state) => state.restoreWindow);
+    const quitWindow = useShellStore((state) => state.quitWindow);
+    const isAgentPanelOpen = useShellStore((state) => state.isAgentPanelOpen);
+    const isWindowMaximized = useShellStore((state) => state.isWindowMaximized);
+    const toggleAgentPanel = useShellStore((state) => state.toggleAgentPanel);
 
     return (
         <div className="h-12 border-b border-slate-200 bg-white flex items-end justify-between">
@@ -41,9 +36,7 @@ export default function TabBar() {
                         ].join(" ")}
                     >
                         <GlobeAltIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        <span className="flex-1 truncate text-left">
-                            {tab.title}
-                        </span>
+                        <span className="flex-1 truncate text-left">{tab.title}</span>
                         <span
                             role="button"
                             aria-label={t("tabs.closeTab")}
@@ -77,12 +70,8 @@ export default function TabBar() {
                 <button
                     type="button"
                     onClick={toggleAgentPanel}
-                    title={
-                        isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")
-                    }
-                    aria-label={
-                        isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")
-                    }
+                    title={isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")}
+                    aria-label={isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")}
                     className={[
                         "h-8 px-2.5 rounded-lg border transition-colors",
                         "flex items-center gap-1.5 text-xs font-medium",
@@ -107,21 +96,11 @@ export default function TabBar() {
                     </button>
 
                     <button
-                        onClick={
-                            isWindowMaximized ? restoreWindow : maximizeWindow
-                        }
-                        title={
-                            isWindowMaximized
-                                ? t("window.restore")
-                                : t("window.maximize")
-                        }
+                        onClick={isWindowMaximized ? restoreWindow : maximizeWindow}
+                        title={isWindowMaximized ? t("window.restore") : t("window.maximize")}
                         className="w-11 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200/70 transition-colors"
                     >
-                        {isWindowMaximized ? (
-                            <WinRestoreIcon />
-                        ) : (
-                            <WinMaximizeIcon />
-                        )}
+                        {isWindowMaximized ? <WinRestoreIcon /> : <WinMaximizeIcon />}
                     </button>
 
                     <button

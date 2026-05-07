@@ -25,6 +25,15 @@
         "expand": "展开面板",
         "collapse": "收起面板",
         "greeting": "你好！我是你的 AI 助手，告诉我你下一步想做什么。",
+        "emptyHistory": "还没有任何对话。",
+        "loadingSessions": "正在加载对话...",
+        "failedToLoadSessions": "加载对话失败。",
+        "failedToCreateSession": "创建对话失败。",
+        "failedToSend": "发送消息失败。",
+        "failedToStop": "停止响应失败。",
+        "thinking": "正在思考...",
+        "stop": "停止",
+        "stopResponse": "停止响应",
         "mode": {
             "agent": "助手",
             "chat": "聊天"

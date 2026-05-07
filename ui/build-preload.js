@@ -1,8 +1,8 @@
-const esbuild = require("esbuild");
+import esbuild from "esbuild";
 
 esbuild
     .build({
-        entryPoints: ["./src/preload.js"],
+        entryPoints: ["./src/preload.ts"],
         bundle: true,
         platform: "node",
         outdir: "./dist",

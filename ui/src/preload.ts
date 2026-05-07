@@ -7,8 +7,10 @@ contextBridge.exposeInMainWorld("hyaenidae", {
     rpc: {
         // == RPC API exposed to the renderer process ==
 
-        ask: rpcRenderer.ask.bind(rpcRenderer),
+        request: rpcRenderer.request.bind(rpcRenderer),
+        send: rpcRenderer.send.bind(rpcRenderer),
         on: rpcRenderer.on.bind(rpcRenderer),
+        handle: rpcRenderer.handle.bind(rpcRenderer),
         off: rpcRenderer.off.bind(rpcRenderer),
     },
 });

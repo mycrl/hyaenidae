@@ -1,26 +1,37 @@
-import { LlmFactory } from "./llm";
-import { createLocalProvider } from "./llm/provider/local";
+import { Agent, OpenAIProvider, run } from "@openai/agents";
 
-LlmFactory.create({
-    createProviderOptions: {
-        apiKey: "test-api-key",
-        binaryDir:
-            "D:/Projects/hyaenidae/.data/assets/backends/llama-b9016-bin-win-cuda-13.1-x64",
-        model: {
-            name: "gemma-4-E4B-it",
-            path: "D:/Projects/hyaenidae/.data/assets/modules/gemma-4-E4B-it-GGUF/gemma-4-E4B-it-Q4_K_M.gguf",
-        },
-    },
-    createProvider: createLocalProvider,
-})
-    .then((llm) => {
-        console.log("LLM launcher created successfully");
-    })
-    .catch((err) => {
-        console.error("Failed to create LLM launcher:", err);
-    });
+export interface ModelServiceOptions {
+    apiKey: string;
+    baseURL: string;
+}
 
-setTimeout(() => {
-    console.log("Exiting main process...");
-    process.exit(0);
-}, 1000 * 60);
+export class ModelService {
+    private readonly provider: OpenAIProvider;
+
+    constructor(options: ModelServiceOptions) {
+        this.provider = new OpenAIProvider({
+            apiKey: options.apiKey,
+            baseURL: options.baseURL,
+        });
+    }
+
+    async ask(model: string, message: string) {
+        return (
+            await run(
+                new Agent({
+                    name: "Hyaenidae Assistant",
+                    instructions:
+                        "You are a browser AI assistant. Think step-by-step and use tools when needed.",
+                    model: await this.provider.getModel(model),
+                    tools: [],
+                }),
+                message,
+                {
+                    stream: true,
+                },
+            )
+        ).toTextStream({
+            compatibleWithNodeStreams: true,
+        });
+    }
+}

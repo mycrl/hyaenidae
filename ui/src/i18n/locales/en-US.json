@@ -25,6 +25,15 @@
         "expand": "Expand panel",
         "collapse": "Collapse panel",
         "greeting": "Hello! I am your agent. Tell me what you want to do next.",
+        "emptyHistory": "No conversations yet.",
+        "loadingSessions": "Loading conversations...",
+        "failedToLoadSessions": "Failed to load conversations.",
+        "failedToCreateSession": "Failed to create a conversation.",
+        "failedToSend": "Failed to send the message.",
+        "failedToStop": "Failed to stop the response.",
+        "thinking": "Thinking...",
+        "stop": "Stop",
+        "stopResponse": "Stop response",
         "mode": {
             "agent": "Agent",
             "chat": "Chat"

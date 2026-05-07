@@ -3,75 +3,100 @@ import {
     PlusIcon,
     QueueListIcon,
     SparklesIcon,
+    StopIcon,
 } from "@heroicons/react/24/outline";
-import { useState } from "react";
+import MarkdownIt from "markdown-it";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useAgentStore } from "../state/agent.ts";
 
-interface ChatMessage {
-    id: number;
-    role: "agent" | "user";
-    content: string;
-    timestamp: string;
-}
+const markdown = new MarkdownIt({
+    html: false,
+    linkify: true,
+    breaks: true,
+});
 
 export default function AgentPanel() {
     const { t } = useTranslation();
     const [inputValue, setInputValue] = useState("");
     const [mode, setMode] = useState<"agent" | "chat">("agent");
     const [model, setModel] = useState("gpt-4.1-mini");
-    const [chatTitle, setChatTitle] = useState(t("chat.newConversation"));
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-    const buildChatTitle = (text: string) => {
-        const compact = text.replace(/\s+/g, " ").trim();
-        if (compact.length <= 20) {
-            return compact;
+    const sessions = useAgentStore((state) => state.sessions);
+    const conversations = useAgentStore((state) => state.conversations);
+    const activeSessionId = useAgentStore((state) => state.activeSessionId);
+    const isLoadingSessions = useAgentStore((state) => state.isLoadingSessions);
+    const error = useAgentStore((state) => state.error);
+    const initializeRpc = useAgentStore((state) => state.initializeRpc);
+    const createSession = useAgentStore((state) => state.createSession);
+    const selectSession = useAgentStore((state) => state.selectSession);
+    const sendAgentMessage = useAgentStore((state) => state.sendMessage);
+    const stopActiveResponse = useAgentStore((state) => state.stopActiveResponse);
+
+    const activeConversation =
+        activeSessionId !== null ? conversations[activeSessionId] : undefined;
+    const messages = activeConversation?.messages ?? [];
+    const isResponding = activeConversation?.isResponding ?? false;
+
+    const chatTitle = useMemo(() => {
+        if (activeSessionId === null) {
+            return t("chat.newConversation");
         }
 
-        return `${compact.slice(0, 20)}...`;
+        return (
+            activeConversation?.title ??
+            sessions.find((session) => session.id === activeSessionId)?.name ??
+            t("chat.newConversation")
+        );
+    }, [activeConversation?.title, activeSessionId, sessions, t]);
+
+    useEffect(() => {
+        void initializeRpc();
+    }, [initializeRpc]);
+
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
+
+    const createNewConversation = async () => {
+        const id = await createSession(t("chat.newConversation"));
+        if (id !== null) {
+            setInputValue("");
+            setIsHistoryOpen(false);
+        }
     };
 
-    const createNewConversation = () => {
-        setMessages([]);
-        setChatTitle(t("chat.newConversation"));
-        setInputValue("");
-    };
-
-    const sendMessage = () => {
+    const sendMessage = async () => {
         const trimmed = inputValue.trim();
-        if (!trimmed) {
+        if (!trimmed || isResponding) {
             return;
         }
 
-        const hasUserMessage =
-            messages.length > 0 &&
-            messages.some((message) => message.role === "user");
-
-        if (!hasUserMessage) {
-            setChatTitle(buildChatTitle(trimmed));
-        }
-
-        setMessages((prev) => [
-            ...prev,
-            {
-                id: prev.length + 1,
-                role: "user",
-                content: trimmed,
-                timestamp: t("common.now"),
-            },
-        ]);
         setInputValue("");
+        await sendAgentMessage({
+            message: trimmed,
+            model,
+            mode,
+        });
     };
 
+    const renderAssistantMarkdown = (content: string) => ({
+        __html: markdown.render(content),
+    });
+
     return (
-        <aside className="h-full w-full flex flex-col bg-white text-slate-800">
+        <aside className="relative h-full w-full flex flex-col bg-white text-slate-800">
             <header className="h-12 border-b border-slate-200 px-3 flex items-center justify-between bg-white">
                 <span className="text-xs truncate">{chatTitle}</span>
 
                 <div className="flex items-center gap-2">
                     <button
                         type="button"
-                        onClick={createNewConversation}
+                        onClick={() => {
+                            void createNewConversation();
+                        }}
                         className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
                     >
                         <PlusIcon className="w-3.5 h-3.5" />
@@ -80,6 +105,7 @@ export default function AgentPanel() {
 
                     <button
                         type="button"
+                        onClick={() => setIsHistoryOpen((value) => !value)}
                         className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
                     >
                         <QueueListIcon className="w-3.5 h-3.5" />
@@ -88,16 +114,59 @@ export default function AgentPanel() {
                 </div>
             </header>
 
+            {isHistoryOpen && (
+                <div className="absolute right-3 top-14 z-10 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                    <div className="mb-2 px-2 text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                        {t("chat.history")}
+                    </div>
+
+                    {sessions.length === 0 ? (
+                        <p className="px-2 py-3 text-xs text-slate-500">{t("chat.emptyHistory")}</p>
+                    ) : (
+                        <div className="max-h-72 overflow-y-auto space-y-1">
+                            {sessions.map((session) => (
+                                <button
+                                    key={session.id}
+                                    type="button"
+                                    onClick={() => {
+                                        selectSession(session.id);
+                                        setIsHistoryOpen(false);
+                                    }}
+                                    className={[
+                                        "w-full rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
+                                        session.id === activeSessionId
+                                            ? "bg-slate-900 text-white"
+                                            : "text-slate-700 hover:bg-slate-50",
+                                    ].join(" ")}
+                                >
+                                    {conversations[session.id]?.title ?? session.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 px-3 py-3 space-y-3">
+                {isLoadingSessions && (
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+                        {t("chat.loadingSessions")}
+                    </div>
+                )}
+
+                {error && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                        {error}
+                    </div>
+                )}
+
                 {messages.length === 0 ? (
                     <div className="h-full min-h-[160px] flex items-center justify-center">
                         <div className="max-w-[360px] text-center px-6">
                             <div className="mx-auto mb-4 h-11 w-11 rounded-2xl bg-blue-50/70 text-blue-600 flex items-center justify-center">
                                 <SparklesIcon className="w-5 h-5" />
                             </div>
-                            <p className="text-sm text-slate-600 leading-7">
-                                {t("chat.greeting")}
-                            </p>
+                            <p className="text-sm text-slate-600 leading-7">{t("chat.greeting")}</p>
                         </div>
                     </div>
                 ) : (
@@ -108,16 +177,32 @@ export default function AgentPanel() {
                                 "max-w-[90%] rounded-2xl px-3 py-2.5 text-xs leading-6 shadow-sm",
                                 message.role === "user"
                                     ? "ml-auto bg-blue-600 text-white"
-                                    : "mr-auto border border-slate-200 bg-white text-slate-800",
+                                    : message.status === "error"
+                                      ? "mr-auto border border-red-200 bg-red-50 text-red-700"
+                                      : "mr-auto border border-slate-200 bg-white text-slate-800",
                             ].join(" ")}
                         >
-                            <p>{message.content}</p>
+                            {message.role === "assistant" ? (
+                                <div
+                                    className="agent-markdown"
+                                    dangerouslySetInnerHTML={renderAssistantMarkdown(
+                                        message.content ||
+                                            (message.status === "streaming"
+                                                ? t("chat.thinking")
+                                                : ""),
+                                    )}
+                                />
+                            ) : (
+                                <p>{message.content}</p>
+                            )}
                             <p
                                 className={[
                                     "mt-1 text-[11px]",
                                     message.role === "user"
                                         ? "text-blue-100"
-                                        : "text-slate-400",
+                                        : message.status === "error"
+                                          ? "text-red-400"
+                                          : "text-slate-400",
                                 ].join(" ")}
                             >
                                 {message.timestamp}
@@ -125,17 +210,19 @@ export default function AgentPanel() {
                         </div>
                     ))
                 )}
+                <div ref={messagesEndRef} />
             </div>
 
             <div className="border-t border-slate-200 bg-white p-3 text-xs">
                 <textarea
                     rows={5}
                     value={inputValue}
+                    disabled={isLoadingSessions}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
                             e.preventDefault();
-                            sendMessage();
+                            void sendMessage();
                         }
                     }}
                     placeholder={t("chat.prompt")}
@@ -183,13 +270,26 @@ export default function AgentPanel() {
 
                     <button
                         type="button"
-                        onClick={sendMessage}
-                        className="ml-auto h-8 px-3 rounded-lg bg-blue-600 text-white flex items-center gap-1.5 justify-center hover:bg-blue-700 transition-colors"
-                        aria-label={t("chat.sendMessage")}
-                        title={t("chat.send")}
+                        onClick={() => {
+                            if (isResponding) {
+                                void stopActiveResponse();
+
+                                return;
+                            }
+
+                            void sendMessage();
+                        }}
+                        disabled={isLoadingSessions}
+                        className="ml-auto h-8 px-3 rounded-lg bg-blue-600 text-white flex items-center gap-1.5 justify-center hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:bg-slate-300"
+                        aria-label={isResponding ? t("chat.stopResponse") : t("chat.sendMessage")}
+                        title={isResponding ? t("chat.stop") : t("chat.send")}
                     >
-                        <PaperAirplaneIcon className="w-3.5 h-3.5" />
-                        <span>{t("chat.send")}</span>
+                        {isResponding ? (
+                            <StopIcon className="w-3.5 h-3.5" />
+                        ) : (
+                            <PaperAirplaneIcon className="w-3.5 h-3.5" />
+                        )}
+                        <span>{isResponding ? t("chat.stop") : t("chat.send")}</span>
                     </button>
                 </div>
             </div>

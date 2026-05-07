@@ -8,20 +8,19 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useTabStore } from "../state/tabStore";
+import { useShellStore } from "../state/shell";
 
 export default function NavigationBar() {
     const { t } = useTranslation();
-    const activeTab = useTabStore(
-        (state) =>
-            state.tabs.find((tab) => tab.id === state.activeTabId) ?? null,
+    const activeTab = useShellStore(
+        (state) => state.tabs.find((tab) => tab.id === state.activeTabId) ?? null,
     );
 
-    const goBack = useTabStore((state) => state.goBack);
-    const goForward = useTabStore((state) => state.goForward);
-    const refreshOrStop = useTabStore((state) => state.refreshOrStop);
-    const goHome = useTabStore((state) => state.goHome);
-    const navigateTo = useTabStore((state) => state.navigateTo);
+    const goBack = useShellStore((state) => state.goBack);
+    const goForward = useShellStore((state) => state.goForward);
+    const refreshOrStop = useShellStore((state) => state.refreshOrStop);
+    const goHome = useShellStore((state) => state.goHome);
+    const navigateTo = useShellStore((state) => state.navigateTo);
 
     const canGoBack = activeTab?.canGoBack ?? false;
     const canGoForward = activeTab?.canGoForward ?? false;
@@ -41,19 +40,11 @@ export default function NavigationBar() {
 
     return (
         <div className="h-12 border-b border-slate-200 bg-white px-2 flex items-center gap-1">
-            <NavIconButton
-                title={t("nav.back")}
-                onClick={goBack}
-                disabled={!canGoBack}
-            >
+            <NavIconButton title={t("nav.back")} onClick={goBack} disabled={!canGoBack}>
                 <ArrowLeftIcon className="w-4 h-4" />
             </NavIconButton>
 
-            <NavIconButton
-                title={t("nav.forward")}
-                onClick={goForward}
-                disabled={!canGoForward}
-            >
+            <NavIconButton title={t("nav.forward")} onClick={goForward} disabled={!canGoForward}>
                 <ArrowRightIcon className="w-4 h-4" />
             </NavIconButton>
 

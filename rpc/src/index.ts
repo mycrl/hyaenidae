@@ -1,5 +1,30 @@
 import { ipcRenderer, type WebContents } from "electron";
 
+export interface Layout {
+    tabBarHeight: number;
+    agentPanelWidth: number;
+}
+
+export interface AgentSession {
+    session: number;
+}
+
+export interface AgentAsk extends AgentSession {
+    type: "agent" | "chat";
+    model: string;
+    message: string;
+}
+
+export interface AgentStreamItem extends AgentSession {
+    id: number;
+    message: string;
+}
+
+export interface AgentResult extends AgentSession {
+    id: number;
+    error?: string;
+}
+
 export interface RpcInterfaces {
     /**
      * Navigates forward to the next history entry in the specified tab
@@ -76,7 +101,7 @@ export interface RpcInterfaces {
     /**
      * Toggles the visibility of the agent panel
      */
-    "shell:toggle-agent-panel": [{ isAgentPanelOpen: boolean }, void];
+    "shell:layout-changed": [Layout, void];
 
     /**
      * Triggers when a tab's title is updated, providing the tab ID and the new
@@ -125,6 +150,37 @@ export interface RpcInterfaces {
      * the UI
      */
     "shell:ready": [void, void];
+
+    /**
+     * Retrieves a list of active agent sessions.
+     */
+    "agent:get-sessions": [void, { sessions: { id: number; name: string }[] }];
+
+    /**
+     * Creates a new agent session with an optional name.
+     */
+    "agent:create-session": [{ name?: string }, { id: number }];
+
+    /**
+     * Sends a message to an agent or chat model.
+     */
+    "agent:ask": [AgentAsk, { id: number }];
+
+    /**
+     * Triggers when a response is received from an agent or chat model.
+     */
+    "agent:response": [AgentStreamItem, void];
+
+    /**
+     * Triggers when a response stream from an agent or chat model is completed.
+     */
+    "agent:response-done": [AgentResult, void];
+
+    /**
+     * Stops an ongoing conversation with an agent or chat model, providing the
+     * unique ID of the conversation to stop.
+     */
+    "agent:stop": [AgentSession & { id: number }, void];
 }
 
 /**
@@ -132,7 +188,7 @@ export interface RpcInterfaces {
  * processes in the RPC system, including the type of message (request,
  * response, or error) and the associated parameters.
  */
-enum RpcMessageType {
+enum MessageType {
     Request = "request",
     Response = "response",
     Error = "error",
@@ -143,9 +199,10 @@ enum RpcMessageType {
  * the type of message (request, response, or error), and the parameters associated
  * with the message.
  */
-interface RpcMessage {
+interface Message {
     id: number;
-    type: RpcMessageType;
+    method: string;
+    type: MessageType;
     params: any;
 }
 
@@ -159,7 +216,9 @@ const U32_MAX = 4294967295;
  */
 export class RpcService {
     private counter = 0;
-    private listeners: { [key: string]: (message: RpcMessage) => void } = {};
+    private listeners: { [key: string]: (message: Message) => void } = {};
+
+    static RPC_METHOD = "rpc:message";
 
     constructor(
         /**
@@ -168,10 +227,9 @@ export class RpcService {
          * an `on` method for registering a callback to handle incoming messages.
          */
         private readonly handler: {
-            send: (method: string, message: RpcMessage) => void;
-            on: (
-                callback: (method: string, message: RpcMessage) => void,
-            ) => void;
+            send: (method: string, message: any) => void;
+            on: (method: string, callback: (message: any) => void) => void;
+            off: (method: string) => void;
         },
         /**
          * Defines the timeout duration (in milliseconds) for RPC requests. If a
@@ -180,8 +238,8 @@ export class RpcService {
          */
         private readonly timeout: number = 10000,
     ) {
-        handler.on((method, message) => {
-            const listener = this.listeners[method];
+        handler.on(RpcService.RPC_METHOD, (message) => {
+            const listener = this.listeners[message.method];
             if (listener) {
                 listener(message);
             }
@@ -204,7 +262,7 @@ export class RpcService {
      * rejects with an error if the request times out or if an error response is
      * received.
      */
-    public async ask<T extends keyof RpcInterfaces>(
+    async request<T extends keyof RpcInterfaces>(
         method: T,
         params?: RpcInterfaces[T][0],
     ): Promise<RpcInterfaces[T][1]> {
@@ -215,7 +273,12 @@ export class RpcService {
             this.counter = 0;
         }
 
-        this.handler.send(method, { id, type: RpcMessageType.Request, params });
+        this.handler.send(RpcService.RPC_METHOD, {
+            method,
+            id,
+            type: MessageType.Request,
+            params,
+        } as Message);
 
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
@@ -224,10 +287,10 @@ export class RpcService {
                 reject(new Error(`RPC request timed out: ${method}`));
             }, this.timeout);
 
-            this.listeners[listenerKey] = (message: RpcMessage) => {
+            this.listeners[listenerKey] = (message: Message) => {
                 clearTimeout(timeout);
 
-                message.type === RpcMessageType.Error
+                message.type === MessageType.Error
                     ? reject(new Error(message.params))
                     : resolve(message.params);
 
@@ -249,26 +312,24 @@ export class RpcService {
      * and returns a promise that resolves with the response to be sent back to
      * the requester or rejects with an error if the request cannot be processed.
      */
-    public on<T extends keyof RpcInterfaces>(
+    handle<T extends keyof RpcInterfaces>(
         method: T,
         callback: (params: RpcInterfaces[T][0]) => Promise<RpcInterfaces[T][1]>,
     ) {
-        this.listeners[method] = (message: RpcMessage) => {
-            callback(message.params)
-                .then((result) => {
-                    this.handler.send(`${method}-relay-${message.id}`, {
-                        id: message.id,
-                        type: RpcMessageType.Response,
-                        params: result,
-                    });
-                })
-                .catch((err: any) => {
-                    this.handler.send(`${method}-relay-${message.id}`, {
-                        id: message.id,
-                        type: RpcMessageType.Error,
+        this.listeners[method] = async (message: Message) => {
+            this.handler.send(RpcService.RPC_METHOD, {
+                id: message.id,
+                method: `${method}-relay-${message.id}`,
+                ...(await callback(message.params)
+                    .then((params) => ({
+                        type: MessageType.Response,
+                        params,
+                    }))
+                    .catch((err: any) => ({
+                        type: MessageType.Error,
                         params: err.message,
-                    });
-                });
+                    }))),
+            });
         };
     }
 
@@ -279,8 +340,24 @@ export class RpcService {
      * @param method - The name of the RPC method to stop handling, which must
      * be a key of the RpcInterfaces type.
      */
-    public off<T extends keyof RpcInterfaces>(method: T) {
+    off<T extends keyof RpcInterfaces>(method: T) {
         delete this.listeners[method];
+
+        this.handler.off(method);
+    }
+
+    /**
+     * Sends a message for electron ipc channel.
+     */
+    send<T extends keyof RpcInterfaces>(method: T, params: RpcInterfaces[T][0]) {
+        this.handler.send(method, params);
+    }
+
+    /**
+     * Registers a callback for the specified electron ipc channel.
+     */
+    on<T extends keyof RpcInterfaces>(method: T, callback: (params: RpcInterfaces[T][0]) => void) {
+        this.handler.on(method, callback);
     }
 }
 
@@ -294,15 +371,26 @@ export class RpcService {
  */
 export class RpcRenderer extends RpcService {
     constructor(timeout?: number) {
+        let callbacks: { [key: string]: any } = {};
+
         super(
             {
                 send: (method, message) => {
-                    ipcRenderer.send("rpc:message", method, message);
+                    ipcRenderer.send(method, message);
                 },
-                on: (callback) => {
-                    ipcRenderer.on("rpc:message", (_, method, message) => {
-                        callback(method, message);
-                    });
+                on: (method, callback) => {
+                    callbacks[method] = (_: any, message: any) => {
+                        callback(message);
+                    };
+
+                    ipcRenderer.on(method, callbacks[method]);
+                },
+                off: (method) => {
+                    if (callbacks[method]) {
+                        ipcRenderer.off(method, callbacks[method]);
+
+                        delete callbacks[method];
+                    }
                 },
             },
             timeout,
@@ -321,14 +409,26 @@ export class RpcRenderer extends RpcService {
  */
 export class RpcMain extends RpcService {
     constructor(webContents: WebContents, timeout?: number) {
+        let callbacks: { [key: string]: any } = {};
+
         super(
             {
-                on: (callback) =>
-                    webContents.ipc.on("rpc:message", (_, method, message) => {
-                        callback(method, message);
-                    }),
+                on: (method, callback) => {
+                    callbacks[method] = (_: any, message: any) => {
+                        callback(message);
+                    };
+
+                    webContents.ipc.on(method, callbacks[method]);
+                },
                 send: (method, message) => {
-                    webContents.send("rpc:message", method, message);
+                    webContents.send(method, message);
+                },
+                off: (method) => {
+                    if (callbacks[method]) {
+                        webContents.ipc.off(method, callbacks[method]);
+
+                        delete callbacks[method];
+                    }
                 },
             },
             timeout,
