@@ -1,5 +1,4 @@
 import { Agent, OpenAIProvider, run } from "@openai/agents";
-import type { Readable } from "node:stream";
 import OpenAI from "openai";
 import type { BrowserRuntime } from "./browser";
 import { AgentRunStream, type AgentConversationContext } from "./run-stream.js";
@@ -7,9 +6,22 @@ import { createBrowserTools, type VisionInspector } from "./tools";
 
 const AGENT_MAX_TURNS = 30;
 
-export interface ModelServiceOptions {
-    apiKey: string;
+export type ModelProviderKind = "openai_compatible" | "llama_cpp";
+
+export interface ModelProviderConfig {
+    kind: ModelProviderKind;
     baseURL: string;
+    apiKey: string;
+    model: string;
+}
+
+export interface ModelProviderSet {
+    chat: ModelProviderConfig;
+    vision: ModelProviderConfig;
+}
+
+export interface ModelServiceOptions {
+    getProviders: () => Promise<ModelProviderSet> | ModelProviderSet;
 }
 
 export interface ModelAskOptions {
@@ -19,28 +31,6 @@ export interface ModelAskOptions {
     conversation?: AgentConversationContext;
     browser?: BrowserRuntime;
 }
-
-const resolveOutputLanguage = (locale: string) => {
-    const normalizedLocale = locale.trim().toLowerCase();
-
-    if (normalizedLocale.startsWith("zh")) {
-        return "Simplified Chinese";
-    }
-
-    if (normalizedLocale.startsWith("en")) {
-        return "English";
-    }
-
-    if (normalizedLocale.startsWith("ja")) {
-        return "Japanese";
-    }
-
-    if (normalizedLocale.startsWith("ko")) {
-        return "Korean";
-    }
-
-    return `the user's locale (${locale})`;
-};
 
 const buildAgentInstructions = (locale: string) =>
     [
@@ -58,7 +48,7 @@ const buildAgentInstructions = (locale: string) =>
         "Do not narrate every small step to the user in long prose while the task is still running. Keep intermediate text brief when needed.",
         "After the task is complete, provide one concise final summary of what you observed, what you changed, and the result.",
         "When the user says 'continue', 'go on', '继续', or another short follow-up, interpret it as continuing the active task from the current conversation context unless the user clearly changes the goal.",
-        `Respond to the user in ${resolveOutputLanguage(locale)} unless the user explicitly asks for another language.`,
+        `Respond to the user in ${locale} unless the user explicitly asks for another language.`,
         "Be explicit about what you observed, what tool you used, and why the next action is safe.",
     ].join(" ");
 
@@ -86,21 +76,21 @@ const extractResponseText = (response: unknown) => {
 };
 
 export class ModelService {
-    private readonly provider: OpenAIProvider;
-    private readonly client: OpenAI;
+    private readonly getProviders: () => Promise<ModelProviderSet> | ModelProviderSet;
 
     constructor(options: ModelServiceOptions) {
-        this.provider = new OpenAIProvider({
-            apiKey: options.apiKey,
-            baseURL: options.baseURL,
-        });
-        this.client = new OpenAI({
-            apiKey: options.apiKey,
-            baseURL: options.baseURL,
-        });
+        this.getProviders = options.getProviders;
     }
 
     async ask(options: ModelAskOptions): Promise<AgentRunStream> {
+        const providers = await this.getProviders();
+        const chatProvider = providers.chat;
+        const visionProvider = providers.vision;
+        const visionClient = new OpenAI({
+            apiKey: visionProvider.apiKey,
+            baseURL: visionProvider.baseURL,
+        });
+
         // Vision inspection is modeled as a separate helper so DOM-first tools remain the default path.
         const visionInspector: VisionInspector = {
             inspect: async ({ model, prompt, tabId }) => {
@@ -109,7 +99,7 @@ export class ModelService {
                 }
 
                 const snapshot = await options.browser.captureVision(tabId);
-                const response = await this.client.responses.create({
+                const response = await visionClient.responses.create({
                     model,
                     input: [
                         {
@@ -119,7 +109,7 @@ export class ModelService {
                                     type: "input_text",
                                     text: [
                                         "You are inspecting a browser screenshot for a browser automation agent.",
-                                        `Write the analysis in ${resolveOutputLanguage(options.locale)} unless the user explicitly asked for another language.`,
+                                        `Write the analysis in ${options.locale} unless the user explicitly asked for another language.`,
                                         "Answer concisely with actionable observations.",
                                         prompt,
                                     ].join("\n"),
@@ -146,7 +136,10 @@ export class ModelService {
         const agent = new Agent({
             name: "Hyaenidae Assistant",
             instructions: buildAgentInstructions(options.locale),
-            model: await this.provider.getModel(options.model),
+            model: await new OpenAIProvider({
+                apiKey: chatProvider.apiKey,
+                baseURL: chatProvider.baseURL,
+            }).getModel(options.model),
             tools: options.browser
                 ? createBrowserTools(options.browser, visionInspector, options.model)
                 : [],

@@ -15,6 +15,7 @@ const emptySchema = z.object({});
 const tabIdSchema = z.object({
     tabId: z.number().describe("The target tab id."),
 });
+
 const optionalTabIdSchema = z.object({
     tabId: z.number().nullable().describe("Optional tab id. Use null to target the focused tab."),
 });

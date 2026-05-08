@@ -26,18 +26,6 @@ const MAX_DETAIL_LENGTH = 240;
 const truncate = (value: string) =>
     value.length <= MAX_DETAIL_LENGTH ? value : `${value.slice(0, MAX_DETAIL_LENGTH)}...`;
 
-const safeStringify = (value: unknown) => {
-    if (typeof value === "string") {
-        return value;
-    }
-
-    try {
-        return JSON.stringify(value);
-    } catch {
-        return String(value);
-    }
-};
-
 const parseJsonString = (value: string) => {
     const trimmed = value.trim();
 
