@@ -1,10 +1,10 @@
 /// <reference types="vite/client" />
 
-import type { RpcRenderer } from "@hyaenidae/rpc";
+import type { BridgeRenderer } from "@hyaenidae/bridge";
 
 declare global {
     const hyaenidae: {
-        rpc: RpcRenderer;
+        bridge: BridgeRenderer;
     };
 }
 

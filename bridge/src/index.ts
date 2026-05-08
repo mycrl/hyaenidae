@@ -9,8 +9,13 @@ export interface AgentSession {
     session: number;
 }
 
+export interface Provider {
+    apiKey: string;
+    baseURL: string;
+}
+
 export interface AgentAsk extends AgentSession {
-    type: "agent" | "chat";
+    provider: number;
     model: string;
     message: string;
     locale: string;
@@ -35,7 +40,7 @@ export interface AgentResult extends AgentSession {
     error?: string;
 }
 
-export interface RpcInterfaces {
+export interface Api {
     /**
      * Navigates forward to the next history entry in the specified tab
      */
@@ -87,26 +92,6 @@ export interface RpcInterfaces {
      * Creates a new tab
      */
     "shell:tab-new": [{ url?: string }, { id: number }];
-
-    /**
-     * Minimizes the application window
-     */
-    "shell:minimize": [void, void];
-
-    /**
-     * Maximizes the application window
-     */
-    "shell:maximize": [void, void];
-
-    /**
-     * Restores the application window to its previous size
-     */
-    "shell:restore": [void, void];
-
-    /**
-     * Exits the application
-     */
-    "shell:quit": [void, void];
 
     /**
      * Toggles the visibility of the agent panel
@@ -162,40 +147,101 @@ export interface RpcInterfaces {
     "shell:ready": [void, void];
 
     /**
+     * Minimizes the application window
+     */
+    "shell:minimize": [void, void];
+
+    /**
+     * Maximizes the application window
+     */
+    "shell:maximize": [void, void];
+
+    /**
+     * Restores the application window to its previous size
+     */
+    "shell:restore": [void, void];
+
+    /**
+     * Exits the application
+     */
+    "shell:quit": [void, void];
+
+    /**
+     * Reads the application settings.
+     */
+    "shell:settings-read": [void, { settings: unknown }];
+
+    /**
+     * Writes the application settings.
+     */
+    "shell:settings-write": [unknown, void];
+
+    /**
+     * Triggers when the application settings are changed.
+     */
+    "shell:settings-changed": [void, void];
+
+    /**
+     * Retrieves a list of available model providers.
+     */
+    "agent:provider-list": [void, { providers: (Provider & { id: number })[] }];
+
+    /**
+     * Retrieves a list of available models for a given provider ID.
+     */
+    "agent:provider-get-models": [{ id: number }, { models: string[] }];
+
+    /**
+     * Creates a new agent provider with the specified model and returns the
+     * unique ID of the created provider.
+     */
+    "agent:provider-create": [Provider, { id: number }];
+
+    /**
+     * Removes an existing agent provider by its unique ID.
+     */
+    "agent:provider-remove": [{ id: number }, void];
+
+    /**
      * Retrieves a list of active agent sessions.
      */
-    "agent:get-sessions": [void, { sessions: { id: number; name: string }[] }];
+    "agent:session-list": [void, { sessions: { id: number; name: string }[] }];
 
     /**
      * Creates a new agent session with an optional name.
      */
-    "agent:create-session": [{ name?: string }, { id: number }];
+    "agent:session-create": [{ name?: string }, { id: number }];
+
+    /**
+     * Removes an existing agent session by its unique ID.
+     */
+    "agent:session-remove": [{ id: number }, void];
 
     /**
      * Sends a message to an agent or chat model.
      */
-    "agent:ask": [AgentAsk, { id: number }];
+    "agent:chat-ask": [AgentAsk, { id: number }];
 
     /**
      * Triggers when a response is received from an agent or chat model.
      */
-    "agent:response": [AgentStreamItem, void];
+    "agent:chat-response": [AgentStreamItem, void];
 
     /**
      * Triggers when the agent emits a non-final activity update such as thinking or tool calls.
      */
-    "agent:activity": [AgentActivityItem, void];
+    "agent:chat-activity": [AgentActivityItem, void];
 
     /**
      * Triggers when a response stream from an agent or chat model is completed.
      */
-    "agent:response-done": [AgentResult, void];
+    "agent:chat-response-done": [AgentResult, void];
 
     /**
      * Stops an ongoing conversation with an agent or chat model, providing the
      * unique ID of the conversation to stop.
      */
-    "agent:stop": [AgentSession & { id: number }, void];
+    "agent:chat-stop": [AgentSession & { id: number }, void];
 }
 
 /**
@@ -229,7 +275,7 @@ const U32_MAX = 4294967295;
  * The RpcService class manages the sending of messages, handling of responses,
  * and registration of listeners for specific RPC methods.
  */
-export class RpcService {
+export class BridgeService {
     private counter = 0;
     private listeners: { [key: string]: (message: Message) => void } = {};
 
@@ -253,7 +299,7 @@ export class RpcService {
          */
         private readonly timeout: number = 10000,
     ) {
-        handler.on(RpcService.RPC_METHOD, (message) => {
+        handler.on(BridgeService.RPC_METHOD, (message) => {
             const listener = this.listeners[message.method];
             if (listener) {
                 listener(message);
@@ -267,20 +313,17 @@ export class RpcService {
      * error if the request times out or if an error response is received.
      *
      * @param method - The name of the RPC method to call, which must be a key
-     * of the RpcInterfaces type.
+     * of the Api type.
      *
      * @param params - The parameters to send with the RPC request, which must
-     * match the expected parameters for the specified method in the RpcInterfaces
+     * match the expected parameters for the specified method in the Api
      * type.
      *
      * @returns A promise that resolves with the response from the RPC call or
      * rejects with an error if the request times out or if an error response is
      * received.
      */
-    async request<T extends keyof RpcInterfaces>(
-        method: T,
-        params?: RpcInterfaces[T][0],
-    ): Promise<RpcInterfaces[T][1]> {
+    async request<T extends keyof Api>(method: T, params?: Api[T][0]): Promise<Api[T][1]> {
         const id = this.counter++;
         const listenerKey = `${method}-relay-${id}`;
 
@@ -288,7 +331,7 @@ export class RpcService {
             this.counter = 0;
         }
 
-        this.handler.send(RpcService.RPC_METHOD, {
+        this.handler.send(BridgeService.RPC_METHOD, {
             method,
             id,
             type: MessageType.Request,
@@ -321,18 +364,15 @@ export class RpcService {
      * to the requester or rejects with an error if the request cannot be processed.
      *
      * @param method - The name of the RPC method to handle, which must be a key
-     * of the RpcInterfaces type.
+     * of the Api type.
      *
      * @param callback - A function that takes the parameters of the RPC request
      * and returns a promise that resolves with the response to be sent back to
      * the requester or rejects with an error if the request cannot be processed.
      */
-    handle<T extends keyof RpcInterfaces>(
-        method: T,
-        callback: (params: RpcInterfaces[T][0]) => Promise<RpcInterfaces[T][1]>,
-    ) {
+    handle<T extends keyof Api>(method: T, callback: (params: Api[T][0]) => Promise<Api[T][1]>) {
         this.listeners[method] = async (message: Message) => {
-            this.handler.send(RpcService.RPC_METHOD, {
+            this.handler.send(BridgeService.RPC_METHOD, {
                 id: message.id,
                 method: `${method}-relay-${message.id}`,
                 ...(await callback(message.params)
@@ -353,9 +393,9 @@ export class RpcService {
      * longer be called when requests for that method are received.
      *
      * @param method - The name of the RPC method to stop handling, which must
-     * be a key of the RpcInterfaces type.
+     * be a key of the Api type.
      */
-    off<T extends keyof RpcInterfaces>(method: T) {
+    off<T extends keyof Api>(method: T) {
         delete this.listeners[method];
 
         this.handler.off(method);
@@ -364,14 +404,14 @@ export class RpcService {
     /**
      * Sends a message for electron ipc channel.
      */
-    send<T extends keyof RpcInterfaces>(method: T, params: RpcInterfaces[T][0]) {
+    send<T extends keyof Api>(method: T, params: Api[T][0]) {
         this.handler.send(method, params);
     }
 
     /**
      * Registers a callback for the specified electron ipc channel.
      */
-    on<T extends keyof RpcInterfaces>(method: T, callback: (params: RpcInterfaces[T][0]) => void) {
+    on<T extends keyof Api>(method: T, callback: (params: Api[T][0]) => void) {
         this.handler.on(method, callback);
     }
 }
@@ -379,12 +419,12 @@ export class RpcService {
 /**
  * Implements the RPC service for the renderer process in an Electron application.
  *
- * The RpcRenderer class extends the RpcService class and uses the ipcRenderer
+ * The BridgeRenderer class extends the BridgeService class and uses the ipcRenderer
  * module to send and receive messages between the renderer and main processes.
  * It provides a convenient interface for making RPC calls from the renderer
  * process to the main process and handling responses.
  */
-export class RpcRenderer extends RpcService {
+export class BridgeRenderer extends BridgeService {
     constructor(timeout?: number) {
         let callbacks: { [key: string]: any } = {};
 
@@ -416,13 +456,13 @@ export class RpcRenderer extends RpcService {
 /**
  * Implements the RPC service for the main process in an Electron application.
  *
- * The RpcMain class extends the RpcService class and uses the ipcMain module to
+ * The Bridge class extends the BridgeService class and uses the ipcMain module to
  * send and receive messages between the main and renderer processes. It provides
  * a convenient interface for making RPC calls from the main process to the
  * renderer process and handling responses. The constructor takes a WebContents
  * instance, which is used to send messages to the appropriate renderer process.
  */
-export class RpcMain extends RpcService {
+export class Bridge extends BridgeService {
     constructor(webContents: WebContents, timeout?: number) {
         let callbacks: { [key: string]: any } = {};
 

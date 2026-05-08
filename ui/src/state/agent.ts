@@ -1,8 +1,6 @@
-import type { AgentActivityItem, AgentResult, AgentStreamItem } from "@hyaenidae/rpc";
+import type { AgentActivityItem, AgentResult, AgentStreamItem } from "@hyaenidae/bridge";
 import { create } from "zustand";
 import i18n from "../i18n";
-
-type AgentMode = "agent" | "chat";
 
 export interface AgentSessionItem {
     id: number;
@@ -44,7 +42,7 @@ interface AgentStoreState {
     initializeRpc: () => Promise<void>;
     createSession: (name?: string) => Promise<number | null>;
     selectSession: (id: number) => void;
-    sendMessage: (input: { message: string; model: string; mode: AgentMode }) => Promise<void>;
+    sendMessage: (input: { message: string; provider: number; model: string }) => Promise<void>;
     stopActiveResponse: () => Promise<void>;
 }
 
@@ -95,7 +93,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
 
         set({ initialized: true, isLoadingSessions: true, error: null });
 
-        hyaenidae.rpc.on("agent:response", ({ session, id, message }: AgentStreamItem) => {
+        hyaenidae.bridge.on("agent:chat-response", ({ session, id, message }: AgentStreamItem) => {
             set((state) => {
                 const sessionName =
                     state.sessions.find((item) => item.id === session)?.name ??
@@ -141,73 +139,84 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
             });
         });
 
-        hyaenidae.rpc.on("agent:activity", ({ session, id, ...activity }: AgentActivityItem) => {
-            set((state) => {
-                const sessionName =
-                    state.sessions.find((item) => item.id === session)?.name ??
-                    i18n.t("chat.newConversation");
-                const conversation = ensureConversation(state.conversations, session, sessionName);
-                const existingMessage = conversation.messages.find(
-                    (item) => item.id === id && item.role === "assistant",
-                );
-
-                const upsertActivities = (activities: AgentActivity[] = []) => {
-                    const existingIndex = activities.findIndex((item) => item.key === activity.key);
-                    if (existingIndex === -1) {
-                        return [...activities, activity];
-                    }
-
-                    return activities.map((item, index) =>
-                        index === existingIndex ? { ...item, ...activity } : item,
+        hyaenidae.bridge.on(
+            "agent:chat-activity",
+            ({ session, id, ...activity }: AgentActivityItem) => {
+                set((state) => {
+                    const sessionName =
+                        state.sessions.find((item) => item.id === session)?.name ??
+                        i18n.t("chat.newConversation");
+                    const conversation = ensureConversation(
+                        state.conversations,
+                        session,
+                        sessionName,
                     );
-                };
+                    const existingMessage = conversation.messages.find(
+                        (item) => item.id === id && item.role === "assistant",
+                    );
 
-                const messages = existingMessage
-                    ? conversation.messages.map((item) =>
-                          item.id === id && item.role === "assistant"
-                              ? {
-                                    ...item,
-                                    status: "streaming" as const,
-                                    activities: upsertActivities(item.activities),
-                                }
-                              : item,
-                      )
-                    : [
-                          ...conversation.messages,
-                          {
-                              id,
-                              role: "assistant" as const,
-                              content: "",
-                              timestamp: getTimestamp(),
-                              status: "streaming" as const,
-                              activities: [activity],
-                          },
-                      ];
+                    const upsertActivities = (activities: AgentActivity[] = []) => {
+                        const existingIndex = activities.findIndex(
+                            (item) => item.key === activity.key,
+                        );
+                        if (existingIndex === -1) {
+                            return [...activities, activity];
+                        }
 
-                return {
-                    error: null,
-                    conversations: {
-                        ...state.conversations,
-                        [session]: {
-                            ...conversation,
-                            messages,
-                            activeResponseId: id,
-                            isResponding: true,
+                        return activities.map((item, index) =>
+                            index === existingIndex ? { ...item, ...activity } : item,
+                        );
+                    };
+
+                    const messages = existingMessage
+                        ? conversation.messages.map((item) =>
+                              item.id === id && item.role === "assistant"
+                                  ? {
+                                        ...item,
+                                        status: "streaming" as const,
+                                        activities: upsertActivities(item.activities),
+                                    }
+                                  : item,
+                          )
+                        : [
+                              ...conversation.messages,
+                              {
+                                  id,
+                                  role: "assistant" as const,
+                                  content: "",
+                                  timestamp: getTimestamp(),
+                                  status: "streaming" as const,
+                                  activities: [activity],
+                              },
+                          ];
+
+                    return {
+                        error: null,
+                        conversations: {
+                            ...state.conversations,
+                            [session]: {
+                                ...conversation,
+                                messages,
+                                activeResponseId: id,
+                                isResponding: true,
+                            },
                         },
-                    },
-                };
-            });
-        });
+                    };
+                });
+            },
+        );
 
-        hyaenidae.rpc.on("agent:response-done", ({ session, id, error }: AgentResult) => {
+        hyaenidae.bridge.on("agent:chat-response-done", ({ session, id, error }: AgentResult) => {
             set((state) => {
                 const sessionName =
                     state.sessions.find((item) => item.id === session)?.name ??
                     i18n.t("chat.newConversation");
+
                 const conversation = ensureConversation(state.conversations, session, sessionName);
                 const hasAssistantMessage = conversation.messages.some(
                     (item) => item.id === id && item.role === "assistant",
                 );
+
                 const messages = hasAssistantMessage
                     ? conversation.messages.map((item) =>
                           item.id === id && item.role === "assistant"
@@ -250,7 +259,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         });
 
         try {
-            const result = await hyaenidae.rpc.request("agent:get-sessions");
+            const result = await hyaenidae.bridge.request("agent:session-list");
             const sessions = result.sessions ?? [];
 
             set((state) => ({
@@ -287,7 +296,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
     createSession: async (name) => {
         try {
             const sessionName = name?.trim() || i18n.t("chat.newConversation");
-            const result = await hyaenidae.rpc.request("agent:create-session", {
+            const result = await hyaenidae.bridge.request("agent:session-create", {
                 name: sessionName,
             });
 
@@ -314,7 +323,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
     selectSession: (id) => {
         set({ activeSessionId: id, error: null });
     },
-    sendMessage: async ({ message, model, mode }) => {
+    sendMessage: async ({ message, provider, model }) => {
         const trimmed = message.trim();
         if (!trimmed) {
             return;
@@ -336,6 +345,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
             sessionId,
             session?.name ?? i18n.t("chat.newConversation"),
         );
+
         const hasUserMessage = conversation.messages.some((item) => item.role === "user");
         const nextTitle = hasUserMessage ? conversation.title : buildChatTitle(trimmed);
         const userMessageId = Date.now();
@@ -366,9 +376,9 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         }));
 
         try {
-            const result = await hyaenidae.rpc.request("agent:ask", {
+            const result = await hyaenidae.bridge.request("agent:chat-ask", {
                 session: sessionId,
-                type: mode,
+                provider,
                 model,
                 message: trimmed,
                 locale: i18n.language,
@@ -380,6 +390,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                     sessionId,
                     nextTitle,
                 );
+
                 const hasAssistantMessage = updatedConversation.messages.some(
                     (item) => item.id === result.id && item.role === "assistant",
                 );
@@ -456,7 +467,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         }
 
         try {
-            await hyaenidae.rpc.request("agent:stop", {
+            await hyaenidae.bridge.request("agent:chat-stop", {
                 session: sessionId,
                 id: conversation.activeResponseId,
             });

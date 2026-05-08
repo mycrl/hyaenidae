@@ -1,6 +1,5 @@
-import type { BrowserRuntime } from "./browser";
-import type { ModelService } from "./agent";
-import type { AgentConversationContext, AgentRunStream } from "./run-stream.js";
+import { ModelProvider, ModelAskOptions } from "./";
+import { AgentConversationContext, AgentRunStream } from "./run-stream.js";
 
 export interface AgentSessionSummary {
     id: number;
@@ -11,12 +10,9 @@ interface AgentSessionState extends AgentSessionSummary {
     conversation: AgentConversationContext;
 }
 
-export interface AgentRunRequest {
+export interface AgentRunRequest extends ModelAskOptions {
     session: number;
-    model: string;
-    message: string;
-    locale: string;
-    browser?: BrowserRuntime;
+    modelProvider: ModelProvider;
 }
 
 export interface AgentRunResult {
@@ -33,7 +29,7 @@ export class AgentSessionController {
     private askCounter = 0;
     private readonly sessions: AgentSessionState[] = [];
 
-    constructor(private readonly modelService: ModelService) {}
+    constructor() {}
 
     listSessions() {
         return this.sessions.map(({ id, name }) => ({ id, name }));
@@ -52,27 +48,22 @@ export class AgentSessionController {
         return session;
     }
 
+    removeSession(id: number) {
+        const index = this.sessions.findIndex((item) => item.id === id);
+        if (index !== -1) {
+            this.sessions.splice(index, 1);
+        }
+    }
+
     ask(request: AgentRunRequest): AgentRunResult {
         const session = this.assertSession(request.session);
         const id = this.askCounter++;
 
-        const streamPromise = this.modelService
-            .ask(
-                request.browser === undefined
-                    ? {
-                          model: request.model,
-                          message: request.message,
-                          locale: request.locale,
-                          conversation: session.conversation,
-                      }
-                    : {
-                          model: request.model,
-                          message: request.message,
-                          locale: request.locale,
-                          conversation: session.conversation,
-                          browser: request.browser,
-                      },
-            )
+        const streamPromise = request.modelProvider
+            .ask({
+                ...request,
+                conversation: session.conversation,
+            })
             .then((stream) => {
                 stream.on("end", () => {
                     const latestConversation = stream.getConversationContext();

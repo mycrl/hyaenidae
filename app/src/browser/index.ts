@@ -1,13 +1,13 @@
 import { BaseWindow, WebContentsView } from "electron";
 import EventEmitter from "node:events";
-import { Args } from "./args";
-import { Layout, RpcMain } from "@hyaenidae/rpc";
+import { Layout, Bridge } from "@hyaenidae/bridge";
+import { Env } from "../env";
 
 /**
  * Extended WebContentsView with a built-in RPC channel.
  */
 export class View extends WebContentsView {
-    public readonly rpc = new RpcMain(this.webContents);
+    public readonly bridge = new Bridge(this.webContents);
 
     constructor(options: Electron.WebContentsViewConstructorOptions) {
         super(options);
@@ -21,7 +21,7 @@ export class View extends WebContentsView {
 /**
  * Manages the shell UI view and all tab content views inside a single BaseWindow.
  */
-export class BrowserViews extends EventEmitter {
+export class Browser extends EventEmitter {
     private layout: Layout = { tabBarHeight: 97, agentPanelWidth: 451 };
 
     public baseWindow: BaseWindow;
@@ -33,8 +33,8 @@ export class BrowserViews extends EventEmitter {
         super();
 
         this.baseWindow = new BaseWindow({
-            width: Args.defaultShellWidth,
-            height: Args.defaultShellHeight,
+            width: Env.defaultShellWidth,
+            height: Env.defaultShellHeight,
             title: "Hyaenidae",
             frame: false,
             autoHideMenuBar: true,
@@ -50,11 +50,11 @@ export class BrowserViews extends EventEmitter {
 
         // Create the window frame content view
         {
-            this.shell.webContents.loadURL(Args.shellUri);
+            this.shell.webContents.loadURL(Env.shellUri);
             this.baseWindow.contentView.addChildView(this.shell);
             this.syncBounds();
 
-            if (Args.openDevTools) {
+            if (Env.openDevTools) {
                 this.shell.webContents.openDevTools({
                     mode: "detach",
                 });
@@ -119,26 +119,26 @@ export class BrowserViews extends EventEmitter {
 
         {
             tab.webContents.on("page-title-updated", async (_, title) => {
-                await this.shell.rpc.request("shell:tab-title-changed", {
+                await this.shell.bridge.request("shell:tab-title-changed", {
                     id,
                     title,
                 });
             });
 
             tab.webContents.on("destroyed", async () => {
-                await this.shell.rpc.request("shell:tab-destroyed", { id });
+                await this.shell.bridge.request("shell:tab-destroyed", { id });
             });
 
             tab.webContents.on("did-start-loading", async () => {
-                await this.shell.rpc.request("shell:tab-start-loading", { id });
+                await this.shell.bridge.request("shell:tab-start-loading", { id });
             });
 
             tab.webContents.on("did-stop-loading", async () => {
-                await this.shell.rpc.request("shell:tab-stop-loading", { id });
+                await this.shell.bridge.request("shell:tab-stop-loading", { id });
             });
 
             tab.webContents.on("did-navigate", async (_, url) => {
-                await this.shell.rpc.request("shell:tab-url-updated", {
+                await this.shell.bridge.request("shell:tab-url-updated", {
                     id,
                     url,
                 });
@@ -151,7 +151,7 @@ export class BrowserViews extends EventEmitter {
             });
         }
 
-        await this.shell.rpc.request("shell:tab-created", { id, url });
+        await this.shell.bridge.request("shell:tab-created", { id, url });
 
         // Focus the new tab after creation to bring it to the front
         await this.focus(id);
@@ -214,7 +214,7 @@ export class BrowserViews extends EventEmitter {
             this.baseWindow.contentView.addChildView(tab);
             this.currentId = id;
 
-            await this.shell.rpc.request("shell:tab-focused", { id });
+            await this.shell.bridge.request("shell:tab-focused", { id });
         }
     }
 

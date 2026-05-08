@@ -1,16 +1,16 @@
 import { contextBridge } from "electron";
-import { RpcRenderer } from "@hyaenidae/rpc";
+import { BridgeRenderer } from "@hyaenidae/bridge";
 
-const rpcRenderer = new RpcRenderer();
+const bridge = new BridgeRenderer();
 
 contextBridge.exposeInMainWorld("hyaenidae", {
-    rpc: {
-        // == RPC API exposed to the renderer process ==
+    bridge: {
+        // == bridge API exposed to the renderer process ==
 
-        request: rpcRenderer.request.bind(rpcRenderer),
-        send: rpcRenderer.send.bind(rpcRenderer),
-        on: rpcRenderer.on.bind(rpcRenderer),
-        handle: rpcRenderer.handle.bind(rpcRenderer),
-        off: rpcRenderer.off.bind(rpcRenderer),
+        request: bridge.request.bind(bridge),
+        send: bridge.send.bind(bridge),
+        on: bridge.on.bind(bridge),
+        handle: bridge.handle.bind(bridge),
+        off: bridge.off.bind(bridge),
     },
 });

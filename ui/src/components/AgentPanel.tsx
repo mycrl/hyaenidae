@@ -79,7 +79,6 @@ export default function AgentPanel() {
         await sendAgentMessage({
             message: trimmed,
             model,
-            mode,
         });
     };
 

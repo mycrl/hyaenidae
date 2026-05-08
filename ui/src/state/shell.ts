@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import i18n from "../i18n";
-import type { Layout } from "@hyaenidae/rpc";
+import type { Layout } from "@hyaenidae/bridge";
 
 export interface Tab {
     id: number;
@@ -62,7 +62,7 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
 
         set({ rpcInitialized: true });
 
-        hyaenidae.rpc.handle("shell:tab-created", async ({ id, url }) => {
+        hyaenidae.bridge.handle("shell:tab-created", async ({ id, url }) => {
             get().addTab({
                 id,
                 title: i18n.t("tabs.newTab"),
@@ -73,33 +73,33 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
             });
         });
 
-        hyaenidae.rpc.handle("shell:tab-focused", async ({ id }) => {
+        hyaenidae.bridge.handle("shell:tab-focused", async ({ id }) => {
             get().focusTab(id);
         });
 
-        hyaenidae.rpc.handle("shell:tab-destroyed", async ({ id }) => {
+        hyaenidae.bridge.handle("shell:tab-destroyed", async ({ id }) => {
             get().removeTab(id);
         });
 
-        hyaenidae.rpc.handle("shell:tab-start-loading", async ({ id }) => {
+        hyaenidae.bridge.handle("shell:tab-start-loading", async ({ id }) => {
             get().setTabLoading(id, true);
         });
 
-        hyaenidae.rpc.handle("shell:tab-stop-loading", async ({ id }) => {
+        hyaenidae.bridge.handle("shell:tab-stop-loading", async ({ id }) => {
             get().setTabLoading(id, false);
         });
 
-        hyaenidae.rpc.handle("shell:tab-url-updated", async ({ id, url }) => {
+        hyaenidae.bridge.handle("shell:tab-url-updated", async ({ id, url }) => {
             get().setTabUrl(id, url);
             // URL update usually means history state may have changed as well.
             await get().refreshTabNavState(id);
         });
 
-        hyaenidae.rpc.handle("shell:tab-title-changed", async ({ id, title }) => {
+        hyaenidae.bridge.handle("shell:tab-title-changed", async ({ id, title }) => {
             get().setTabTitle(id, title ?? i18n.t("tabs.newTab"));
         });
 
-        await hyaenidae.rpc.request("shell:ready");
+        await hyaenidae.bridge.request("shell:ready");
     },
     addTab: (tab) =>
         set((state) => {
@@ -146,20 +146,20 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
     refreshTabNavState: async (id) => {
         // Back/forward availability is queried from shell to keep toolbar state accurate.
         const [canGoBack, canGoForward] = await Promise.all([
-            hyaenidae.rpc.request("shell:tab-can-go-back", { id }),
-            hyaenidae.rpc.request("shell:tab-can-go-forward", { id }),
+            hyaenidae.bridge.request("shell:tab-can-go-back", { id }),
+            hyaenidae.bridge.request("shell:tab-can-go-forward", { id }),
         ]);
 
         get().setTabNavState(id, canGoBack as boolean, canGoForward as boolean);
     },
     createTab: async () => {
-        await hyaenidae.rpc.request("shell:tab-new");
+        await hyaenidae.bridge.request("shell:tab-new");
     },
     focusTabRpc: async (id) => {
-        await hyaenidae.rpc.request("shell:tab-focus", { id });
+        await hyaenidae.bridge.request("shell:tab-focus", { id });
     },
     closeTabRpc: async (id) => {
-        await hyaenidae.rpc.request("shell:tab-close", { id });
+        await hyaenidae.bridge.request("shell:tab-close", { id });
     },
     goBack: async () => {
         const { activeTabId } = get();
@@ -167,7 +167,7 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
             return;
         }
 
-        await hyaenidae.rpc.request("shell:tab-go-back", { id: activeTabId });
+        await hyaenidae.bridge.request("shell:tab-go-back", { id: activeTabId });
     },
     goForward: async () => {
         const { activeTabId } = get();
@@ -175,7 +175,7 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
             return;
         }
 
-        await hyaenidae.rpc.request("shell:tab-go-forward", {
+        await hyaenidae.bridge.request("shell:tab-go-forward", {
             id: activeTabId,
         });
     },
@@ -188,13 +188,13 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
         // Browser convention: same button acts as Stop while loading, Refresh otherwise.
         const activeTab = tabs.find((tab) => tab.id === activeTabId);
         if (activeTab?.isLoading) {
-            await hyaenidae.rpc.request("shell:tab-stop-load", {
+            await hyaenidae.bridge.request("shell:tab-stop-load", {
                 id: activeTabId,
             });
             return;
         }
 
-        await hyaenidae.rpc.request("shell:tab-reload", { id: activeTabId });
+        await hyaenidae.bridge.request("shell:tab-reload", { id: activeTabId });
     },
     goHome: async () => {
         const { activeTabId } = get();
@@ -202,7 +202,7 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
             return;
         }
 
-        await hyaenidae.rpc.request("shell:tab-load", {
+        await hyaenidae.bridge.request("shell:tab-load", {
             id: activeTabId,
             url: "about:home",
         });
@@ -213,24 +213,24 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
             return;
         }
 
-        await hyaenidae.rpc.request("shell:tab-load", {
+        await hyaenidae.bridge.request("shell:tab-load", {
             id: activeTabId,
             url,
         });
     },
     minimizeWindow: async () => {
-        await hyaenidae.rpc.request("shell:minimize");
+        await hyaenidae.bridge.request("shell:minimize");
     },
     maximizeWindow: async () => {
-        await hyaenidae.rpc.request("shell:maximize");
+        await hyaenidae.bridge.request("shell:maximize");
         set({ isWindowMaximized: true });
     },
     restoreWindow: async () => {
-        await hyaenidae.rpc.request("shell:restore");
+        await hyaenidae.bridge.request("shell:restore");
         set({ isWindowMaximized: false });
     },
     quitWindow: async () => {
-        await hyaenidae.rpc.request("shell:quit");
+        await hyaenidae.bridge.request("shell:quit");
     },
     toggleAgentPanel: async () => {
         set((state) => ({
@@ -241,7 +241,7 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
         set({ isWindowMaximized: maximized });
     },
     layoutChanged: async (layout) => {
-        hyaenidae.rpc.send("shell:layout-changed", layout);
+        hyaenidae.bridge.send("shell:layout-changed", layout);
     },
 }));
 

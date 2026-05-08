@@ -1,108 +1,160 @@
 import { app } from "electron";
 
-import { AgentSessionController, ModelService, type AgentActivityEvent } from "@hyaenidae/core";
-import { ElectronBrowserRuntime } from "./browser-runtime";
-import { BrowserViews } from "./views";
-import { Args } from "./args";
+import {
+    AgentSessionController,
+    ModelProviderController,
+    AgentActivityEvent,
+} from "@hyaenidae/core";
+import { ElectronBrowserRuntime } from "./browser/runtime";
+import { Browser } from "./browser";
+import { Env } from "./env";
+import { SettingsManager } from "./settings";
 
-const modelService = new ModelService({
-    apiKey: Args.defaultModelApiKey,
-    baseURL: Args.defaultModelBaseURL,
-});
+const browser = new Browser();
+const settingsManager = new SettingsManager();
+const agentSessions = new AgentSessionController();
+const modelProviders = new ModelProviderController();
+const browserRuntime = new ElectronBrowserRuntime(browser);
 
-const views = new BrowserViews();
-const browserRuntime = new ElectronBrowserRuntime(views);
-const agentSessions = new AgentSessionController(modelService);
-
-views.on("all-tabs-closed", () => {
+browser.on("all-tabs-closed", () => {
     app.quit();
 });
 
-views.shell.rpc.handle("shell:minimize", async () => {
-    views.baseWindow.minimize();
+browser.shell.bridge.handle("shell:settings-read", async () => {
+    return await settingsManager.read();
 });
 
-views.shell.rpc.handle("shell:maximize", async () => {
-    views.baseWindow.maximize();
+browser.shell.bridge.handle("shell:settings-write", async (settings) => {
+    await settingsManager.write(settings);
+
+    // "shell:settings-changed"
 });
 
-views.shell.rpc.handle("shell:restore", async () => {
-    views.baseWindow.restore();
+browser.shell.bridge.handle("shell:minimize", async () => {
+    browser.baseWindow.minimize();
 });
 
-views.shell.rpc.handle("shell:quit", async () => {
+browser.shell.bridge.handle("shell:maximize", async () => {
+    browser.baseWindow.maximize();
+});
+
+browser.shell.bridge.handle("shell:restore", async () => {
+    browser.baseWindow.restore();
+});
+
+browser.shell.bridge.handle("shell:quit", async () => {
     app.quit();
 });
 
-views.shell.rpc.handle("shell:tab-new", async () => {
+browser.shell.bridge.handle("shell:tab-new", async () => {
     return {
-        id: await views.create(),
+        id: await browser.create(),
     };
 });
 
-views.shell.rpc.handle("shell:tab-close", async ({ id }) => {
-    await views.remove(id);
+browser.shell.bridge.handle("shell:tab-close", async ({ id }) => {
+    await browser.remove(id);
 });
 
-views.shell.rpc.handle("shell:tab-load", async ({ id, url }) => {
-    await views.load(id, url);
+browser.shell.bridge.handle("shell:tab-load", async ({ id, url }) => {
+    await browser.load(id, url);
 });
 
-views.shell.rpc.handle("shell:tab-reload", async ({ id }) => {
-    await views.reload(id);
+browser.shell.bridge.handle("shell:tab-reload", async ({ id }) => {
+    await browser.reload(id);
 });
 
-views.shell.rpc.handle("shell:tab-stop-load", async ({ id }) => {
-    await views.stop(id);
+browser.shell.bridge.handle("shell:tab-stop-load", async ({ id }) => {
+    await browser.stop(id);
 });
 
-views.shell.rpc.handle("shell:tab-focus", async ({ id }) => {
-    await views.focus(id);
+browser.shell.bridge.handle("shell:tab-focus", async ({ id }) => {
+    await browser.focus(id);
 });
 
-views.shell.rpc.handle("shell:tab-can-go-back", async ({ id }) => {
-    return (await views.getNavigationHistory(id)?.canGoBack()) ?? false;
+browser.shell.bridge.handle("shell:tab-can-go-back", async ({ id }) => {
+    return (await browser.getNavigationHistory(id)?.canGoBack()) ?? false;
 });
 
-views.shell.rpc.handle("shell:tab-can-go-forward", async ({ id }) => {
-    return (await views.getNavigationHistory(id)?.canGoForward()) ?? false;
+browser.shell.bridge.handle("shell:tab-can-go-forward", async ({ id }) => {
+    return (await browser.getNavigationHistory(id)?.canGoForward()) ?? false;
 });
 
-views.shell.rpc.handle("shell:tab-go-back", async ({ id }) => {
-    await views.getNavigationHistory(id)?.goBack();
+browser.shell.bridge.handle("shell:tab-go-back", async ({ id }) => {
+    await browser.getNavigationHistory(id)?.goBack();
 });
 
-views.shell.rpc.handle("shell:tab-go-forward", async ({ id }) => {
-    await views.getNavigationHistory(id)?.goForward();
+browser.shell.bridge.handle("shell:tab-go-forward", async ({ id }) => {
+    await browser.getNavigationHistory(id)?.goForward();
 });
 
-views.shell.rpc.on("shell:layout-changed", (layout) => {
-    views.updateLayout(layout);
+browser.shell.bridge.on("shell:layout-changed", (layout) => {
+    browser.updateLayout(layout);
 });
 
-{
-    views.shell.rpc.handle("agent:get-sessions", async () => {
-        return { sessions: agentSessions.listSessions() };
-    });
+browser.shell.bridge.handle("agent:session-list", async () => {
+    return { sessions: agentSessions.listSessions() };
+});
 
-    views.shell.rpc.handle("agent:create-session", async ({ name }) => {
-        const session = agentSessions.createSession(name);
-        return { id: session.id };
-    });
+browser.shell.bridge.handle("agent:session-create", async ({ name }) => {
+    const session = agentSessions.createSession(name);
+    return { id: session.id };
+});
 
-    views.shell.rpc.handle("agent:ask", async ({ session, model, message, locale }) => {
+browser.shell.bridge.handle("agent:session-remove", async ({ id }) => {
+    agentSessions.removeSession(id);
+});
+
+browser.shell.bridge.handle("agent:provider-list", async () => {
+    return {
+        providers: Object.entries(modelProviders.getProviders()).map(([key, value]) => ({
+            id: Number(key),
+            apiKey: value.options.apiKey,
+            baseURL: value.options.baseURL,
+        })),
+    };
+});
+
+browser.shell.bridge.handle("agent:provider-get-models", async ({ id }) => {
+    const provider = modelProviders.getProvider(id);
+    if (!provider) {
+        throw new Error(`Model provider with id ${id} not found`);
+    }
+
+    const models = await provider.getModels();
+    return { models };
+});
+
+browser.shell.bridge.handle("agent:provider-create", async ({ apiKey, baseURL }) => {
+    const id = modelProviders.create({ apiKey, baseURL });
+    return { id };
+});
+
+browser.shell.bridge.handle("agent:provider-remove", async ({ id }) => {
+    modelProviders.remove(id);
+});
+
+browser.shell.bridge.handle(
+    "agent:chat-ask",
+    async ({ provider, session, model, message, locale }) => {
+        const modelProvider = modelProviders.getProvider(provider);
+        if (!modelProvider) {
+            throw new Error(`Model provider with id ${provider} not found`);
+        }
+
         const { id, streamPromise } = agentSessions.ask({
             session,
             model,
             message,
             locale,
             browser: browserRuntime,
+            modelProvider,
         });
 
-        void streamPromise
+        streamPromise
             .then((stream) => {
                 stream.on("error", (error: Error) => {
-                    views.shell.rpc.send("agent:response-done", {
+                    browser.shell.bridge.send("agent:chat-response-done", {
                         error: error.message,
                         session,
                         id,
@@ -110,7 +162,7 @@ views.shell.rpc.on("shell:layout-changed", (layout) => {
                 });
 
                 stream.on("text", (message: string) => {
-                    views.shell.rpc.send("agent:response", {
+                    browser.shell.bridge.send("agent:chat-response", {
                         id,
                         session,
                         message,
@@ -118,7 +170,7 @@ views.shell.rpc.on("shell:layout-changed", (layout) => {
                 });
 
                 stream.on("activity", (activity: AgentActivityEvent) => {
-                    views.shell.rpc.send("agent:activity", {
+                    browser.shell.bridge.send("agent:chat-activity", {
                         id,
                         session,
                         ...activity,
@@ -126,11 +178,11 @@ views.shell.rpc.on("shell:layout-changed", (layout) => {
                 });
 
                 stream.on("end", () => {
-                    views.shell.rpc.send("agent:response-done", { id, session });
+                    browser.shell.bridge.send("agent:chat-response-done", { id, session });
                 });
             })
             .catch((error: Error) => {
-                views.shell.rpc.send("agent:response-done", {
+                browser.shell.bridge.send("agent:chat-response-done", {
                     error: error.message,
                     session,
                     id,
@@ -138,18 +190,18 @@ views.shell.rpc.on("shell:layout-changed", (layout) => {
             });
 
         return { id };
-    });
-}
+    },
+);
 
 {
     let isReady = false;
 
-    views.shell.rpc.handle("shell:ready", async () => {
+    browser.shell.bridge.handle("shell:ready", async () => {
         // create an initial tab on startup
         if (!isReady) {
             isReady = true;
 
-            await views.create(Args.defaultTabUrl);
+            await browser.create(Env.defaultTabUrl);
         }
     });
 }

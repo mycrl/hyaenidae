@@ -6,10 +6,10 @@ import type {
     BrowserRuntime,
     BrowserScriptResult,
     BrowserTabSummary,
-    BrowserVisionSnapshot,
+    BrowserImageSnapshot,
 } from "@hyaenidae/core";
 import type { WebContents } from "electron";
-import { BrowserViews, View } from "./views";
+import { Browser, View } from "./";
 
 const MAX_ELEMENTS = 250;
 const MAX_TEXT_SAMPLE = 4000;
@@ -248,46 +248,46 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     private readonly accessibilityReader = new AccessibilityTreeReader();
     private readonly visionGrounder = new VisionGrounder();
 
-    constructor(private readonly views: BrowserViews) {}
+    constructor(private readonly browser: Browser) {}
 
     async listTabs(): Promise<BrowserTabSummary[]> {
-        return this.views.tabs.map((tab) => this.toSummary(tab));
+        return this.browser.tabs.map((tab) => this.toSummary(tab));
     }
 
     async getFocusedTab(): Promise<BrowserTabSummary | null> {
-        const view = this.views.getFocusedTab();
+        const view = this.browser.getFocusedTab();
         return view ? this.toSummary(view) : null;
     }
 
     async openTab(url?: string): Promise<BrowserTabSummary> {
-        const id = await this.views.create(url);
+        const id = await this.browser.create(url);
         return this.getTabSummary(id);
     }
 
     async closeTab(tabId: number): Promise<void> {
-        await this.views.remove(tabId);
+        await this.browser.remove(tabId);
     }
 
     async focusTab(tabId: number): Promise<BrowserTabSummary> {
-        await this.views.focus(tabId);
+        await this.browser.focus(tabId);
         return this.getTabSummary(tabId);
     }
 
     async load(tabId: number, url: string): Promise<BrowserTabSummary> {
-        await this.views.load(tabId, url);
+        await this.browser.load(tabId, url);
         return this.getTabSummary(tabId);
     }
 
     async reload(tabId: number): Promise<void> {
-        this.views.reload(tabId);
+        this.browser.reload(tabId);
     }
 
     async goBack(tabId: number): Promise<void> {
-        await this.views.getNavigationHistory(tabId)?.goBack();
+        await this.browser.getNavigationHistory(tabId)?.goBack();
     }
 
     async goForward(tabId: number): Promise<void> {
-        await this.views.getNavigationHistory(tabId)?.goForward();
+        await this.browser.getNavigationHistory(tabId)?.goForward();
     }
 
     async snapshotDom(tabId?: number): Promise<BrowserDomSnapshot> {
@@ -306,7 +306,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         };
     }
 
-    async captureVision(tabId?: number): Promise<BrowserVisionSnapshot> {
+    async captureScreenshot(tabId?: number): Promise<BrowserImageSnapshot> {
         const view = this.requireTab(tabId);
         const image = await view.webContents.capturePage();
 
@@ -454,7 +454,8 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     }
 
     private requireTab(tabId?: number) {
-        const view = tabId === undefined ? this.views.getFocusedTab() : this.views.getTab(tabId);
+        const view =
+            tabId === undefined ? this.browser.getFocusedTab() : this.browser.getTab(tabId);
         if (!view) {
             throw new Error(
                 tabId === undefined ? "No focused tab available." : `Tab not found: ${tabId}`,
@@ -465,7 +466,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     }
 
     private getTabSummary(tabId: number) {
-        const view = this.views.getTab(tabId);
+        const view = this.browser.getTab(tabId);
         if (!view) {
             throw new Error(`Tab not found: ${tabId}`);
         }
@@ -648,7 +649,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
             id: view.webContents.id,
             title: view.webContents.getTitle() || "New Tab",
             url: view.webContents.getURL(),
-            isFocused: this.views.currentId === view.webContents.id,
+            isFocused: this.browser.currentId === view.webContents.id,
             isLoading: view.webContents.isLoading(),
         };
     }

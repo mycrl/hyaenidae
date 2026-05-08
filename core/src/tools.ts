@@ -1,9 +1,9 @@
 import { tool } from "@openai/agents";
 import { z } from "zod";
-import type { BrowserRuntime } from "../browser";
+import { BrowserRuntime } from "./browser";
 
 export interface VisionInspector {
-    inspect(input: { model: string; prompt: string; tabId?: number }): Promise<{
+    inspect(input: { prompt: string; tabId?: number }): Promise<{
         tabId: number;
         analysis: string;
         width: number;
@@ -26,11 +26,7 @@ const withOptional = <T extends z.ZodRawShape, U extends z.ZodRawShape>(
 ) => base.extend(extra.shape);
 
 // Keep tool definitions centralized so the agent's browser capability surface stays explicit.
-export const createBrowserTools = (
-    browser: BrowserRuntime,
-    visionInspector: VisionInspector,
-    model: string,
-) => [
+export const createTools = (browser: BrowserRuntime, visionInspector: VisionInspector) => [
     tool({
         name: "list_tabs",
         description: "List all open browser tabs with focus and loading state.",
@@ -128,13 +124,13 @@ export const createBrowserTools = (
             }),
         ),
         execute: async ({ tabId, prompt }) =>
-            visionInspector.inspect(tabId == null ? { model, prompt } : { model, prompt, tabId }),
+            visionInspector.inspect(tabId == null ? { prompt } : { prompt, tabId }),
     }),
     tool({
         name: "capture_vision",
         description: "Capture a raw screenshot for debugging or external inspection.",
         parameters: optionalTabIdSchema,
-        execute: async ({ tabId }) => browser.captureVision(tabId ?? undefined),
+        execute: async ({ tabId }) => browser.captureScreenshot(tabId ?? undefined),
     }),
     tool({
         name: "ground_from_vision",

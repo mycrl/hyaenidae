@@ -6,7 +6,7 @@
         "app",
         "ui",
         "core",
-        "rpc"
+        "bridge"
     ],
     "devDependencies": {
         "electron": "41.3.0",

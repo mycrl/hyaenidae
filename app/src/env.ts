@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-export const Args = {
+export const Env = {
     defaultTabUrl: process.env.DEFAULT_TAB_URL || "http://localhost:5173",
     openDevTools: process.env.OPEN_DEVTOOLS === "true",
     shellUri: process.env.SHELL_URI || "http://localhost:5173",
