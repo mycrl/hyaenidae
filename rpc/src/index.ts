@@ -13,11 +13,21 @@ export interface AgentAsk extends AgentSession {
     type: "agent" | "chat";
     model: string;
     message: string;
+    locale: string;
 }
 
 export interface AgentStreamItem extends AgentSession {
     id: number;
     message: string;
+}
+
+export interface AgentActivityItem extends AgentSession {
+    id: number;
+    key: string;
+    kind: "reasoning" | "tool" | "status";
+    status: "running" | "completed";
+    title: string;
+    detail?: string;
 }
 
 export interface AgentResult extends AgentSession {
@@ -170,6 +180,11 @@ export interface RpcInterfaces {
      * Triggers when a response is received from an agent or chat model.
      */
     "agent:response": [AgentStreamItem, void];
+
+    /**
+     * Triggers when the agent emits a non-final activity update such as thinking or tool calls.
+     */
+    "agent:activity": [AgentActivityItem, void];
 
     /**
      * Triggers when a response stream from an agent or chat model is completed.

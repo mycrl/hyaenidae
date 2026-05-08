@@ -240,6 +240,14 @@ export class BrowserViews extends EventEmitter {
         this.tabs.find((t) => t.webContents.id === id)?.webContents.stop();
     }
 
+    getTab(id: number) {
+        return this.tabs.find((t) => t.webContents.id === id);
+    }
+
+    getFocusedTab() {
+        return this.currentId == null ? undefined : this.getTab(this.currentId);
+    }
+
     /**
      * Get the navigation history of the tab with the given ID.
      */

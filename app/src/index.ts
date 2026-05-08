@@ -1,6 +1,7 @@
 import { app } from "electron";
 
-import { ModelService } from "@hyaenidae/core";
+import { AgentSessionController, ModelService, type AgentActivityEvent } from "@hyaenidae/core";
+import { ElectronBrowserRuntime } from "./browser-runtime";
 import { BrowserViews } from "./views";
 import { Args } from "./args";
 
@@ -10,6 +11,8 @@ const modelService = new ModelService({
 });
 
 const views = new BrowserViews();
+const browserRuntime = new ElectronBrowserRuntime(views);
+const agentSessions = new AgentSessionController(modelService);
 
 views.on("all-tabs-closed", () => {
     app.quit();
@@ -78,47 +81,61 @@ views.shell.rpc.on("shell:layout-changed", (layout) => {
 });
 
 {
-    let askCounter = 0;
-    let sessions: { id: number; name: string }[] = [];
-
     views.shell.rpc.handle("agent:get-sessions", async () => {
-        return { sessions };
+        return { sessions: agentSessions.listSessions() };
     });
 
     views.shell.rpc.handle("agent:create-session", async ({ name }) => {
-        const id = sessions.length;
-
-        sessions.push({
-            id,
-            name: name || `Session ${sessions.length + 1}`,
-        });
-
-        return { id };
+        const session = agentSessions.createSession(name);
+        return { id: session.id };
     });
 
-    views.shell.rpc.handle("agent:ask", async ({ session, model, message }) => {
-        const response = await modelService.ask(model, message);
-        const id = askCounter++;
+    views.shell.rpc.handle("agent:ask", async ({ session, model, message, locale }) => {
+        const { id, streamPromise } = agentSessions.ask({
+            session,
+            model,
+            message,
+            locale,
+            browser: browserRuntime,
+        });
 
-        response.on("error", (error) => {
-            views.shell.rpc.send("agent:response-done", {
-                error: error.message,
-                session,
-                id,
+        void streamPromise
+            .then((stream) => {
+                stream.on("error", (error: Error) => {
+                    views.shell.rpc.send("agent:response-done", {
+                        error: error.message,
+                        session,
+                        id,
+                    });
+                });
+
+                stream.on("text", (message: string) => {
+                    views.shell.rpc.send("agent:response", {
+                        id,
+                        session,
+                        message,
+                    });
+                });
+
+                stream.on("activity", (activity: AgentActivityEvent) => {
+                    views.shell.rpc.send("agent:activity", {
+                        id,
+                        session,
+                        ...activity,
+                    });
+                });
+
+                stream.on("end", () => {
+                    views.shell.rpc.send("agent:response-done", { id, session });
+                });
+            })
+            .catch((error: Error) => {
+                views.shell.rpc.send("agent:response-done", {
+                    error: error.message,
+                    session,
+                    id,
+                });
             });
-        });
-
-        response.on("data", (message) => {
-            views.shell.rpc.send("agent:response", {
-                id,
-                session,
-                message: message.toString(),
-            });
-        });
-
-        response.on("end", () => {
-            views.shell.rpc.send("agent:response-done", { id, session });
-        });
 
         return { id };
     });

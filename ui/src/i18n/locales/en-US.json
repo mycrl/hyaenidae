@@ -32,6 +32,9 @@
         "failedToSend": "Failed to send the message.",
         "failedToStop": "Failed to stop the response.",
         "thinking": "Thinking...",
+        "activity": "In progress",
+        "showActivity": "Show thinking and tool calls",
+        "hideActivity": "Hide thinking and tool calls",
         "stop": "Stop",
         "stopResponse": "Stop response",
         "mode": {

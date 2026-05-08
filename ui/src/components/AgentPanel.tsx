@@ -22,6 +22,7 @@ export default function AgentPanel() {
     const [mode, setMode] = useState<"agent" | "chat">("agent");
     const [model, setModel] = useState("gpt-4.1-mini");
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [expandedActivityMessageIds, setExpandedActivityMessageIds] = useState<number[]>([]);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
     const sessions = useAgentStore((state) => state.sessions);
@@ -85,6 +86,14 @@ export default function AgentPanel() {
     const renderAssistantMarkdown = (content: string) => ({
         __html: markdown.render(content),
     });
+
+    const toggleActivities = (messageId: number) => {
+        setExpandedActivityMessageIds((current) =>
+            current.includes(messageId)
+                ? current.filter((id) => id !== messageId)
+                : [...current, messageId],
+        );
+    };
 
     return (
         <aside className="relative h-full w-full flex flex-col bg-white text-slate-800">
@@ -170,45 +179,131 @@ export default function AgentPanel() {
                         </div>
                     </div>
                 ) : (
-                    messages.map((message) => (
-                        <div
-                            key={message.id}
-                            className={[
-                                "max-w-[90%] rounded-2xl px-3 py-2.5 text-xs leading-6 shadow-sm",
-                                message.role === "user"
-                                    ? "ml-auto bg-blue-600 text-white"
-                                    : message.status === "error"
-                                      ? "mr-auto border border-red-200 bg-red-50 text-red-700"
-                                      : "mr-auto border border-slate-200 bg-white text-slate-800",
-                            ].join(" ")}
-                        >
-                            {message.role === "assistant" ? (
-                                <div
-                                    className="agent-markdown"
-                                    dangerouslySetInnerHTML={renderAssistantMarkdown(
-                                        message.content ||
-                                            (message.status === "streaming"
-                                                ? t("chat.thinking")
-                                                : ""),
-                                    )}
-                                />
-                            ) : (
-                                <p>{message.content}</p>
-                            )}
-                            <p
+                    messages.map((message) => {
+                        const hasActivities = Boolean(message.activities?.length);
+                        const isStreamingAssistant =
+                            message.role === "assistant" && message.status === "streaming";
+                        const isActivityExpanded =
+                            isStreamingAssistant || expandedActivityMessageIds.includes(message.id);
+                        const shouldShowActivityPanel =
+                            message.role === "assistant" && (hasActivities || isStreamingAssistant);
+                        const assistantContent =
+                            message.role === "assistant"
+                                ? message.status === "streaming"
+                                    ? ""
+                                    : message.content
+                                : message.content;
+
+                        return (
+                            <div
+                                key={message.id}
                                 className={[
-                                    "mt-1 text-[11px]",
+                                    "relative max-w-[90%] overflow-hidden rounded-2xl px-3 py-2.5 text-xs leading-6 shadow-sm",
                                     message.role === "user"
-                                        ? "text-blue-100"
+                                        ? "ml-auto bg-blue-600 text-white"
                                         : message.status === "error"
-                                          ? "text-red-400"
-                                          : "text-slate-400",
+                                          ? "mr-auto border border-red-200 bg-red-50 text-red-700"
+                                          : "mr-auto border border-slate-200 bg-white text-slate-800",
                                 ].join(" ")}
                             >
-                                {message.timestamp}
-                            </p>
-                        </div>
-                    ))
+                                {shouldShowActivityPanel ? (
+                                    <div className="mb-2">
+                                        {!isStreamingAssistant && hasActivities ? (
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleActivities(message.id)}
+                                                className="mb-2 inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                                            >
+                                                {isActivityExpanded
+                                                    ? t("chat.hideActivity")
+                                                    : t("chat.showActivity")}
+                                            </button>
+                                        ) : null}
+
+                                        {isActivityExpanded ? (
+                                            <div className="space-y-1.5 rounded-xl border border-slate-100 bg-slate-50 px-2.5 py-2">
+                                                {isStreamingAssistant ? (
+                                                    <div className="rounded-lg border border-sky-100 bg-white px-2.5 py-2 text-[11px] leading-5 text-slate-600">
+                                                        <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                                                            {t("chat.activity")}
+                                                        </div>
+                                                        {message.content ? (
+                                                            <div
+                                                                className="agent-markdown agent-markdown-activity"
+                                                                dangerouslySetInnerHTML={renderAssistantMarkdown(
+                                                                    message.content,
+                                                                )}
+                                                            />
+                                                        ) : (
+                                                            <p className="text-slate-400">
+                                                                {t("chat.thinking")}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                ) : null}
+                                                {message.activities?.map((activity) => (
+                                                    <div
+                                                        key={activity.key}
+                                                        className="text-[11px] leading-5 text-slate-500"
+                                                    >
+                                                        <div className="flex items-center gap-2">
+                                                            <span
+                                                                className={[
+                                                                    "inline-block h-1.5 w-1.5 rounded-full",
+                                                                    activity.status === "running"
+                                                                        ? "bg-amber-400"
+                                                                        : "bg-emerald-500",
+                                                                ].join(" ")}
+                                                            />
+                                                            <span className="text-slate-600">
+                                                                {activity.title}
+                                                            </span>
+                                                        </div>
+                                                        {activity.detail ? (
+                                                            <p className="mt-0.5 pl-3.5 text-slate-400 break-all">
+                                                                {activity.detail}
+                                                            </p>
+                                                        ) : null}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+
+                                {message.role === "assistant" && assistantContent ? (
+                                    <div
+                                        className="agent-markdown"
+                                        dangerouslySetInnerHTML={renderAssistantMarkdown(
+                                            assistantContent,
+                                        )}
+                                    />
+                                ) : message.role === "user" ? (
+                                    <div
+                                        className="agent-markdown"
+                                        dangerouslySetInnerHTML={renderAssistantMarkdown(
+                                            message.content,
+                                        )}
+                                    />
+                                ) : null}
+                                <p
+                                    className={[
+                                        "mt-1 text-[11px]",
+                                        message.role === "user"
+                                            ? "text-blue-100"
+                                            : message.status === "error"
+                                              ? "text-red-400"
+                                              : "text-slate-400",
+                                    ].join(" ")}
+                                >
+                                    {message.timestamp}
+                                </p>
+                                {isStreamingAssistant ? (
+                                    <div className="task-progress-bar" aria-hidden="true" />
+                                ) : null}
+                            </div>
+                        );
+                    })
                 )}
                 <div ref={messagesEndRef} />
             </div>

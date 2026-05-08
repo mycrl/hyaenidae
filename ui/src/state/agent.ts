@@ -1,4 +1,4 @@
-import type { AgentResult, AgentStreamItem } from "@hyaenidae/rpc";
+import type { AgentActivityItem, AgentResult, AgentStreamItem } from "@hyaenidae/rpc";
 import { create } from "zustand";
 import i18n from "../i18n";
 
@@ -16,6 +16,15 @@ export interface AgentMessage {
     timestamp: string;
     status: "done" | "streaming" | "error";
     error?: string;
+    activities?: AgentActivity[];
+}
+
+export interface AgentActivity {
+    key: string;
+    kind: "reasoning" | "tool" | "status";
+    status: "running" | "completed";
+    title: string;
+    detail?: string;
 }
 
 interface AgentConversation {
@@ -114,6 +123,64 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                               content: message,
                               timestamp: getTimestamp(),
                               status: "streaming" as const,
+                          },
+                      ];
+
+                return {
+                    error: null,
+                    conversations: {
+                        ...state.conversations,
+                        [session]: {
+                            ...conversation,
+                            messages,
+                            activeResponseId: id,
+                            isResponding: true,
+                        },
+                    },
+                };
+            });
+        });
+
+        hyaenidae.rpc.on("agent:activity", ({ session, id, ...activity }: AgentActivityItem) => {
+            set((state) => {
+                const sessionName =
+                    state.sessions.find((item) => item.id === session)?.name ??
+                    i18n.t("chat.newConversation");
+                const conversation = ensureConversation(state.conversations, session, sessionName);
+                const existingMessage = conversation.messages.find(
+                    (item) => item.id === id && item.role === "assistant",
+                );
+
+                const upsertActivities = (activities: AgentActivity[] = []) => {
+                    const existingIndex = activities.findIndex((item) => item.key === activity.key);
+                    if (existingIndex === -1) {
+                        return [...activities, activity];
+                    }
+
+                    return activities.map((item, index) =>
+                        index === existingIndex ? { ...item, ...activity } : item,
+                    );
+                };
+
+                const messages = existingMessage
+                    ? conversation.messages.map((item) =>
+                          item.id === id && item.role === "assistant"
+                              ? {
+                                    ...item,
+                                    status: "streaming" as const,
+                                    activities: upsertActivities(item.activities),
+                                }
+                              : item,
+                      )
+                    : [
+                          ...conversation.messages,
+                          {
+                              id,
+                              role: "assistant" as const,
+                              content: "",
+                              timestamp: getTimestamp(),
+                              status: "streaming" as const,
+                              activities: [activity],
                           },
                       ];
 
@@ -304,6 +371,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                 type: mode,
                 model,
                 message: trimmed,
+                locale: i18n.language,
             });
 
             set((state) => {
@@ -333,6 +401,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                                           content: "",
                                           timestamp: getTimestamp(),
                                           status: "streaming",
+                                          activities: [],
                                       },
                                   ],
                         },

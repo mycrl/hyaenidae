@@ -32,6 +32,9 @@
         "failedToSend": "发送消息失败。",
         "failedToStop": "停止响应失败。",
         "thinking": "正在思考...",
+        "activity": "执行中",
+        "showActivity": "展开思考和工具调用",
+        "hideActivity": "折叠思考和工具调用",
         "stop": "停止",
         "stopResponse": "停止响应",
         "mode": {
