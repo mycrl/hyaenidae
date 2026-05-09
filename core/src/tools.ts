@@ -31,9 +31,22 @@ export const createTools = (browser: BrowserRuntime, visionInspector: VisionInsp
         name: "list_tabs",
         description: "List all open browser tabs with focus and loading state.",
         parameters: emptySchema,
-        execute: async () => ({
-            tabs: await browser.listTabs(),
-        }),
+        execute: async () => {
+            console.log("[agent tool] list_tabs called");
+            const tabs = await browser.listTabs();
+            console.log("[agent tool] list_tabs returned", {
+                count: tabs.length,
+                tabs: tabs.map((tab) => ({
+                    id: tab.id,
+                    title: tab.title,
+                    url: tab.url,
+                    isFocused: tab.isFocused,
+                    isLoading: tab.isLoading,
+                })),
+            });
+
+            return { tabs };
+        },
     }),
     tool({
         name: "open_tab",
@@ -44,9 +57,19 @@ export const createTools = (browser: BrowserRuntime, visionInspector: VisionInsp
                 .nullable()
                 .describe("Optional URL to load in the new tab. Use null for a blank tab."),
         }),
-        execute: async ({ url }) => ({
-            tab: await browser.openTab(url ?? undefined),
-        }),
+        execute: async ({ url }) => {
+            console.log("[agent tool] open_tab called", { url: url ?? null });
+            const tab = await browser.openTab(url ?? undefined);
+            console.log("[agent tool] open_tab returned", {
+                id: tab.id,
+                title: tab.title,
+                url: tab.url,
+                isFocused: tab.isFocused,
+                isLoading: tab.isLoading,
+            });
+
+            return { tab };
+        },
     }),
     tool({
         name: "focus_tab",

@@ -189,37 +189,6 @@ export class Browser extends EventEmitter {
 
                 this.shell.bridge.send("shell:settings-changed");
             });
-
-            tab.bridge.handle("agent:provider-list", async () => {
-                return {
-                    providers: Object.entries(this.modelProviders.getProviders()).map(
-                        ([id, provider]) => ({
-                            id: Number(id),
-                            apiKey: provider.options.apiKey,
-                            baseURL: provider.options.baseURL,
-                        }),
-                    ),
-                };
-            });
-
-            tab.bridge.handle("agent:provider-get-models", async ({ id }) => {
-                const provider = this.modelProviders.getProvider(id);
-                if (!provider) {
-                    throw new Error(`Model provider with id ${id} not found`);
-                }
-
-                const models = await provider.getModels();
-                return { models };
-            });
-
-            tab.bridge.handle("agent:provider-create", async ({ apiKey, baseURL }) => {
-                const id = this.modelProviders.create({ apiKey, baseURL });
-                return { id };
-            });
-
-            tab.bridge.handle("agent:provider-remove", async ({ id }) => {
-                this.modelProviders.remove(id);
-            });
         }
 
         await this.shell.bridge.request("shell:tab-created", { id, url });

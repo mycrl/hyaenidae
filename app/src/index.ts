@@ -42,6 +42,15 @@ browser.shell.bridge.handle("agent:provider-get-models", async ({ id }) => {
     return { models };
 });
 
+browser.shell.bridge.handle("agent:provider-create", async ({ apiKey, baseURL }) => {
+    const id = modelProviders.create({ apiKey, baseURL });
+    return { id };
+});
+
+browser.shell.bridge.handle("agent:provider-remove", async ({ id }) => {
+    modelProviders.remove(id);
+});
+
 browser.shell.bridge.handle("shell:settings-get", async () => {
     return {
         settings: await settingsManager.load(),

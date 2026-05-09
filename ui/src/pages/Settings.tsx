@@ -14,7 +14,6 @@ type SectionId = "providers" | "advanced";
 const cloneSettings = (settings: AppSettings): AppSettings => ({
     schemaVersion: settings.schemaVersion,
     providers: settings.providers.map((provider) => ({ ...provider })),
-    agent: { ...settings.agent },
     extra: { ...(settings.extra ?? {}) },
 });
 

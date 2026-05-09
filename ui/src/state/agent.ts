@@ -145,6 +145,74 @@ const buildAgentProviders = (
     });
 };
 
+const TOOL_UNFRIENDLY_MODEL_PATTERN =
+    /embed|embedding|rerank|moderation|whisper|tts|stt|transcribe|vision-preview|omni-moderation/i;
+
+const PREFERRED_AGENT_MODELS = ["gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini", "gpt-4o"];
+
+const pickPreferredModel = (models: string[], currentModel: string) => {
+    if (models.includes(currentModel)) {
+        return currentModel;
+    }
+
+    const preferredNamedModel = PREFERRED_AGENT_MODELS.find((model) => models.includes(model));
+    if (preferredNamedModel) {
+        return preferredNamedModel;
+    }
+
+    const likelyAgentModel = models.find((model) => !TOOL_UNFRIENDLY_MODEL_PATTERN.test(model));
+    if (likelyAgentModel) {
+        return likelyAgentModel;
+    }
+
+    return models[0] ?? currentModel;
+};
+
+const findMatchingRuntimeProviderIndex = (
+    runtimeProviders: { id: number; baseURL: string; apiKey: string }[],
+    provider: { baseURL: string },
+) =>
+    runtimeProviders.findIndex(
+        (runtimeProvider) =>
+            normalizeProviderBaseUrl(runtimeProvider.baseURL) ===
+            normalizeProviderBaseUrl(provider.baseURL),
+    );
+
+const reconcileProviderInstances = async (settingsProviders: ApiProviderSettings[]) => {
+    const providerResult = await hyaenidae.bridge.request("agent:provider-list");
+    const remainingRuntimeProviders = [...(providerResult.providers ?? [])];
+    const configuredProviders = settingsProviders.filter(hasRuntimeConfig);
+
+    for (const provider of configuredProviders) {
+        const matchingIndex = findMatchingRuntimeProviderIndex(remainingRuntimeProviders, provider);
+
+        if (matchingIndex >= 0) {
+            const [matchingProvider] = remainingRuntimeProviders.splice(matchingIndex, 1);
+
+            if (matchingProvider.apiKey !== provider.apiKey) {
+                await hyaenidae.bridge.request("agent:provider-remove", {
+                    id: matchingProvider.id,
+                });
+                await hyaenidae.bridge.request("agent:provider-create", {
+                    baseURL: provider.baseURL,
+                    apiKey: provider.apiKey,
+                });
+            }
+
+            continue;
+        }
+
+        await hyaenidae.bridge.request("agent:provider-create", {
+            baseURL: provider.baseURL,
+            apiKey: provider.apiKey,
+        });
+    }
+
+    for (const provider of remainingRuntimeProviders) {
+        await hyaenidae.bridge.request("agent:provider-remove", { id: provider.id });
+    }
+};
+
 export const useAgentStore = create<AgentStoreState>((set, get) => ({
     sessions: [],
     providers: [],
@@ -162,10 +230,6 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         }
 
         set({ initialized: true, isLoadingSessions: true, error: null });
-
-        hyaenidae.bridge.on("shell:settings-changed", () => {
-            void get().refreshProviders();
-        });
 
         hyaenidae.bridge.on("agent:chat-response", ({ session, id, message }: AgentStreamItem) => {
             set((state) => {
@@ -370,14 +434,12 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
     },
     refreshProviders: async () => {
         try {
-            const [result, settingsResult] = await Promise.all([
-                hyaenidae.bridge.request("agent:provider-list"),
-                hyaenidae.bridge.request("shell:settings-get"),
-            ]);
-            const providers = buildAgentProviders(
-                result.providers ?? [],
-                normalizeSettings(settingsResult.settings).providers,
-            );
+            const settingsResult = await hyaenidae.bridge.request("shell:settings-get");
+            const settings = normalizeSettings(settingsResult.settings);
+            await reconcileProviderInstances(settings.providers);
+
+            const result = await hyaenidae.bridge.request("agent:provider-list");
+            const providers = buildAgentProviders(result.providers ?? [], settings.providers);
             const selectedProviderId = providers.some(
                 (provider) => provider.id === get().selectedProviderId,
             )
@@ -410,9 +472,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         try {
             const result = await hyaenidae.bridge.request("agent:provider-get-models", { id });
             const models = result.models ?? [];
-            const selectedModel = models.includes(get().selectedModel)
-                ? get().selectedModel
-                : (models[0] ?? get().selectedModel);
+            const selectedModel = pickPreferredModel(models, get().selectedModel);
 
             set({ models, selectedModel });
         } catch (error) {

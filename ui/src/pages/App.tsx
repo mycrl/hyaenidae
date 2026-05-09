@@ -3,6 +3,8 @@ import AgentPanel from "../components/AgentPanel";
 import AgentPanelResizeHandle from "../components/AgentPanelResizeHandle";
 import NavigationBar from "../components/NavigationBar";
 import TabBar from "../components/TabBar";
+import { useAgentStore } from "../state/agent";
+import { useSettingsStore } from "../state/settings";
 import { useTabStore } from "../state/shell";
 
 const AGENT_PANEL_MIN_WIDTH = 320;
@@ -14,6 +16,10 @@ const DEFAULT_NAVIGATION_BAR_HEIGHT = 48;
 
 export default function App() {
     const initializeRpc = useTabStore((state) => state.initializeRpc);
+    const initializeAgentRpc = useAgentStore((state) => state.initializeRpc);
+    const initializeSettingsRpc = useSettingsStore((state) => state.initializeRpc);
+    const settingsProviders = useSettingsStore((state) => state.settings.providers);
+    const refreshProviders = useAgentStore((state) => state.refreshProviders);
     const isAgentPanelOpen = useTabStore((state) => state.isAgentPanelOpen);
     const layoutChanged = useTabStore((state) => state.layoutChanged);
     const [agentPanelWidth, setAgentPanelWidth] = useState(AGENT_PANEL_DEFAULT_WIDTH);
@@ -44,11 +50,26 @@ export default function App() {
         }
 
         rpcInitializedRef.current = true;
-        void initializeRpc().then(() => {
-            // Report one layout after shell RPC initialization.
-            emitLayoutChanged(agentPanelWidth);
-        });
-    }, [agentPanelWidth, emitLayoutChanged, initializeRpc]);
+        void initializeRpc()
+            .then(async () => {
+                await initializeSettingsRpc();
+                await initializeAgentRpc();
+            })
+            .finally(() => {
+                // Report one layout after shell RPC initialization.
+                emitLayoutChanged(agentPanelWidth);
+            });
+    }, [
+        agentPanelWidth,
+        emitLayoutChanged,
+        initializeAgentRpc,
+        initializeRpc,
+        initializeSettingsRpc,
+    ]);
+
+    useEffect(() => {
+        void refreshProviders();
+    }, [refreshProviders, settingsProviders]);
 
     useEffect(() => {
         emitLayoutChanged(agentPanelWidth);

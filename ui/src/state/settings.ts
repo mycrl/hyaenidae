@@ -10,10 +10,6 @@ export interface ApiProviderSettings {
 export interface AppSettings {
     schemaVersion: 1;
     providers: ApiProviderSettings[];
-    agent: {
-        defaultProviderId?: string;
-        defaultModel: string;
-    };
     extra?: Record<string, unknown>;
 }
 
@@ -26,9 +22,6 @@ const toString = (value: unknown, fallback = "") =>
 export const DEFAULT_SETTINGS: AppSettings = {
     schemaVersion: 1,
     providers: [],
-    agent: {
-        defaultModel: "gpt-4.1-mini",
-    },
     extra: {},
 };
 
@@ -49,36 +42,16 @@ export const normalizeSettings = (value: unknown): AppSettings => {
               apiKey: toString(provider.apiKey),
           }))
         : [];
-    const agent = isRecord(record.agent) ? record.agent : {};
     const extra = isRecord(record.extra) ? record.extra : {};
 
     return {
         schemaVersion: 1,
         providers,
-        agent: {
-            ...(typeof agent.defaultProviderId === "string" && agent.defaultProviderId.trim()
-                ? { defaultProviderId: agent.defaultProviderId.trim() }
-                : {}),
-            defaultModel: toString(agent.defaultModel, DEFAULT_SETTINGS.agent.defaultModel),
-        },
         extra,
     };
 };
 
-const hasRuntimeConfig = (provider: { baseURL?: string; apiKey?: string }) =>
-    Boolean(provider.baseURL?.trim() || provider.apiKey?.trim());
-
 const normalizeProviderBaseUrl = (baseURL?: string) => baseURL?.trim() ?? "";
-
-const findMatchingRuntimeProviderIndex = (
-    runtimeProviders: { id: number; baseURL: string; apiKey: string }[],
-    provider: { baseURL: string },
-) =>
-    runtimeProviders.findIndex(
-        (runtimeProvider) =>
-            normalizeProviderBaseUrl(runtimeProvider.baseURL) ===
-            normalizeProviderBaseUrl(provider.baseURL),
-    );
 
 const dedupeSettingsProviders = (settings: AppSettings): AppSettings => {
     const keptProviderIdsByBaseUrl = new Map<string, string>();
@@ -97,17 +70,9 @@ const dedupeSettingsProviders = (settings: AppSettings): AppSettings => {
         return true;
     });
 
-    const defaultProvider = providers.find(
-        (provider) => provider.id === settings.agent.defaultProviderId,
-    );
-
     return {
         ...settings,
         providers,
-        agent: {
-            ...settings.agent,
-            ...(defaultProvider ? {} : { defaultProviderId: undefined }),
-        },
     };
 };
 
@@ -121,30 +86,6 @@ interface SettingsStoreState {
     reload: () => Promise<void>;
     save: (settings: AppSettings) => Promise<AppSettings | null>;
 }
-
-const syncRuntimeProviders = async (settings: AppSettings) => {
-    const providerResult = await hyaenidae.bridge.request("agent:provider-list");
-    const remainingRuntimeProviders = [...(providerResult.providers ?? [])];
-    const configuredProviders = settings.providers.filter(hasRuntimeConfig);
-
-    for (const provider of configuredProviders) {
-        const matchingIndex = findMatchingRuntimeProviderIndex(remainingRuntimeProviders, provider);
-
-        if (matchingIndex >= 0) {
-            remainingRuntimeProviders.splice(matchingIndex, 1);
-            continue;
-        }
-
-        await hyaenidae.bridge.request("agent:provider-create", {
-            baseURL: provider.baseURL,
-            apiKey: provider.apiKey,
-        });
-    }
-
-    for (const provider of remainingRuntimeProviders) {
-        await hyaenidae.bridge.request("agent:provider-remove", { id: provider.id });
-    }
-};
 
 export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
     settings: DEFAULT_SETTINGS,
@@ -170,7 +111,6 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
         try {
             const result = await hyaenidae.bridge.request("shell:settings-get");
             const normalized = normalizeSettings(result.settings);
-            await syncRuntimeProviders(normalized);
             set({
                 settings: normalized,
                 isLoading: false,
@@ -192,7 +132,6 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
 
             const result = await hyaenidae.bridge.request("shell:settings-get");
             const normalized = normalizeSettings(result.settings);
-            await syncRuntimeProviders(normalized);
 
             set({ settings: normalized, isSaving: false, error: null });
             return normalized;
