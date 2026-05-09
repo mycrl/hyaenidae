@@ -8,6 +8,11 @@ export interface AgentActivityEvent {
     data?: unknown;
 }
 
+export interface AgentConversationTurn {
+    role: "user" | "assistant";
+    content: string;
+}
+
 interface AgentRunLike extends AsyncIterable<unknown> {
     completed: Promise<void>;
     state: {
@@ -19,10 +24,14 @@ interface AgentRunLike extends AsyncIterable<unknown> {
 export interface AgentConversationContext {
     conversationId?: string;
     previousResponseId?: string;
+    summary?: string;
+    turns?: AgentConversationTurn[];
 }
 
 // Bridges the SDK's structured run events into app-friendly text and activity events.
 export class AgentRunStream extends EventEmitter {
+    private outputText = "";
+
     constructor(private readonly runResult: AgentRunLike) {
         super();
     }
@@ -40,6 +49,10 @@ export class AgentRunStream extends EventEmitter {
                 ? {}
                 : { previousResponseId: this.runResult.state._previousResponseId }),
         };
+    }
+
+    getOutputText() {
+        return this.outputText.trim();
     }
 
     private async pump() {
@@ -93,6 +106,7 @@ export class AgentRunStream extends EventEmitter {
 
     private handleRawModelEvent(event: { data?: { type?: string; delta?: string } }) {
         if (event.data?.type === "output_text_delta" && typeof event.data.delta === "string") {
+            this.outputText += event.data.delta;
             this.emit("text", event.data.delta);
         }
     }

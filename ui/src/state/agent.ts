@@ -150,6 +150,12 @@ const TOOL_UNFRIENDLY_MODEL_PATTERN =
 
 const PREFERRED_AGENT_MODELS = ["gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini", "gpt-4o"];
 
+const filterAgentModels = (models: string[]) => {
+    const filteredModels = models.filter((model) => !TOOL_UNFRIENDLY_MODEL_PATTERN.test(model));
+
+    return filteredModels.length > 0 ? filteredModels : models;
+};
+
 const pickPreferredModel = (models: string[], currentModel: string) => {
     if (models.includes(currentModel)) {
         return currentModel;
@@ -471,7 +477,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
 
         try {
             const result = await hyaenidae.bridge.request("agent:provider-get-models", { id });
-            const models = result.models ?? [];
+            const models = filterAgentModels(result.models ?? []);
             const selectedModel = pickPreferredModel(models, get().selectedModel);
 
             set({ models, selectedModel });

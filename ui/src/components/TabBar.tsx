@@ -68,15 +68,6 @@ export default function TabBar() {
                     <PlusIcon className="w-4 h-4 mx-auto" />
                 </button>
 
-                <button
-                    onClick={() => createTab(__APP_CONFIG__.settingsUrl)}
-                    title={t("settings.open")}
-                    aria-label={t("settings.open")}
-                    className="h-8 w-8 mb-1 ml-1 flex-shrink-0 rounded-lg border border-transparent text-slate-600 hover:border-slate-300 hover:bg-white transition-colors"
-                >
-                    <Cog6ToothIcon className="w-4 h-4 mx-auto" />
-                </button>
-
                 <div
                     className="flex-1 h-full"
                     style={{ WebkitAppRegion: "drag" } as CSSProperties}
@@ -99,6 +90,16 @@ export default function TabBar() {
                 >
                     <SparklesIcon className="w-4 h-4" />
                     <span className="leading-none">AI</span>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => createTab(__APP_CONFIG__.settingsUrl)}
+                    title={t("settings.open")}
+                    aria-label={t("settings.open")}
+                    className="h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+                >
+                    <Cog6ToothIcon className="w-4 h-4 mx-auto" />
                 </button>
 
                 <div className="h-6 w-px bg-slate-200" />

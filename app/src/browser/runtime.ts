@@ -13,6 +13,16 @@ import { Browser, View } from "./";
 
 const MAX_ELEMENTS = 250;
 const MAX_TEXT_SAMPLE = 4000;
+const REDACTED_TEXT = "[redacted sensitive value]";
+
+const SENSITIVE_FIELD_HINT_PATTERN =
+    /(pass(word)?|pwd|secret|token|api[-_ ]?key|auth|login|sign[-_ ]?in|user(name)?|email|e-mail|phone|mobile|tel|otp|one[-_ ]?time|verification|captcha|sms|card|cvv|cvc|security code|account)/i;
+
+const SENSITIVE_QUERY_PARAM_PATTERN =
+    /^(token|access_token|refresh_token|id_token|code|otp|password|passwd|pwd|secret|api[_-]?key|session|auth|email|phone|username|user)$/i;
+
+const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const BASIC_AUTH_URL_PATTERN = /(https?:\/\/)([^/@\s]+)@/gi;
 
 const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
 
@@ -20,6 +30,138 @@ const tokenize = (value: string) =>
     normalize(value)
         .split(/[^a-z0-9\u4e00-\u9fa5]+/i)
         .filter((token) => token.length >= 2);
+
+const looksSensitiveHint = (value?: string) =>
+    typeof value === "string" && SENSITIVE_FIELD_HINT_PATTERN.test(value);
+
+const sanitizeVisibleText = (value: string) =>
+    value
+        .replace(EMAIL_PATTERN, "[redacted email]")
+        .replace(BASIC_AUTH_URL_PATTERN, "$1[redacted]@");
+
+const sanitizeUrl = (value: string) => {
+    try {
+        const url = new URL(value);
+
+        if (url.username) {
+            url.username = "[redacted]";
+        }
+
+        if (url.password) {
+            url.password = "[redacted]";
+        }
+
+        for (const [key] of url.searchParams.entries()) {
+            if (SENSITIVE_QUERY_PARAM_PATTERN.test(key)) {
+                url.searchParams.set(key, "[redacted]");
+            }
+        }
+
+        return url.toString();
+    } catch {
+        return sanitizeVisibleText(value);
+    }
+};
+
+const sanitizeString = (value: string, parentKey?: string, forceRedact = false) => {
+    if (forceRedact || looksSensitiveHint(parentKey)) {
+        return REDACTED_TEXT;
+    }
+
+    return /^(https?:\/\/)/i.test(value) ? sanitizeUrl(value) : sanitizeVisibleText(value);
+};
+
+const sanitizeUnknown = (value: unknown, parentKey?: string, forceRedact = false): unknown => {
+    if (forceRedact || looksSensitiveHint(parentKey)) {
+        return REDACTED_TEXT;
+    }
+
+    if (Array.isArray(value)) {
+        return value.map((item) => sanitizeUnknown(item, parentKey));
+    }
+
+    if (typeof value === "object" && value !== null) {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, entryValue]) => [
+                key,
+                sanitizeUnknown(entryValue, key, looksSensitiveHint(key)),
+            ]),
+        );
+    }
+
+    if (typeof value === "string") {
+        return sanitizeString(value, parentKey);
+    }
+
+    return value;
+};
+
+const sanitizeAccessibilityNode = (
+    node: BrowserElementNode,
+    inheritedSensitive = false,
+): BrowserElementNode => {
+    const localSensitive =
+        inheritedSensitive ||
+        looksSensitiveHint([node.role, node.name, node.description].filter(Boolean).join(" "));
+
+    return {
+        role: node.role,
+        ...(node.name === undefined ? {} : { name: sanitizeString(node.name) }),
+        ...(node.description === undefined
+            ? {}
+            : { description: sanitizeString(node.description) }),
+        ...(node.value === undefined
+            ? {}
+            : { value: localSensitive ? REDACTED_TEXT : sanitizeString(node.value) }),
+        ...(node.selector === undefined ? {} : { selector: node.selector }),
+        ...(node.children === undefined
+            ? {}
+            : {
+                  children: node.children.map((child) =>
+                      sanitizeAccessibilityNode(child, localSensitive),
+                  ),
+              }),
+    };
+};
+
+const sanitizeDomSnapshot = (
+    snapshot: NonNullable<BrowserDomSnapshot["document"]>,
+): NonNullable<BrowserDomSnapshot["document"]> => ({
+    title: sanitizeString(snapshot.title),
+    url: sanitizeUrl(snapshot.url),
+    textSample: sanitizeVisibleText(snapshot.textSample),
+    elements: snapshot.elements.map((element) => {
+        const isSensitiveElement = looksSensitiveHint(
+            [
+                element.tag,
+                element.role,
+                element.selector,
+                element.text,
+                element.ariaLabel,
+                element.placeholder,
+            ]
+                .filter(Boolean)
+                .join(" "),
+        );
+
+        return {
+            ...element,
+            ...(element.text === undefined ? {} : { text: sanitizeString(element.text) }),
+            ...(element.ariaLabel === undefined
+                ? {}
+                : { ariaLabel: sanitizeString(element.ariaLabel) }),
+            ...(element.value === undefined
+                ? {}
+                : {
+                      value: isSensitiveElement ? REDACTED_TEXT : sanitizeString(element.value),
+                  }),
+            ...(element.href === undefined ? {} : { href: sanitizeUrl(element.href) }),
+            ...(element.placeholder === undefined
+                ? {}
+                : { placeholder: sanitizeString(element.placeholder) }),
+        };
+    }),
+});
 
 class WebContentsDebugger {
     constructor(private readonly webContents: WebContents) {}
@@ -125,7 +267,58 @@ class DomSnapshotReader {
             `(() => {
                 const limit = ${MAX_ELEMENTS};
                 const maxTextLength = ${MAX_TEXT_SAMPLE};
+                const redactedText = ${JSON.stringify(REDACTED_TEXT)};
                 const sanitize = (value) => (value || "").replace(/\s+/g, " ").trim();
+                const sensitivePattern = ${SENSITIVE_FIELD_HINT_PATTERN};
+                const sensitiveAutocompleteValues = new Set([
+                    'username',
+                    'current-password',
+                    'new-password',
+                    'one-time-code',
+                    'cc-name',
+                    'cc-given-name',
+                    'cc-family-name',
+                    'cc-number',
+                    'cc-exp',
+                    'cc-exp-month',
+                    'cc-exp-year',
+                    'cc-csc',
+                    'webauthn',
+                ]);
+                const isSensitiveElement = (element) => {
+                    if (!(element instanceof HTMLElement)) {
+                        return false;
+                    }
+
+                    const hintText = sanitize([
+                        element.getAttribute('name') || '',
+                        element.getAttribute('id') || '',
+                        element.getAttribute('aria-label') || '',
+                        'placeholder' in element && typeof element.placeholder === 'string'
+                            ? element.placeholder
+                            : '',
+                    ].join(' '));
+
+                    if (element instanceof HTMLInputElement) {
+                        const type = sanitize(element.type || '');
+                        const autocomplete = sanitize(element.autocomplete || '');
+                        if (['password', 'email', 'tel', 'hidden'].includes(type)) {
+                            return true;
+                        }
+
+                        if (sensitiveAutocompleteValues.has(autocomplete)) {
+                            return true;
+                        }
+
+                        return sensitivePattern.test([type, autocomplete, hintText].join(' '));
+                    }
+
+                    if (element instanceof HTMLTextAreaElement || element.isContentEditable) {
+                        return sensitivePattern.test(hintText);
+                    }
+
+                    return false;
+                };
                 const cssPath = (element) => {
                     if (!(element instanceof Element)) {
                         return "";
@@ -175,7 +368,17 @@ class DomSnapshotReader {
                         role: element.getAttribute('role') || undefined,
                         text: sanitize(element.textContent || "").slice(0, 200) || undefined,
                         ariaLabel: sanitize(element.getAttribute('aria-label') || "") || undefined,
-                        value: 'value' in element && typeof element.value === 'string' ? sanitize(element.value).slice(0, 200) || undefined : undefined,
+                        value:
+                            'value' in element && typeof element.value === 'string'
+                                ? (() => {
+                                      const value = sanitize(element.value).slice(0, 200);
+                                      if (!value) {
+                                          return undefined;
+                                      }
+
+                                      return isSensitiveElement(element) ? redactedText : value;
+                                  })()
+                                : undefined,
                         href: element instanceof HTMLAnchorElement ? element.href : undefined,
                         placeholder: 'placeholder' in element && typeof element.placeholder === 'string' ? sanitize(element.placeholder).slice(0, 200) || undefined : undefined,
                     })),
@@ -299,24 +502,32 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
 
         return {
             tabId: view.webContents.id,
-            url: view.webContents.getURL(),
-            title: view.webContents.getTitle() || document?.title || "",
-            ...(document === undefined ? {} : { document }),
-            ...(accessibility === undefined ? {} : { accessibility }),
+            url: sanitizeUrl(view.webContents.getURL()),
+            title: sanitizeString(view.webContents.getTitle() || document?.title || ""),
+            ...(document === undefined ? {} : { document: sanitizeDomSnapshot(document) }),
+            ...(accessibility === undefined
+                ? {}
+                : { accessibility: sanitizeAccessibilityNode(accessibility) }),
         };
     }
 
     async captureScreenshot(tabId?: number): Promise<BrowserImageSnapshot> {
         const view = this.requireTab(tabId);
-        const image = await view.webContents.capturePage();
+        const overlayIds = await this.applySensitiveOverlays(view);
 
-        return {
-            tabId: view.webContents.id,
-            mimeType: "image/png",
-            base64: image.toPNG().toString("base64"),
-            width: image.getSize().width,
-            height: image.getSize().height,
-        };
+        try {
+            const image = await view.webContents.capturePage();
+
+            return {
+                tabId: view.webContents.id,
+                mimeType: "image/png",
+                base64: image.toPNG().toString("base64"),
+                width: image.getSize().width,
+                height: image.getSize().height,
+            };
+        } finally {
+            await this.clearSensitiveOverlays(view, overlayIds);
+        }
     }
 
     async groundFromVision(input: {
@@ -344,7 +555,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
 
         return {
             tabId: view.webContents.id,
-            result: await view.webContents.executeJavaScript(script, true),
+            result: sanitizeUnknown(await view.webContents.executeJavaScript(script, true)),
         };
     }
 
@@ -645,11 +856,140 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         });
     }
 
+    private async applySensitiveOverlays(view: View) {
+        return (await view.webContents.executeJavaScript(
+            `(() => {
+                const redactionAttr = 'data-hyaenidae-redaction-id';
+                const redactionText = 'Sensitive field hidden';
+                const sensitivePattern = ${SENSITIVE_FIELD_HINT_PATTERN};
+                const sensitiveAutocompleteValues = new Set([
+                    'username',
+                    'current-password',
+                    'new-password',
+                    'one-time-code',
+                    'cc-name',
+                    'cc-given-name',
+                    'cc-family-name',
+                    'cc-number',
+                    'cc-exp',
+                    'cc-exp-month',
+                    'cc-exp-year',
+                    'cc-csc',
+                    'webauthn',
+                ]);
+                const sanitize = (value) => (value || '').replace(/\s+/g, ' ').trim().toLowerCase();
+                const isSensitiveElement = (element) => {
+                    if (!(element instanceof HTMLElement)) {
+                        return false;
+                    }
+
+                    const hintText = sanitize([
+                        element.getAttribute('name') || '',
+                        element.getAttribute('id') || '',
+                        element.getAttribute('aria-label') || '',
+                        'placeholder' in element && typeof element.placeholder === 'string'
+                            ? element.placeholder
+                            : '',
+                    ].join(' '));
+
+                    const currentValue =
+                        'value' in element && typeof element.value === 'string'
+                            ? element.value.trim()
+                            : element.isContentEditable
+                              ? (element.textContent || '').trim()
+                              : '';
+
+                    if (!currentValue) {
+                        return false;
+                    }
+
+                    if (element instanceof HTMLInputElement) {
+                        const type = sanitize(element.type || '');
+                        const autocomplete = sanitize(element.autocomplete || '');
+                        if (['password', 'email', 'tel', 'hidden'].includes(type)) {
+                            return true;
+                        }
+
+                        if (sensitiveAutocompleteValues.has(autocomplete)) {
+                            return true;
+                        }
+
+                        return sensitivePattern.test([type, autocomplete, hintText].join(' '));
+                    }
+
+                    if (element instanceof HTMLTextAreaElement || element.isContentEditable) {
+                        return sensitivePattern.test(hintText);
+                    }
+
+                    return false;
+                };
+
+                return Array.from(document.querySelectorAll('input, textarea, [contenteditable="true"]'))
+                    .filter((element) => isSensitiveElement(element))
+                    .map((element, index) => {
+                        if (!(element instanceof HTMLElement)) {
+                            return null;
+                        }
+
+                        const rect = element.getBoundingClientRect();
+                        if (rect.width <= 0 || rect.height <= 0) {
+                            return null;
+                        }
+
+                        const overlayId = 'hyaenidae-redaction-' + Date.now() + '-' + index;
+                        const overlay = document.createElement('div');
+                        overlay.setAttribute(redactionAttr, overlayId);
+                        overlay.textContent = redactionText;
+                        overlay.style.position = 'fixed';
+                        overlay.style.left = rect.left + 'px';
+                        overlay.style.top = rect.top + 'px';
+                        overlay.style.width = rect.width + 'px';
+                        overlay.style.height = rect.height + 'px';
+                        overlay.style.zIndex = '2147483647';
+                        overlay.style.pointerEvents = 'none';
+                        overlay.style.display = 'flex';
+                        overlay.style.alignItems = 'center';
+                        overlay.style.justifyContent = 'center';
+                        overlay.style.background = 'rgba(241, 245, 249, 0.96)';
+                        overlay.style.border = '1px solid rgba(148, 163, 184, 0.8)';
+                        overlay.style.borderRadius = '8px';
+                        overlay.style.color = '#475569';
+                        overlay.style.font = '12px sans-serif';
+                        overlay.style.letterSpacing = '0.02em';
+                        document.documentElement.appendChild(overlay);
+                        return overlayId;
+                    })
+                    .filter(Boolean);
+            })()`,
+            true,
+        )) as string[];
+    }
+
+    private async clearSensitiveOverlays(view: View, overlayIds: string[]) {
+        if (overlayIds.length === 0) {
+            return;
+        }
+
+        const serializedOverlayIds = JSON.stringify(overlayIds);
+
+        await view.webContents.executeJavaScript(
+            `(() => {
+                const overlayIds = ${serializedOverlayIds};
+                for (const overlayId of overlayIds) {
+                    document
+                        .querySelector('[data-hyaenidae-redaction-id="' + overlayId + '"]')
+                        ?.remove();
+                }
+            })()`,
+            true,
+        );
+    }
+
     private toSummary(view: View): BrowserTabSummary {
         return {
             id: view.webContents.id,
-            title: view.webContents.getTitle() || "New Tab",
-            url: view.webContents.getURL(),
+            title: sanitizeString(view.webContents.getTitle() || "New Tab"),
+            url: sanitizeUrl(view.webContents.getURL()),
             isFocused: this.browser.currentId === view.webContents.id,
             isLoading: view.webContents.isLoading(),
         };
