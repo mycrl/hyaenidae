@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import AgentPanel from "./components/AgentPanel";
-import AgentPanelResizeHandle from "./components/AgentPanelResizeHandle";
-import NavigationBar from "./components/NavigationBar";
-import TabBar from "./components/TabBar";
-import { useTabStore } from "./state/shell";
+import AgentPanel from "../components/AgentPanel";
+import AgentPanelResizeHandle from "../components/AgentPanelResizeHandle";
+import NavigationBar from "../components/NavigationBar";
+import TabBar from "../components/TabBar";
+import { useTabStore } from "../state/shell";
 
 const AGENT_PANEL_MIN_WIDTH = 320;
 const AGENT_PANEL_DEFAULT_WIDTH = 450;
 const AGENT_PANEL_MAX_WIDTH = 900;
 const AGENT_PANEL_RESIZER_WIDTH = 4;
-const DEFAULT_TAB_BAR_HEIGHT = 48;
+const DEFAULT_TAB_BAR_HEIGHT = 47;
 const DEFAULT_NAVIGATION_BAR_HEIGHT = 48;
 
 export default function App() {
@@ -25,12 +25,13 @@ export default function App() {
         (width: number) => {
             const tabBarHeight =
                 (tabBarRef.current?.offsetHeight ?? DEFAULT_TAB_BAR_HEIGHT) +
-                (navigationBarRef.current?.offsetHeight ?? DEFAULT_NAVIGATION_BAR_HEIGHT);
+                (navigationBarRef.current?.offsetHeight ?? DEFAULT_NAVIGATION_BAR_HEIGHT) +
+                1;
 
             void layoutChanged({
                 tabBarHeight,
                 agentPanelWidth: isAgentPanelOpen
-                    ? Math.round(width + AGENT_PANEL_RESIZER_WIDTH)
+                    ? Math.round(width + AGENT_PANEL_RESIZER_WIDTH + 1)
                     : 0,
             });
         },

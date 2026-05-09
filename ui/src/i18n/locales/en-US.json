@@ -41,10 +41,59 @@
             "agent": "Agent",
             "chat": "Chat"
         },
+        "provider": "Provider",
         "model": "Model",
+        "noProviders": "No providers",
+        "noProvidersConfigured": "No API provider is configured yet. Open Settings to add one.",
+        "failedToLoadModels": "Failed to load provider models.",
         "prompt": "Ask the agent...",
         "send": "Send",
-        "sendMessage": "Send message"
+        "sendMessage": "Send message",
+        "activityLabels": {
+            "reasoningRunning": "Thinking through the next step",
+            "reasoningCompleted": "Finished the current reasoning step",
+            "composing": "Composing response",
+            "agentSwitched": "Switched to {{name}}",
+            "toolCalling": "Calling {{name}}",
+            "toolCompleted": "{{name}} completed"
+        }
+    },
+    "settings": {
+        "open": "Open settings",
+        "title": "Settings",
+        "subtitle": "Manage API providers and keep room for more application settings later.",
+        "loading": "Loading settings...",
+        "saving": "Saving...",
+        "save": "Save settings",
+        "reset": "Reset",
+        "none": "None",
+        "providersHint": "Store multiple API providers here. The agent panel reads from this list and can switch between them.",
+        "addProvider": "Add provider",
+        "removeProvider": "Remove provider",
+        "noProviders": "No providers have been configured yet.",
+        "providerLabel": "Provider",
+        "providerName": "Display name",
+        "providerId": "Settings ID",
+        "providerBaseURL": "Base URL",
+        "providerBaseURLPlaceholder": "http://127.0.0.1:8000/v1",
+        "providerApiKey": "API key",
+        "defaultProvider": "Default provider",
+        "defaultModel": "Default model",
+        "advancedPlaceholder": "This section is reserved for future settings so the page can grow without redesigning the navigation.",
+        "sections": {
+            "providers": {
+                "title": "Providers",
+                "description": "Configure one or more API providers for the agent."
+            },
+            "agent": {
+                "title": "Agent defaults",
+                "description": "Choose which provider and model the chat panel should prefer by default."
+            },
+            "advanced": {
+                "title": "Advanced",
+                "description": "Placeholder for future settings sections."
+            }
+        }
     },
     "common": {
         "now": "Now"

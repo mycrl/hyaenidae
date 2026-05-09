@@ -430,6 +430,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
             button: "left",
             clickCount: 1,
         });
+
         view.webContents.sendInputEvent({
             type: "mouseUp",
             x: Math.round(input.x),

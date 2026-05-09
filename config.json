@@ -1,0 +1,8 @@
+{
+    "defaultTabUrl": "https://google.com",
+    "shellUrl": "http://localhost:5173",
+    "settingsUrl": "http://localhost:5173/#settings",
+    "defaultWidth": 1280,
+    "defaultHeight": 760,
+    "openDevTools": true
+}

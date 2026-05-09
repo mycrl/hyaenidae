@@ -8,6 +8,7 @@ import {
 import MarkdownIt from "markdown-it";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { formatAgentActivity } from "../agent-activity";
 import { useAgentStore } from "../state/agent.ts";
 
 const markdown = new MarkdownIt({
@@ -19,8 +20,6 @@ const markdown = new MarkdownIt({
 export default function AgentPanel() {
     const { t } = useTranslation();
     const [inputValue, setInputValue] = useState("");
-    const [mode, setMode] = useState<"agent" | "chat">("agent");
-    const [model, setModel] = useState("gpt-4.1-mini");
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [expandedActivityMessageIds, setExpandedActivityMessageIds] = useState<number[]>([]);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -35,6 +34,12 @@ export default function AgentPanel() {
     const selectSession = useAgentStore((state) => state.selectSession);
     const sendAgentMessage = useAgentStore((state) => state.sendMessage);
     const stopActiveResponse = useAgentStore((state) => state.stopActiveResponse);
+    const providers = useAgentStore((state) => state.providers);
+    const selectedProviderId = useAgentStore((state) => state.selectedProviderId);
+    const selectProvider = useAgentStore((state) => state.selectProvider);
+    const models = useAgentStore((state) => state.models);
+    const selectedModel = useAgentStore((state) => state.selectedModel);
+    const setSelectedModel = useAgentStore((state) => state.setSelectedModel);
 
     const activeConversation =
         activeSessionId !== null ? conversations[activeSessionId] : undefined;
@@ -71,14 +76,15 @@ export default function AgentPanel() {
 
     const sendMessage = async () => {
         const trimmed = inputValue.trim();
-        if (!trimmed || isResponding) {
+        if (!trimmed || isResponding || selectedProviderId === null) {
             return;
         }
 
         setInputValue("");
         await sendAgentMessage({
             message: trimmed,
-            model,
+            provider: selectedProviderId,
+            model: selectedModel,
         });
     };
 
@@ -240,31 +246,39 @@ export default function AgentPanel() {
                                                         )}
                                                     </div>
                                                 ) : null}
-                                                {message.activities?.map((activity) => (
-                                                    <div
-                                                        key={activity.key}
-                                                        className="text-[11px] leading-5 text-slate-500"
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <span
-                                                                className={[
-                                                                    "inline-block h-1.5 w-1.5 rounded-full",
-                                                                    activity.status === "running"
-                                                                        ? "bg-amber-400"
-                                                                        : "bg-emerald-500",
-                                                                ].join(" ")}
-                                                            />
-                                                            <span className="text-slate-600">
-                                                                {activity.title}
-                                                            </span>
+                                                {message.activities?.map((activity) => {
+                                                    const formatted = formatAgentActivity(
+                                                        activity,
+                                                        t,
+                                                    );
+
+                                                    return (
+                                                        <div
+                                                            key={activity.key}
+                                                            className="text-[11px] leading-5 text-slate-500"
+                                                        >
+                                                            <div className="flex items-center gap-2">
+                                                                <span
+                                                                    className={[
+                                                                        "inline-block h-1.5 w-1.5 rounded-full",
+                                                                        activity.status ===
+                                                                        "running"
+                                                                            ? "bg-amber-400"
+                                                                            : "bg-emerald-500",
+                                                                    ].join(" ")}
+                                                                />
+                                                                <span className="text-slate-600">
+                                                                    {formatted.title}
+                                                                </span>
+                                                            </div>
+                                                            {formatted.detail ? (
+                                                                <p className="mt-0.5 pl-3.5 text-slate-400 break-all">
+                                                                    {formatted.detail}
+                                                                </p>
+                                                            ) : null}
                                                         </div>
-                                                        {activity.detail ? (
-                                                            <p className="mt-0.5 pl-3.5 text-slate-400 break-all">
-                                                                {activity.detail}
-                                                            </p>
-                                                        ) : null}
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         ) : null}
                                     </div>
@@ -324,42 +338,38 @@ export default function AgentPanel() {
                 />
 
                 <div className="mt-2 flex items-center gap-2">
-                    <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5">
-                        <button
-                            type="button"
-                            onClick={() => setMode("agent")}
-                            className={[
-                                "h-7 px-2.5 rounded-md transition-colors",
-                                mode === "agent"
-                                    ? "bg-white text-slate-800 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700",
-                            ].join(" ")}
-                        >
-                            {t("chat.mode.agent")}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setMode("chat")}
-                            className={[
-                                "h-7 px-2.5 rounded-md transition-colors",
-                                mode === "chat"
-                                    ? "bg-white text-slate-800 shadow-sm"
-                                    : "text-slate-500 hover:text-slate-700",
-                            ].join(" ")}
-                        >
-                            {t("chat.mode.chat")}
-                        </button>
-                    </div>
+                    <select
+                        value={selectedProviderId ?? ""}
+                        onChange={(e) => {
+                            void selectProvider(Number(e.target.value));
+                        }}
+                        aria-label={t("chat.provider")}
+                        className="h-8 max-w-[160px] rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-700 outline-none"
+                    >
+                        {providers.length === 0 ? (
+                            <option value="">{t("chat.noProviders")}</option>
+                        ) : null}
+                        {providers.map((provider) => (
+                            <option key={provider.id} value={provider.id}>
+                                {provider.name}
+                            </option>
+                        ))}
+                    </select>
 
                     <select
-                        value={model}
-                        onChange={(e) => setModel(e.target.value)}
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
                         aria-label={t("chat.model")}
-                        className="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-700 outline-none"
+                        className="h-8 max-w-[180px] rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-700 outline-none"
                     >
-                        <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
-                        <option value="gpt-4.1">GPT-4.1</option>
-                        <option value="local-default">Local Default</option>
+                        {models.length === 0 ? (
+                            <option value={selectedModel}>{selectedModel}</option>
+                        ) : null}
+                        {models.map((model) => (
+                            <option key={model} value={model}>
+                                {model}
+                            </option>
+                        ))}
                     </select>
 
                     <button
@@ -373,7 +383,7 @@ export default function AgentPanel() {
 
                             void sendMessage();
                         }}
-                        disabled={isLoadingSessions}
+                        disabled={isLoadingSessions || providers.length === 0}
                         className="ml-auto h-8 px-3 rounded-lg bg-blue-600 text-white flex items-center gap-1.5 justify-center hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:bg-slate-300"
                         aria-label={isResponding ? t("chat.stopResponse") : t("chat.sendMessage")}
                         title={isResponding ? t("chat.stop") : t("chat.send")}

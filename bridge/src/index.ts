@@ -31,8 +31,8 @@ export interface AgentActivityItem extends AgentSession {
     key: string;
     kind: "reasoning" | "tool" | "status";
     status: "running" | "completed";
-    title: string;
-    detail?: string;
+    name: string;
+    data?: unknown;
 }
 
 export interface AgentResult extends AgentSession {
@@ -169,12 +169,12 @@ export interface Api {
     /**
      * Reads the application settings.
      */
-    "shell:settings-read": [void, { settings: unknown }];
+    "shell:settings-get": [void, { settings: unknown }];
 
     /**
      * Writes the application settings.
      */
-    "shell:settings-write": [unknown, void];
+    "shell:settings-set": [{ settings: unknown }, void];
 
     /**
      * Triggers when the application settings are changed.
@@ -249,11 +249,13 @@ export interface Api {
  * processes in the RPC system, including the type of message (request,
  * response, or error) and the associated parameters.
  */
-enum MessageType {
-    Request = "request",
-    Response = "response",
-    Error = "error",
-}
+const MessageType = {
+    Request: "request",
+    Response: "response",
+    Error: "error",
+} as const;
+
+type MessageType = (typeof MessageType)[keyof typeof MessageType];
 
 /**
  * Defines the structure of an RPC message, which includes a unique identifier (id),
@@ -404,7 +406,7 @@ export class BridgeService {
     /**
      * Sends a message for electron ipc channel.
      */
-    send<T extends keyof Api>(method: T, params: Api[T][0]) {
+    send<T extends keyof Api>(method: T, params?: Api[T][0]) {
         this.handler.send(method, params);
     }
 
@@ -431,10 +433,14 @@ export class BridgeRenderer extends BridgeService {
         super(
             {
                 send: (method, message) => {
+                    console.debug("Renderer Sending IPC message:", method, message);
+
                     ipcRenderer.send(method, message);
                 },
                 on: (method, callback) => {
                     callbacks[method] = (_: any, message: any) => {
+                        console.debug("Renderer Received IPC message:", method, message);
+
                         callback(message);
                     };
 
@@ -470,12 +476,16 @@ export class Bridge extends BridgeService {
             {
                 on: (method, callback) => {
                     callbacks[method] = (_: any, message: any) => {
+                        console.debug("Main Received IPC message:", method, message);
+
                         callback(message);
                     };
 
                     webContents.ipc.on(method, callbacks[method]);
                 },
                 send: (method, message) => {
+                    console.debug("Main Sending IPC message:", method, message);
+
                     webContents.send(method, message);
                 },
                 off: (method) => {

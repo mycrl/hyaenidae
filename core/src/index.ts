@@ -1,12 +1,12 @@
 import OpenAI from "openai";
 import { Agent, OpenAIProvider, run } from "@openai/agents";
-import { AgentRunStream, type AgentConversationContext } from "./run-stream";
+import { AgentRunStream, type AgentConversationContext } from "./reponse";
 import { BrowserRuntime } from "./browser";
 import { createTools } from "./tools";
 
 export * from "./browser";
 export * from "./sessions";
-export * from "./run-stream";
+export * from "./reponse";
 
 const AGENT_MAX_TURNS = 30;
 
@@ -66,7 +66,7 @@ export interface ModelAskOptions {
     message: string;
     locale: string;
     conversation?: AgentConversationContext;
-    browser: BrowserRuntime;
+    browserRuntime: BrowserRuntime;
 }
 
 export class ModelProvider {
@@ -85,9 +85,9 @@ export class ModelProvider {
             name: "Hyaenidae Assistant",
             instructions: buildPrompt(INSTRUCTION, options.locale),
             model: await new OpenAIProvider({ openAIClient: this.client }).getModel(options.model),
-            tools: createTools(options.browser, {
+            tools: createTools(options.browserRuntime, {
                 inspect: async ({ prompt, tabId }) => {
-                    const snapshot = await options.browser.captureScreenshot(tabId);
+                    const snapshot = await options.browserRuntime.captureScreenshot(tabId);
                     const response = await this.client.responses.create({
                         model: options.model,
                         input: [
@@ -134,7 +134,6 @@ export class ModelProvider {
                     ? {}
                     : { previousResponseId: options.conversation.previousResponseId }),
             }),
-            options.locale,
         );
 
         stream.start();

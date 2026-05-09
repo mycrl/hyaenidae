@@ -31,7 +31,7 @@ interface ShellStoreState {
     setTabNavState: (id: number, canGoBack: boolean, canGoForward: boolean) => void;
     refreshTabNavState: (id: number) => Promise<void>;
     initializeRpc: () => Promise<void>;
-    createTab: () => Promise<void>;
+    createTab: (url?: string) => Promise<void>;
     focusTabRpc: (id: number) => Promise<void>;
     closeTabRpc: (id: number) => Promise<void>;
     goBack: () => Promise<void>;
@@ -152,7 +152,12 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
 
         get().setTabNavState(id, canGoBack as boolean, canGoForward as boolean);
     },
-    createTab: async () => {
+    createTab: async (url) => {
+        if (url) {
+            await hyaenidae.bridge.request("shell:tab-new", { url });
+            return;
+        }
+
         await hyaenidae.bridge.request("shell:tab-new");
     },
     focusTabRpc: async (id) => {

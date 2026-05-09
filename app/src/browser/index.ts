@@ -1,7 +1,13 @@
 import { BaseWindow, WebContentsView } from "electron";
 import EventEmitter from "node:events";
 import { Layout, Bridge } from "@hyaenidae/bridge";
-import { Env } from "../env";
+import { CONFIG } from "../config";
+import { SettingsManager } from "../settings";
+import { ModelProviderController } from "@hyaenidae/core";
+
+export function isApplicationRegisteredUrl(url: string) {
+    return url == CONFIG.shellUrl || url == CONFIG.settingsUrl;
+}
 
 /**
  * Extended WebContentsView with a built-in RPC channel.
@@ -22,39 +28,46 @@ export class View extends WebContentsView {
  * Manages the shell UI view and all tab content views inside a single BaseWindow.
  */
 export class Browser extends EventEmitter {
-    private layout: Layout = { tabBarHeight: 97, agentPanelWidth: 451 };
+    private layout: Layout = { tabBarHeight: 98, agentPanelWidth: 451 };
 
     public baseWindow: BaseWindow;
     public currentId: number | null = null;
     public tabs: View[] = [];
     public shell: View;
 
-    constructor() {
+    constructor(
+        private readonly settingsManager: SettingsManager,
+        private readonly modelProviders: ModelProviderController,
+    ) {
         super();
 
         this.baseWindow = new BaseWindow({
-            width: Env.defaultShellWidth,
-            height: Env.defaultShellHeight,
+            width: CONFIG.defaultWidth,
+            height: CONFIG.defaultHeight,
             title: "Hyaenidae",
             frame: false,
             autoHideMenuBar: true,
             titleBarStyle: "hidden",
         });
 
+        console.log("Browser view initialized");
+
         this.shell = new View({
             webPreferences: {
-                preload: require.resolve("../../ui/dist/preload.js"),
+                preload: CONFIG.preloadScriptPath,
                 contextIsolation: true,
             },
         });
 
+        console.log("Shell view initialized");
+
         // Create the window frame content view
         {
-            this.shell.webContents.loadURL(Env.shellUri);
+            this.shell.webContents.loadURL(CONFIG.shellUrl);
             this.baseWindow.contentView.addChildView(this.shell);
             this.syncBounds();
 
-            if (Env.openDevTools) {
+            if (CONFIG.openDevTools) {
                 this.shell.webContents.openDevTools({
                     mode: "detach",
                 });
@@ -105,11 +118,26 @@ export class Browser extends EventEmitter {
      * ID.
      */
     async create(url: string = "about:blank") {
+        const isHyaenidaeUrl = isApplicationRegisteredUrl(url);
+
+        console.log("Creating new tab with URL:", url);
+
         const tab = new View({
-            webPreferences: {
-                backgroundThrottling: true,
-            },
+            webPreferences: isHyaenidaeUrl
+                ? {
+                      preload: CONFIG.preloadScriptPath,
+                      contextIsolation: true,
+                  }
+                : {
+                      backgroundThrottling: true,
+                  },
         });
+
+        if (isHyaenidaeUrl && CONFIG.openDevTools) {
+            tab.webContents.openDevTools({
+                mode: "detach",
+            });
+        }
 
         const id = tab.webContents.id;
 
@@ -148,6 +176,49 @@ export class Browser extends EventEmitter {
                 this.create(url);
 
                 return { action: "deny" };
+            });
+
+            tab.bridge.handle("shell:settings-get", async () => {
+                return {
+                    settings: await this.settingsManager.load(),
+                };
+            });
+
+            tab.bridge.handle("shell:settings-set", async ({ settings }) => {
+                await this.settingsManager.restore(settings);
+
+                this.shell.bridge.send("shell:settings-changed");
+            });
+
+            tab.bridge.handle("agent:provider-list", async () => {
+                return {
+                    providers: Object.entries(this.modelProviders.getProviders()).map(
+                        ([id, provider]) => ({
+                            id: Number(id),
+                            apiKey: provider.options.apiKey,
+                            baseURL: provider.options.baseURL,
+                        }),
+                    ),
+                };
+            });
+
+            tab.bridge.handle("agent:provider-get-models", async ({ id }) => {
+                const provider = this.modelProviders.getProvider(id);
+                if (!provider) {
+                    throw new Error(`Model provider with id ${id} not found`);
+                }
+
+                const models = await provider.getModels();
+                return { models };
+            });
+
+            tab.bridge.handle("agent:provider-create", async ({ apiKey, baseURL }) => {
+                const id = this.modelProviders.create({ apiKey, baseURL });
+                return { id };
+            });
+
+            tab.bridge.handle("agent:provider-remove", async ({ id }) => {
+                this.modelProviders.remove(id);
             });
         }
 
@@ -240,10 +311,16 @@ export class Browser extends EventEmitter {
         this.tabs.find((t) => t.webContents.id === id)?.webContents.stop();
     }
 
+    /**
+     * Returns the tab with the given ID, or undefined if not found.
+     */
     getTab(id: number) {
         return this.tabs.find((t) => t.webContents.id === id);
     }
 
+    /**
+     * Returns the currently focused tab, or undefined if no tab is focused.
+     */
     getFocusedTab() {
         return this.currentId == null ? undefined : this.getTab(this.currentId);
     }

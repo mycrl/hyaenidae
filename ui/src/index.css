@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+html,
+body,
+#root {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+}
+
 /* Hide scrollbar in tab strip while keeping scroll functionality */
 .tabs-strip::-webkit-scrollbar {
     display: none;

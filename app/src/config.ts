@@ -1,0 +1,42 @@
+import { readFileSync } from "node:fs";
+
+export type Config = {
+    defaultTabUrl: string;
+    shellUrl: string;
+    settingsUrl: string;
+    defaultWidth: number;
+    defaultHeight: number;
+    openDevTools: boolean;
+    preloadScriptPath: string;
+};
+
+const DEFAULT_CONFIG: Config = {
+    defaultTabUrl: "https://google.com",
+    shellUrl: "http://localhost:5173",
+    settingsUrl: "http://localhost:5173/#settings",
+    defaultWidth: 1280,
+    defaultHeight: 760,
+    openDevTools: true,
+    preloadScriptPath: require.resolve("../../ui/dist/preload.js"),
+};
+
+export let CONFIG: Config = {} as any;
+
+/**
+ * Initializes the application configuration by reading from a JSON file. If the
+ * file cannot be read or parsed, it falls back to default configuration values.
+ *
+ * @param path - The file path to the configuration JSON file.
+ * Defaults to "../../config.json".
+ */
+export function initConfig(path = "../../config.json") {
+    console.log("Initializing configuration from", path);
+
+    try {
+        CONFIG = Object.assign(DEFAULT_CONFIG, JSON.parse(readFileSync(path, "utf-8")));
+    } catch {
+        console.warn("Failed to read configuration file, using default configuration.");
+
+        CONFIG = DEFAULT_CONFIG;
+    }
+}

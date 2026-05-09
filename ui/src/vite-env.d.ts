@@ -6,6 +6,10 @@ declare global {
     const hyaenidae: {
         bridge: BridgeRenderer;
     };
+
+    const __APP_CONFIG__: {
+        settingsUrl: string;
+    };
 }
 
 export {};

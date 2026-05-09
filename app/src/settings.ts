@@ -13,19 +13,29 @@ import { mkdir, writeFile, readFile, stat } from "node:fs/promises";
 export class SettingsManager {
     private settings: any = null;
 
-    constructor(private path = join(app.getPath("userData"), "hyaenidae/settings.json")) {}
+    constructor(private path = join(app.getPath("userData"), "hyaenidae/settings.json")) {
+        console.log("SettingsManager initialized with path:", this.path);
+    }
 
-    async read() {
+    async load() {
+        if (this.settings) {
+            return this.settings;
+        }
+
         try {
             this.settings = JSON.parse(await readFile(this.path, "utf-8"));
         } catch {
+            console.warn("No existing settings found, starting with empty settings.");
+
             this.settings = {};
         }
 
         return this.settings;
     }
 
-    async write(settings: any) {
+    async restore(settings: any) {
+        console.log("Restoring settings:", settings);
+
         this.settings = {
             ...(this.settings || {}),
             ...settings,

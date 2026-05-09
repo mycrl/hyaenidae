@@ -41,10 +41,59 @@
             "agent": "助手",
             "chat": "聊天"
         },
+        "provider": "提供商",
         "model": "模型",
+        "noProviders": "暂无提供商",
+        "noProvidersConfigured": "还没有配置任何 API 提供商，请先打开设置页添加。",
+        "failedToLoadModels": "加载提供商模型失败。",
         "prompt": "请输入你想让 AI 助手做的事...",
         "send": "发送",
-        "sendMessage": "发送消息"
+        "sendMessage": "发送消息",
+        "activityLabels": {
+            "reasoningRunning": "正在分析下一步",
+            "reasoningCompleted": "已完成当前分析步骤",
+            "composing": "正在整理回复",
+            "agentSwitched": "已切换到 {{name}}",
+            "toolCalling": "正在调用 {{name}}",
+            "toolCompleted": "{{name}} 已完成"
+        }
+    },
+    "settings": {
+        "open": "打开设置",
+        "title": "设置",
+        "subtitle": "管理 API 提供商，并为未来更多设置项预留结构。",
+        "loading": "正在加载设置...",
+        "saving": "正在保存...",
+        "save": "保存设置",
+        "reset": "重置",
+        "none": "无",
+        "providersHint": "在这里维护多个 API 提供商。Agent 面板会读取这里的列表，并允许在它们之间切换。",
+        "addProvider": "新增提供商",
+        "removeProvider": "删除提供商",
+        "noProviders": "当前还没有配置任何提供商。",
+        "providerLabel": "提供商",
+        "providerName": "显示名称",
+        "providerId": "设置 ID",
+        "providerBaseURL": "Base URL",
+        "providerBaseURLPlaceholder": "http://127.0.0.1:8000/v1",
+        "providerApiKey": "API Key",
+        "defaultProvider": "默认提供商",
+        "defaultModel": "默认模型",
+        "advancedPlaceholder": "这个区域为未来设置项预留，后续扩展时不需要重做导航结构。",
+        "sections": {
+            "providers": {
+                "title": "提供商",
+                "description": "配置一个或多个给 Agent 使用的 API 提供商。"
+            },
+            "agent": {
+                "title": "Agent 默认值",
+                "description": "选择聊天面板默认优先使用的提供商和模型。"
+            },
+            "advanced": {
+                "title": "高级",
+                "description": "为未来设置分区预留的位置。"
+            }
+        }
     },
     "common": {
         "now": "刚刚"

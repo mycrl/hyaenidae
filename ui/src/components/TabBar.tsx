@@ -1,4 +1,10 @@
-import { GlobeAltIcon, PlusIcon, SparklesIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import {
+    Cog6ToothIcon,
+    GlobeAltIcon,
+    PlusIcon,
+    SparklesIcon,
+    XMarkIcon,
+} from "@heroicons/react/24/outline";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useShellStore } from "../state/shell";
@@ -52,12 +58,23 @@ export default function TabBar() {
                 ))}
 
                 <button
-                    onClick={createTab}
+                    onClick={() => {
+                        void createTab();
+                    }}
                     title={t("tabs.addTab")}
                     aria-label={t("tabs.addTab")}
                     className="h-8 w-8 mb-1 ml-1 flex-shrink-0 rounded-lg border border-transparent text-slate-600 hover:border-slate-300 hover:bg-white transition-colors"
                 >
                     <PlusIcon className="w-4 h-4 mx-auto" />
+                </button>
+
+                <button
+                    onClick={() => createTab(__APP_CONFIG__.settingsUrl)}
+                    title={t("settings.open")}
+                    aria-label={t("settings.open")}
+                    className="h-8 w-8 mb-1 ml-1 flex-shrink-0 rounded-lg border border-transparent text-slate-600 hover:border-slate-300 hover:bg-white transition-colors"
+                >
+                    <Cog6ToothIcon className="w-4 h-4 mx-auto" />
                 </button>
 
                 <div

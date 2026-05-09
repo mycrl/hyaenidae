@@ -1,33 +1,51 @@
 import { app } from "electron";
 
 import {
+    AgentActivityEvent,
     AgentSessionController,
     ModelProviderController,
-    AgentActivityEvent,
 } from "@hyaenidae/core";
 import { ElectronBrowserRuntime } from "./browser/runtime";
 import { Browser } from "./browser";
-import { Env } from "./env";
+import { CONFIG, initConfig } from "./config";
 import { SettingsManager } from "./settings";
 
-const browser = new Browser();
+initConfig();
+
 const settingsManager = new SettingsManager();
-const agentSessions = new AgentSessionController();
 const modelProviders = new ModelProviderController();
+const browser = new Browser(settingsManager, modelProviders);
+const agentSessions = new AgentSessionController();
 const browserRuntime = new ElectronBrowserRuntime(browser);
 
 browser.on("all-tabs-closed", () => {
     app.quit();
 });
 
-browser.shell.bridge.handle("shell:settings-read", async () => {
-    return await settingsManager.read();
+browser.shell.bridge.handle("agent:provider-list", async () => {
+    return {
+        providers: Object.entries(modelProviders.getProviders()).map(([id, provider]) => ({
+            id: Number(id),
+            apiKey: provider.options.apiKey,
+            baseURL: provider.options.baseURL,
+        })),
+    };
 });
 
-browser.shell.bridge.handle("shell:settings-write", async (settings) => {
-    await settingsManager.write(settings);
+browser.shell.bridge.handle("agent:provider-get-models", async ({ id }) => {
+    const provider = modelProviders.getProvider(id);
+    if (!provider) {
+        throw new Error(`Model provider with id ${id} not found`);
+    }
 
-    // "shell:settings-changed"
+    const models = await provider.getModels();
+    return { models };
+});
+
+browser.shell.bridge.handle("shell:settings-get", async () => {
+    return {
+        settings: await settingsManager.load(),
+    };
 });
 
 browser.shell.bridge.handle("shell:minimize", async () => {
@@ -46,10 +64,9 @@ browser.shell.bridge.handle("shell:quit", async () => {
     app.quit();
 });
 
-browser.shell.bridge.handle("shell:tab-new", async () => {
-    return {
-        id: await browser.create(),
-    };
+browser.shell.bridge.handle("shell:tab-new", async ({ url } = {}) => {
+    const id = await browser.create(url);
+    return { id };
 });
 
 browser.shell.bridge.handle("shell:tab-close", async ({ id }) => {
@@ -105,35 +122,6 @@ browser.shell.bridge.handle("agent:session-remove", async ({ id }) => {
     agentSessions.removeSession(id);
 });
 
-browser.shell.bridge.handle("agent:provider-list", async () => {
-    return {
-        providers: Object.entries(modelProviders.getProviders()).map(([key, value]) => ({
-            id: Number(key),
-            apiKey: value.options.apiKey,
-            baseURL: value.options.baseURL,
-        })),
-    };
-});
-
-browser.shell.bridge.handle("agent:provider-get-models", async ({ id }) => {
-    const provider = modelProviders.getProvider(id);
-    if (!provider) {
-        throw new Error(`Model provider with id ${id} not found`);
-    }
-
-    const models = await provider.getModels();
-    return { models };
-});
-
-browser.shell.bridge.handle("agent:provider-create", async ({ apiKey, baseURL }) => {
-    const id = modelProviders.create({ apiKey, baseURL });
-    return { id };
-});
-
-browser.shell.bridge.handle("agent:provider-remove", async ({ id }) => {
-    modelProviders.remove(id);
-});
-
 browser.shell.bridge.handle(
     "agent:chat-ask",
     async ({ provider, session, model, message, locale }) => {
@@ -147,7 +135,7 @@ browser.shell.bridge.handle(
             model,
             message,
             locale,
-            browser: browserRuntime,
+            browserRuntime,
             modelProvider,
         });
 
@@ -201,7 +189,9 @@ browser.shell.bridge.handle(
         if (!isReady) {
             isReady = true;
 
-            await browser.create(Env.defaultTabUrl);
+            console.log("Shell is ready. Creating initial tab with URL:", CONFIG.defaultTabUrl);
+
+            await browser.create(CONFIG.defaultTabUrl);
         }
     });
 }

@@ -1,6 +1,15 @@
 import type { AgentActivityItem, AgentResult, AgentStreamItem } from "@hyaenidae/bridge";
 import { create } from "zustand";
 import i18n from "../i18n";
+import { normalizeSettings, type ApiProviderSettings } from "./settings";
+
+export interface AgentProviderItem {
+    id: number;
+    name: string;
+    settingId?: string;
+    apiKey: string;
+    baseURL: string;
+}
 
 export interface AgentSessionItem {
     id: number;
@@ -21,8 +30,8 @@ export interface AgentActivity {
     key: string;
     kind: "reasoning" | "tool" | "status";
     status: "running" | "completed";
-    title: string;
-    detail?: string;
+    name: string;
+    data?: unknown;
 }
 
 interface AgentConversation {
@@ -34,12 +43,19 @@ interface AgentConversation {
 
 interface AgentStoreState {
     sessions: AgentSessionItem[];
+    providers: AgentProviderItem[];
+    selectedProviderId: number | null;
+    selectedModel: string;
+    models: string[];
     conversations: Record<number, AgentConversation>;
     activeSessionId: number | null;
     initialized: boolean;
     isLoadingSessions: boolean;
     error: string | null;
     initializeRpc: () => Promise<void>;
+    refreshProviders: () => Promise<void>;
+    selectProvider: (id: number) => Promise<void>;
+    setSelectedModel: (model: string) => void;
     createSession: (name?: string) => Promise<number | null>;
     selectSession: (id: number) => void;
     sendMessage: (input: { message: string; provider: number; model: string }) => Promise<void>;
@@ -79,8 +95,62 @@ const ensureConversation = (
     };
 };
 
+const hasRuntimeConfig = (provider: { baseURL?: string; apiKey?: string }) =>
+    Boolean(provider.baseURL?.trim() || provider.apiKey?.trim());
+
+const normalizeProviderBaseUrl = (baseURL?: string) => baseURL?.trim() ?? "";
+
+const consumeMatchingSetting = (
+    settingsProviders: ApiProviderSettings[],
+    runtimeProvider: { baseURL: string },
+) => {
+    const matchingIndex = settingsProviders.findIndex(
+        (provider) =>
+            normalizeProviderBaseUrl(provider.baseURL) ===
+            normalizeProviderBaseUrl(runtimeProvider.baseURL),
+    );
+
+    if (matchingIndex < 0) {
+        return null;
+    }
+
+    const [matchingProvider] = settingsProviders.splice(matchingIndex, 1);
+    return matchingProvider;
+};
+
+const buildAgentProviders = (
+    runtimeProviders: { id: number; baseURL: string; apiKey: string }[],
+    settingsProviders: ApiProviderSettings[],
+): AgentProviderItem[] => {
+    const remainingSettingsProviders = settingsProviders
+        .filter(hasRuntimeConfig)
+        .map((provider) => ({
+            ...provider,
+        }));
+
+    return runtimeProviders.map((provider, index) => {
+        const matchingSetting = consumeMatchingSetting(remainingSettingsProviders, provider);
+
+        return {
+            id: provider.id,
+            settingId: matchingSetting?.id,
+            name:
+                matchingSetting?.name ||
+                matchingSetting?.id ||
+                provider.baseURL ||
+                `Provider ${index + 1}`,
+            baseURL: provider.baseURL,
+            apiKey: provider.apiKey,
+        };
+    });
+};
+
 export const useAgentStore = create<AgentStoreState>((set, get) => ({
     sessions: [],
+    providers: [],
+    selectedProviderId: null,
+    selectedModel: "gpt-4.1-mini",
+    models: [],
     conversations: {},
     activeSessionId: null,
     initialized: false,
@@ -92,6 +162,10 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         }
 
         set({ initialized: true, isLoadingSessions: true, error: null });
+
+        hyaenidae.bridge.on("shell:settings-changed", () => {
+            void get().refreshProviders();
+        });
 
         hyaenidae.bridge.on("agent:chat-response", ({ session, id, message }: AgentStreamItem) => {
             set((state) => {
@@ -259,6 +333,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         });
 
         try {
+            await get().refreshProviders();
             const result = await hyaenidae.bridge.request("agent:session-list");
             const sessions = result.sessions ?? [];
 
@@ -292,6 +367,63 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                 error: error instanceof Error ? error.message : i18n.t("chat.failedToLoadSessions"),
             });
         }
+    },
+    refreshProviders: async () => {
+        try {
+            const [result, settingsResult] = await Promise.all([
+                hyaenidae.bridge.request("agent:provider-list"),
+                hyaenidae.bridge.request("shell:settings-get"),
+            ]);
+            const providers = buildAgentProviders(
+                result.providers ?? [],
+                normalizeSettings(settingsResult.settings).providers,
+            );
+            const selectedProviderId = providers.some(
+                (provider) => provider.id === get().selectedProviderId,
+            )
+                ? get().selectedProviderId
+                : (providers[0]?.id ?? null);
+
+            set({
+                providers,
+                selectedProviderId,
+                error: providers.length === 0 ? i18n.t("chat.noProvidersConfigured") : null,
+            });
+
+            if (selectedProviderId !== null) {
+                await get().selectProvider(selectedProviderId);
+            } else {
+                set({ models: [] });
+            }
+        } catch (error) {
+            set({
+                providers: [],
+                selectedProviderId: null,
+                models: [],
+                error: error instanceof Error ? error.message : i18n.t("chat.failedToLoadModels"),
+            });
+        }
+    },
+    selectProvider: async (id) => {
+        set({ selectedProviderId: id, error: null });
+
+        try {
+            const result = await hyaenidae.bridge.request("agent:provider-get-models", { id });
+            const models = result.models ?? [];
+            const selectedModel = models.includes(get().selectedModel)
+                ? get().selectedModel
+                : (models[0] ?? get().selectedModel);
+
+            set({ models, selectedModel });
+        } catch (error) {
+            set({
+                models: [],
+                error: error instanceof Error ? error.message : i18n.t("chat.failedToLoadModels"),
+            });
+        }
+    },
+    setSelectedModel: (model) => {
+        set({ selectedModel: model });
     },
     createSession: async (name) => {
         try {

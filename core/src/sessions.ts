@@ -1,5 +1,5 @@
 import { ModelProvider, ModelAskOptions } from "./";
-import { AgentConversationContext, AgentRunStream } from "./run-stream.js";
+import { AgentConversationContext, AgentRunStream } from "./reponse";
 
 export interface AgentSessionSummary {
     id: number;
