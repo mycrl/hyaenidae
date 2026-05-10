@@ -1,104 +1,111 @@
+import { z as zod, ZodObject, ZodRawShape } from "zod";
 import { tool } from "@openai/agents";
-import { z } from "zod";
-import { BrowserRuntime } from "./browser";
+import { AgentAskSession } from ".";
+import { extractResponseText } from "./response";
 
-export interface VisionInspector {
-    inspect(input: { prompt: string; tabId?: number }): Promise<{
-        tabId: number;
-        analysis: string;
-        width: number;
-        height: number;
-    }>;
-}
-
-const emptySchema = z.object({});
-const tabIdSchema = z.object({
-    tabId: z.number().describe("The target tab id."),
-});
-
-const optionalTabIdSchema = z.object({
-    tabId: z.number().nullable().describe("Optional tab id. Use null to target the focused tab."),
-});
-
-const withOptional = <T extends z.ZodRawShape, U extends z.ZodRawShape>(
-    base: z.ZodObject<T>,
-    extra: z.ZodObject<U>,
+/**
+ * Helper that merges a base tool schema with extra fields while preserving the
+ * object shape expected by the tool factory.
+ */
+const withOptional = <T extends ZodRawShape, U extends ZodRawShape>(
+    base: ZodObject<T>,
+    extra: ZodObject<U>,
 ) => base.extend(extra.shape);
 
-// Keep tool definitions centralized so the agent's browser capability surface stays explicit.
-export const createTools = (browser: BrowserRuntime, visionInspector: VisionInspector) => [
+/**
+ * Creates the browser tool set exposed to the agent runtime.
+ */
+export const createTools = (agentAskSession: AgentAskSession) => [
     tool({
         name: "list_tabs",
         description: "List all open browser tabs with focus and loading state.",
-        parameters: emptySchema,
+        parameters: zod.object({}),
         execute: async () => {
-            return { tabs: await browser.listTabs() };
+            return { tabs: await agentAskSession.browserRuntime.listTabs() };
         },
     }),
     tool({
         name: "open_tab",
         description: "Open a new browser tab and optionally load a URL.",
-        parameters: z.object({
-            url: z
+        parameters: zod.object({
+            url: zod
                 .string()
                 .nullable()
                 .describe("Optional URL to load in the new tab. Use null for a blank tab."),
         }),
         execute: async ({ url }) => {
-            return { tab: await browser.openTab(url ?? undefined) };
+            return { tab: await agentAskSession.browserRuntime.openTab(url ?? undefined) };
         },
     }),
     tool({
         name: "focus_tab",
         description: "Focus an existing tab so subsequent actions target it.",
-        parameters: tabIdSchema,
+        parameters: zod.object({
+            tabId: zod.number().describe("The target tab id."),
+        }),
         execute: async ({ tabId }) => ({
-            tab: await browser.focusTab(tabId),
+            tab: await agentAskSession.browserRuntime.focusTab(tabId),
         }),
     }),
     tool({
         name: "close_tab",
         description: "Close a browser tab that is no longer needed.",
-        parameters: tabIdSchema,
+        parameters: zod.object({
+            tabId: zod.number().describe("The target tab id."),
+        }),
         execute: async ({ tabId }) => {
-            await browser.closeTab(tabId);
+            await agentAskSession.browserRuntime.closeTab(tabId);
+
             return { ok: true, tabId };
         },
     }),
     tool({
         name: "load_url",
         description: "Navigate a tab to a URL.",
-        parameters: tabIdSchema.extend({
-            url: z.string().describe("The URL to load."),
-        }),
+        parameters: zod
+            .object({
+                tabId: zod.number().describe("The target tab id."),
+            })
+            .extend({
+                url: zod.string().describe("The URL to load."),
+            }),
         execute: async ({ tabId, url }) => ({
-            tab: await browser.load(tabId, url),
+            tab: await agentAskSession.browserRuntime.load(tabId, url),
         }),
     }),
     tool({
         name: "reload_tab",
         description: "Reload a tab.",
-        parameters: tabIdSchema,
+        parameters: zod.object({
+            tabId: zod.number().describe("The target tab id."),
+        }),
         execute: async ({ tabId }) => {
-            await browser.reload(tabId);
+            await agentAskSession.browserRuntime.reload(tabId);
+
             return { ok: true, tabId };
         },
     }),
     tool({
         name: "go_back",
         description: "Navigate backward in tab history.",
-        parameters: tabIdSchema,
+        parameters: zod.object({
+            tabId: zod.number().describe("The target tab id."),
+        }),
         execute: async ({ tabId }) => {
-            await browser.goBack(tabId);
+            await agentAskSession.browserRuntime.goBack(tabId);
+
             return { ok: true, tabId };
         },
     }),
     tool({
         name: "go_forward",
         description: "Navigate forward in tab history.",
-        parameters: tabIdSchema,
+        parameters: zod.object({
+            tabId: zod.number().describe("The target tab id."),
+        }),
         execute: async ({ tabId }) => {
-            await browser.goForward(tabId);
+            await agentAskSession.browserRuntime.goForward(tabId);
+
             return { ok: true, tabId };
         },
     }),
@@ -106,40 +113,97 @@ export const createTools = (browser: BrowserRuntime, visionInspector: VisionInsp
         name: "snapshot_dom",
         description:
             "Read the current page using a compact DOM snapshot plus accessibility data. Good for selectors and semantic structure, but it may miss visually obvious answer cards or rich widgets. If the snapshot does not answer the question and the missing information may be visible on screen but underrepresented in DOM mode, use inspect_vision.",
-        parameters: optionalTabIdSchema,
-        execute: async ({ tabId }) => browser.snapshotDom(tabId ?? undefined),
+        parameters: zod.object({
+            tabId: zod
+                .number()
+                .nullable()
+                .describe("Optional tab id. Use null to target the focused tab."),
+        }),
+        execute: async ({ tabId }) =>
+            agentAskSession.browserRuntime.snapshotDom(tabId ?? undefined),
     }),
     tool({
         name: "inspect_vision",
         description:
             "Capture a screenshot and inspect what is visibly rendered on the page. Use this for search result answer cards, weather widgets, charts, maps, popovers, canvas content, or when compact DOM data is insufficient or ambiguous.",
         parameters: withOptional(
-            optionalTabIdSchema,
-            z.object({
-                prompt: z
+            zod.object({
+                tabId: zod
+                    .number()
+                    .nullable()
+                    .describe("Optional tab id. Use null to target the focused tab."),
+            }),
+            zod.object({
+                prompt: zod
                     .string()
                     .describe(
                         "What to inspect in the screenshot, such as 'read the visible weather card for New York and summarize the current conditions' or 'find the primary login button and describe nearby text'.",
                     ),
             }),
         ),
-        execute: async ({ tabId, prompt }) =>
-            visionInspector.inspect(tabId == null ? { prompt } : { prompt, tabId }),
+        execute: async ({ tabId, prompt }) => {
+            const snapshot = await agentAskSession.browserRuntime.captureScreenshot(
+                tabId ?? undefined,
+            );
+
+            const response = await agentAskSession.client.responses.create({
+                model: agentAskSession.model,
+                input: [
+                    {
+                        role: "user",
+                        content: [
+                            {
+                                type: "input_text",
+                                text: [
+                                    "You are inspecting a browser screenshot for a browser automation agent.",
+                                    `Write the analysis in ${agentAskSession.locale} unless the user explicitly asked for another language.`,
+                                    "Answer concisely with actionable observations.",
+                                    prompt,
+                                ].join("\n"),
+                            },
+                            {
+                                type: "input_image",
+                                image_url: `data:${snapshot.mimeType};base64,${snapshot.base64}`,
+                                detail: "auto",
+                            },
+                        ],
+                    },
+                ],
+            });
+
+            return {
+                tabId: snapshot.tabId,
+                width: snapshot.width,
+                height: snapshot.height,
+                analysis: extractResponseText(response),
+            };
+        },
     }),
     tool({
         name: "capture_vision",
         description: "Capture a raw screenshot for debugging or external inspection.",
-        parameters: optionalTabIdSchema,
-        execute: async ({ tabId }) => browser.captureScreenshot(tabId ?? undefined),
+        parameters: zod.object({
+            tabId: zod
+                .number()
+                .nullable()
+                .describe("Optional tab id. Use null to target the focused tab."),
+        }),
+        execute: async ({ tabId }) =>
+            agentAskSession.browserRuntime.captureScreenshot(tabId ?? undefined),
     }),
     tool({
         name: "ground_from_vision",
         description:
             "Resolve a visual description to likely DOM selectors or targets before clicking or typing. The returned point is only a backup when DOM selectors fail.",
         parameters: withOptional(
-            optionalTabIdSchema,
-            z.object({
-                description: z
+            zod.object({
+                tabId: zod
+                    .number()
+                    .nullable()
+                    .describe("Optional tab id. Use null to target the focused tab."),
+            }),
+            zod.object({
+                description: zod
                     .string()
                     .describe(
                         "Human description of the visual target, such as 'blue Sign in button in header'.",
@@ -147,7 +211,7 @@ export const createTools = (browser: BrowserRuntime, visionInspector: VisionInsp
             }),
         ),
         execute: async ({ tabId, description }) => ({
-            matches: await browser.groundFromVision(
+            matches: await agentAskSession.browserRuntime.groundFromVision(
                 tabId == null ? { description } : { tabId, description },
             ),
         }),
@@ -157,15 +221,20 @@ export const createTools = (browser: BrowserRuntime, visionInspector: VisionInsp
         description:
             "Run a short script inside the tab to inspect or automate page state. Prefer read-only scripts unless an explicit mutation is needed.",
         parameters: withOptional(
-            optionalTabIdSchema,
-            z.object({
-                script: z
+            zod.object({
+                tabId: zod
+                    .number()
+                    .nullable()
+                    .describe("Optional tab id. Use null to target the focused tab."),
+            }),
+            zod.object({
+                script: zod
                     .string()
                     .describe(
                         "JavaScript source evaluated in the page context. Return structured JSON-safe data when possible.",
                     ),
-                args: z
-                    .array(z.unknown())
+                args: zod
+                    .array(zod.unknown())
                     .nullable()
                     .describe(
                         "Optional arguments passed to the script. Use null when no arguments are needed.",
@@ -173,7 +242,7 @@ export const createTools = (browser: BrowserRuntime, visionInspector: VisionInsp
             }),
         ),
         execute: async ({ tabId, script, args }) =>
-            browser.runScript(
+            agentAskSession.browserRuntime.runScript(
                 tabId == null
                     ? args == null
                         ? { script }
@@ -188,31 +257,36 @@ export const createTools = (browser: BrowserRuntime, visionInspector: VisionInsp
         description:
             "Perform a concrete DOM-grounded page action such as click, type, or scroll. Prefer this over point-based actions.",
         parameters: withOptional(
-            optionalTabIdSchema,
-            z.object({
-                action: z.enum(["click", "type", "scroll"]).describe("The action to perform."),
-                selector: z
+            zod.object({
+                tabId: zod
+                    .number()
+                    .nullable()
+                    .describe("Optional tab id. Use null to target the focused tab."),
+            }),
+            zod.object({
+                action: zod.enum(["click", "type", "scroll"]).describe("The action to perform."),
+                selector: zod
                     .string()
                     .nullable()
                     .describe(
                         "A CSS selector for click or type actions. Use null when not applicable.",
                     ),
-                text: z
+                text: zod
                     .string()
                     .nullable()
                     .describe("Text to type when action is type. Use null otherwise."),
-                direction: z
+                direction: zod
                     .enum(["up", "down"])
                     .nullable()
                     .describe("Scroll direction when action is scroll. Use null otherwise."),
-                amount: z
+                amount: zod
                     .number()
                     .nullable()
                     .describe("Optional scroll amount in pixels. Use null for the default amount."),
             }),
         ),
         execute: async ({ tabId, action, selector, text, direction, amount }) =>
-            browser.act({
+            agentAskSession.browserRuntime.act({
                 action,
                 ...(tabId == null ? {} : { tabId }),
                 ...(selector == null ? {} : { selector }),
@@ -226,12 +300,17 @@ export const createTools = (browser: BrowserRuntime, visionInspector: VisionInsp
         description:
             "Fallback action for approximate viewport coordinates. Only use this after DOM selectors, AX clues, and grounded DOM targets fail.",
         parameters: withOptional(
-            optionalTabIdSchema,
-            z.object({
-                action: z.enum(["click", "type"]).describe("The fallback action to perform."),
-                x: z.number().describe("Viewport x coordinate in CSS pixels."),
-                y: z.number().describe("Viewport y coordinate in CSS pixels."),
-                text: z
+            zod.object({
+                tabId: zod
+                    .number()
+                    .nullable()
+                    .describe("Optional tab id. Use null to target the focused tab."),
+            }),
+            zod.object({
+                action: zod.enum(["click", "type"]).describe("The fallback action to perform."),
+                x: zod.number().describe("Viewport x coordinate in CSS pixels."),
+                y: zod.number().describe("Viewport y coordinate in CSS pixels."),
+                text: zod
                     .string()
                     .nullable()
                     .describe(
@@ -240,7 +319,7 @@ export const createTools = (browser: BrowserRuntime, visionInspector: VisionInsp
             }),
         ),
         execute: async ({ tabId, action, x, y, text }) =>
-            browser.actAtPoint({
+            agentAskSession.browserRuntime.actAtPoint({
                 action,
                 x,
                 y,

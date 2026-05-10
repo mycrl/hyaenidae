@@ -1,44 +1,74 @@
-import { ModelProvider, ModelAskOptions } from "./";
-import { AgentConversationContext, AgentConversationTurn, AgentRunStream } from "./reponse";
+import { BaseAskOptions } from "./";
+import { AgentSessionContextCompressor } from "./compressor";
+import { ModelProvider } from "./model";
+import { AgentConversationContext, AgentConversationTurn, AgentRunStream } from "./response";
 
 const MAX_STORED_TURNS = 4;
 
+/**
+ * Keeps only the most recent turns that should be persisted on the session.
+ */
 const trimTurns = (turns: AgentConversationTurn[]) => turns.slice(-MAX_STORED_TURNS);
 
+/**
+ * Lightweight session entry shown in the UI session list.
+ */
 export interface AgentSessionSummary {
     id: number;
     name: string;
 }
 
+/**
+ * Full in-memory session record including resumable conversation state.
+ */
 interface AgentSessionState extends AgentSessionSummary {
     conversation: AgentConversationContext;
 }
 
-export interface AgentRunRequest extends ModelAskOptions {
+/**
+ * Ask payload augmented with session and provider ownership details.
+ */
+export interface AgentRunRequest extends BaseAskOptions {
     session: number;
     modelProvider: ModelProvider;
 }
 
+/**
+ * Handle returned immediately after starting a streamed agent run.
+ */
 export interface AgentRunResult {
     id: number;
     streamPromise: Promise<AgentRunStream>;
 }
 
+/**
+ * Resolved form of an agent run handle once the stream has been created.
+ */
 export interface AgentRunStreamResult {
     id: number;
     stream: AgentRunStream;
 }
 
+/**
+ * Owns the lifecycle of chat sessions and keeps short resumable context per
+ * session between agent runs.
+ */
 export class AgentSessionController {
     private askCounter = 0;
     private readonly sessions: AgentSessionState[] = [];
 
     constructor() {}
 
+    /**
+     * Returns the list of known sessions for navigation and selection.
+     */
     listSessions() {
         return this.sessions.map(({ id, name }) => ({ id, name }));
     }
 
+    /**
+     * Creates a new session with an optional display name.
+     */
     createSession(name?: string) {
         const id = this.sessions.length;
         const session = {
@@ -52,6 +82,9 @@ export class AgentSessionController {
         return session;
     }
 
+    /**
+     * Removes a session and its stored conversation state.
+     */
     removeSession(id: number) {
         const index = this.sessions.findIndex((item) => item.id === id);
         if (index !== -1) {
@@ -59,6 +92,10 @@ export class AgentSessionController {
         }
     }
 
+    /**
+     * Starts a streamed agent run for a session and updates session state when
+     * the run completes.
+     */
     ask(request: AgentRunRequest): AgentRunResult {
         const session = this.assertSession(request.session);
         const id = this.askCounter++;
@@ -107,10 +144,13 @@ export class AgentSessionController {
                         turns: trimTurns(completedTurns),
                     };
 
-                    void request.modelProvider
-                        .compressConversation({
-                            model: request.model,
-                            locale: request.locale,
+                    const agentSessionContextCompressor = new AgentSessionContextCompressor({
+                        ...request,
+                        client: request.modelProvider.getClient(),
+                    });
+
+                    agentSessionContextCompressor
+                        .compress({
                             ...(activeSession.conversation.summary === undefined
                                 ? {}
                                 : { previousSummary: activeSession.conversation.summary }),
@@ -144,6 +184,9 @@ export class AgentSessionController {
         };
     }
 
+    /**
+     * Resolves a session id or throws when the caller refers to an unknown session.
+     */
     private assertSession(id: number) {
         const session = this.sessions.find((item) => item.id === id);
         if (!session) {

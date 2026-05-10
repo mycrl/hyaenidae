@@ -1,5 +1,8 @@
 import EventEmitter from "node:events";
 
+/**
+ * UI-facing activity item emitted while an agent run is progressing.
+ */
 export interface AgentActivityEvent {
     key: string;
     kind: "reasoning" | "tool" | "status";
@@ -8,11 +11,17 @@ export interface AgentActivityEvent {
     data?: unknown;
 }
 
+/**
+ * Minimal persisted turn shape used for prompt history and session summaries.
+ */
 export interface AgentConversationTurn {
     role: "user" | "assistant";
     content: string;
 }
 
+/**
+ * Internal shape required from the SDK run object consumed by AgentRunStream.
+ */
 interface AgentRunLike extends AsyncIterable<unknown> {
     completed: Promise<void>;
     state: {
@@ -21,6 +30,9 @@ interface AgentRunLike extends AsyncIterable<unknown> {
     };
 }
 
+/**
+ * Resumable conversation metadata stored between streamed agent invocations.
+ */
 export interface AgentConversationContext {
     conversationId?: string;
     previousResponseId?: string;
@@ -28,7 +40,10 @@ export interface AgentConversationContext {
     turns?: AgentConversationTurn[];
 }
 
-// Bridges the SDK's structured run events into app-friendly text and activity events.
+/**
+ * Adapts the OpenAI Agents run stream into plain text chunks and coarse-grained
+ * activity events that the application can render incrementally.
+ */
 export class AgentRunStream extends EventEmitter {
     private outputText = "";
 
@@ -36,10 +51,16 @@ export class AgentRunStream extends EventEmitter {
         super();
     }
 
+    /**
+     * Starts consuming the underlying async run stream.
+     */
     start() {
-        void this.pump();
+        this.pump();
     }
 
+    /**
+     * Returns the conversation identifiers needed to continue this run later.
+     */
     getConversationContext(): AgentConversationContext {
         return {
             ...(this.runResult.state._conversationId === undefined
@@ -51,10 +72,16 @@ export class AgentRunStream extends EventEmitter {
         };
     }
 
+    /**
+     * Returns the accumulated assistant text emitted so far.
+     */
     getOutputText() {
         return this.outputText.trim();
     }
 
+    /**
+     * Drains the SDK stream and republishes terminal events for the app layer.
+     */
     private async pump() {
         try {
             for await (const event of this.runResult) {
@@ -68,6 +95,9 @@ export class AgentRunStream extends EventEmitter {
         }
     }
 
+    /**
+     * Routes a raw SDK event to the appropriate local handler.
+     */
     private handleEvent(event: unknown) {
         if (typeof event !== "object" || event === null || !("type" in event)) {
             return;
@@ -77,20 +107,14 @@ export class AgentRunStream extends EventEmitter {
 
         if (eventType === "raw_model_stream_event") {
             this.handleRawModelEvent(event as { data?: { type?: string; delta?: string } });
-            return;
-        }
-
-        if (eventType === "run_item_stream_event") {
+        } else if (eventType === "run_item_stream_event") {
             this.handleRunItemEvent(
                 event as {
                     name?: string;
                     item?: { toJSON?: () => { rawItem?: Record<string, unknown> } };
                 },
             );
-            return;
-        }
-
-        if (eventType === "agent_updated_stream_event") {
+        } else if (eventType === "agent_updated_stream_event") {
             const agentName = (event as { agent?: { name?: string } }).agent?.name;
             if (agentName) {
                 this.emitActivity({
@@ -104,6 +128,9 @@ export class AgentRunStream extends EventEmitter {
         }
     }
 
+    /**
+     * Handles incremental text deltas from the model stream.
+     */
     private handleRawModelEvent(event: { data?: { type?: string; delta?: string } }) {
         if (event.data?.type === "output_text_delta" && typeof event.data.delta === "string") {
             this.outputText += event.data.delta;
@@ -111,6 +138,10 @@ export class AgentRunStream extends EventEmitter {
         }
     }
 
+    /**
+     * Translates structured run items such as reasoning and tool activity into
+     * UI-facing activity notifications.
+     */
     private handleRunItemEvent(event: {
         name?: string;
         item?: { toJSON?: () => { rawItem?: Record<string, unknown> } };
@@ -128,20 +159,14 @@ export class AgentRunStream extends EventEmitter {
                 status: "running",
                 name: "reasoning_started",
             });
-            return;
-        }
-
-        if (name === "message_output_created") {
+        } else if (name === "message_output_created") {
             this.emitActivity({
                 key: `message:${Date.now()}`,
                 kind: "status",
                 status: "running",
                 name: "message_composing",
             });
-            return;
-        }
-
-        if (name === "tool_called") {
+        } else if (name === "tool_called") {
             const toolName = typeof rawItem.name === "string" ? rawItem.name : "tool";
             this.emitActivity({
                 key: `tool:${String(rawItem.callId ?? rawItem.call_id ?? toolName)}`,
@@ -153,10 +178,7 @@ export class AgentRunStream extends EventEmitter {
                     arguments: rawItem.arguments,
                 },
             });
-            return;
-        }
-
-        if (name === "tool_output") {
+        } else if (name === "tool_output") {
             const toolName = typeof rawItem.name === "string" ? rawItem.name : "tool";
             this.emitActivity({
                 key: `tool:${String(rawItem.callId ?? rawItem.call_id ?? toolName)}`,
@@ -171,7 +193,36 @@ export class AgentRunStream extends EventEmitter {
         }
     }
 
+    /**
+     * Emits a normalized activity event for app consumers.
+     */
     private emitActivity(activity: AgentActivityEvent) {
         this.emit("activity", activity);
     }
+}
+
+/**
+ * Extracts the final human-readable text body from a Responses API payload.
+ */
+export function extractResponseText(response: unknown) {
+    if (typeof response !== "object" || response === null) {
+        return "";
+    }
+
+    const outputText = (response as { output_text?: string }).output_text;
+    if (typeof outputText === "string" && outputText.length > 0) {
+        return outputText;
+    }
+
+    const output = (response as { output?: Array<{ content?: Array<{ text?: string }> }> }).output;
+    if (!Array.isArray(output)) {
+        return "";
+    }
+
+    return output
+        .flatMap((item) => item.content ?? [])
+        .map((item) => item.text)
+        .filter((item): item is string => typeof item === "string" && item.length > 0)
+        .join("\n")
+        .trim();
 }

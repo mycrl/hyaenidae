@@ -1,6 +1,11 @@
-// Shared browser capabilities used by the agent runtime, UI, and Electron adapter.
-// Keep this file focused on contracts so the implementation can stay in app/.
+/**
+ * Shared browser capabilities used by the agent runtime, UI, and Electron adapter.
+ * Keep this file focused on contracts so the implementation can stay in app/.
+ */
 
+/**
+ * Lightweight summary of a browser tab exposed to the agent and UI layers.
+ */
 export interface BrowserTabSummary {
     // Stable numeric identifier for the tab, used across RPC and session state.
     id: number;
@@ -14,6 +19,9 @@ export interface BrowserTabSummary {
     isLoading: boolean;
 }
 
+/**
+ * Recursive accessibility-oriented node used to describe visible page structure.
+ */
 export interface BrowserElementNode {
     // Accessibility role such as button, link, textbox, or heading.
     role: string;
@@ -29,6 +37,9 @@ export interface BrowserElementNode {
     children?: BrowserElementNode[];
 }
 
+/**
+ * Combined DOM and accessibility snapshot captured from the current page.
+ */
 export interface BrowserDomSnapshot {
     // The tab this snapshot was captured from.
     tabId: number;
@@ -75,6 +86,9 @@ export interface BrowserDomSnapshot {
     accessibility?: BrowserElementNode;
 }
 
+/**
+ * Encoded screenshot payload returned by the browser runtime.
+ */
 export interface BrowserImageSnapshot {
     // The tab this screenshot came from.
     tabId: number;
@@ -88,6 +102,9 @@ export interface BrowserImageSnapshot {
     height: number;
 }
 
+/**
+ * Candidate interaction target grounded from visual inspection.
+ */
 export interface BrowserGroundingTarget {
     // The tab this grounded target belongs to.
     tabId: number;
@@ -110,6 +127,9 @@ export interface BrowserGroundingTarget {
     confidence: "low" | "medium" | "high";
 }
 
+/**
+ * Raw result returned from evaluating a script inside a browser tab.
+ */
 export interface BrowserScriptResult {
     // The tab that executed the script.
     tabId: number;
@@ -117,6 +137,9 @@ export interface BrowserScriptResult {
     result: unknown;
 }
 
+/**
+ * Outcome of a browser action such as click, typing, or scrolling.
+ */
 export interface BrowserActionResult {
     // The tab where the action was attempted.
     tabId: number;
@@ -128,49 +151,84 @@ export interface BrowserActionResult {
     details?: string;
 }
 
+/**
+ * Browser control surface consumed by the agent tooling layer.
+ */
 export interface BrowserRuntime {
-    // Tab lifecycle and navigation primitives.
-    // These are the high-level controls the agent uses to manage browser context.
-    // Returns all known tabs, including the focused tab and loading state.
+    /**
+     * Lists every known tab together with focus and loading state.
+     */
     listTabs(): Promise<BrowserTabSummary[]>;
-    // Returns the currently focused tab, or null when no browser tab is active.
+
+    /**
+     * Returns the currently focused tab when one is available.
+     */
     getFocusedTab(): Promise<BrowserTabSummary | null>;
-    // Opens a new tab and optionally loads a URL into it.
+
+    /**
+     * Opens a new tab and optionally navigates it to an initial URL.
+     */
     openTab(url?: string): Promise<BrowserTabSummary>;
-    // Closes the specified tab and releases its browser resources.
+
+    /**
+     * Closes an existing tab and releases its backing resources.
+     */
     closeTab(tabId: number): Promise<void>;
-    // Moves focus to the specified tab and returns its latest summary.
+
+    /**
+     * Moves browser focus to the requested tab.
+     */
     focusTab(tabId: number): Promise<BrowserTabSummary>;
-    // Navigates the specified tab to a new URL.
+
+    /**
+     * Navigates a tab to a new URL and returns its latest summary.
+     */
     load(tabId: number, url: string): Promise<BrowserTabSummary>;
-    // Reloads the current page in the specified tab.
+
+    /**
+     * Reloads the current document in a tab.
+     */
     reload(tabId: number): Promise<void>;
-    // Navigates the specified tab back in its history, if possible.
+
+    /**
+     * Steps backward through the tab navigation history.
+     */
     goBack(tabId: number): Promise<void>;
-    // Navigates the specified tab forward in its history, if possible.
+
+    /**
+     * Steps forward through the tab navigation history.
+     */
     goForward(tabId: number): Promise<void>;
 
-    // Read-only inspection surfaces.
-    // Prefer these before acting, because they let the agent reason without mutating the page.
-    // Produces a compact DOM and accessibility snapshot for page reasoning.
+    /**
+     * Captures a compact DOM and accessibility snapshot for reasoning.
+     */
     snapshotDom(tabId?: number): Promise<BrowserDomSnapshot>;
-    // Captures a screenshot for visual inspection and grounding.
+    /**
+     * Captures a screenshot of the visible page for visual inspection.
+     */
     captureScreenshot(tabId?: number): Promise<BrowserImageSnapshot>;
-    // Uses the screenshot or visual context to suggest candidate targets for a text description.
+
+    /**
+     * Resolves a textual visual description into likely page targets.
+     */
     groundFromVision(input: {
         tabId?: number;
         description: string;
     }): Promise<BrowserGroundingTarget[]>;
 
-    // Direct execution surfaces used for helper scripts and fallback interaction.
-    // These are escape hatches when inspection is not sufficient or the page requires a stronger primitive.
-    // Executes a script inside the tab context and returns its result.
+    /**
+     * Executes JavaScript inside the tab context.
+     */
     runScript(input: {
         tabId?: number;
         script: string;
         args?: unknown[];
     }): Promise<BrowserScriptResult>;
-    // Performs a DOM-first action such as click, type, or scroll.
+
+    /**
+     * Performs a selector-based DOM action against the page.
+     */
     act(input: {
         tabId?: number;
         action: "click" | "type" | "scroll";
@@ -179,7 +237,10 @@ export interface BrowserRuntime {
         direction?: "up" | "down";
         amount?: number;
     }): Promise<BrowserActionResult>;
-    // Performs a fallback action at a screen coordinate when selector-based control is not enough.
+
+    /**
+     * Performs a coordinate-based fallback action when DOM targeting fails.
+     */
     actAtPoint(input: {
         tabId?: number;
         action: "click" | "type";
