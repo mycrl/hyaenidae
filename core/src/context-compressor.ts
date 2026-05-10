@@ -1,5 +1,5 @@
-import { AgentAskSession } from "./";
-import { AgentConversationTurn, extractResponseText } from "./response";
+import OpenAI from "openai";
+import { AgentConversationTurn, extractResponseText } from "./agent-run-stream";
 
 const MAX_COMPRESSION_SOURCE_TURNS = 10;
 
@@ -35,6 +35,8 @@ Next step:
  * Input used to condense recent conversation history into a portable summary.
  */
 export interface AgentSessionContextCompressionOptions {
+    model: string;
+    locale: string;
     previousSummary?: string;
     turns: AgentConversationTurn[];
 }
@@ -44,15 +46,15 @@ export interface AgentSessionContextCompressionOptions {
  * without replaying the full turn history.
  */
 export class AgentSessionContextCompressor {
-    constructor(private readonly agentAskSession: AgentAskSession) {}
+    constructor(private readonly client: OpenAI) {}
 
     /**
      * Compresses the most recent turns into a stable summary for later prompts.
      */
     async compress(options: AgentSessionContextCompressionOptions) {
         const turns = options.turns.slice(-MAX_COMPRESSION_SOURCE_TURNS);
-        const response = await this.agentAskSession.client.responses.create({
-            model: this.agentAskSession.model,
+        const response = await this.client.responses.create({
+            model: options.model,
             input: [
                 {
                     role: "system",
@@ -69,7 +71,7 @@ export class AgentSessionContextCompressor {
                         {
                             type: "input_text",
                             text: [
-                                `Write the compressed context in ${this.agentAskSession.locale} unless the user explicitly asked for another language.`,
+                                `Write the compressed context in ${options.locale} unless the user explicitly asked for another language.`,
                                 options.previousSummary
                                     ? `Previous compressed context:\n${options.previousSummary}`
                                     : "Previous compressed context: none",

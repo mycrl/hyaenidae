@@ -1,7 +1,11 @@
 import OpenAI from "openai";
-import { AgentRunStream } from "./response";
+import { AgentRunStream } from "./agent-run-stream";
 import { HyaenidaeAgent } from "./agents";
-import { BaseAskOptions } from ".";
+import { BaseAskOptions } from "./ask";
+import {
+    AgentSessionContextCompressor,
+    type AgentSessionContextCompressionOptions,
+} from "./context-compressor";
 
 /**
  * Connection details for a single OpenAI-compatible model endpoint.
@@ -16,16 +20,11 @@ export interface ModelProviderOptions {
  */
 export class ModelProvider {
     private readonly client: OpenAI;
+    private readonly agentSessionContextCompressor: AgentSessionContextCompressor;
 
     constructor(public readonly options: ModelProviderOptions) {
         this.client = new OpenAI(options);
-    }
-
-    /**
-     * Returns the underlying OpenAI client for lower-level operations.
-     */
-    getClient() {
-        return this.client;
+        this.agentSessionContextCompressor = new AgentSessionContextCompressor(this.client);
     }
 
     /**
@@ -33,6 +32,13 @@ export class ModelProvider {
      */
     async getModels() {
         return this.client.models.list().then((response) => response.data.map((model) => model.id));
+    }
+
+    /**
+     * Compresses recent session turns into a short resumable summary.
+     */
+    async compressConversation(options: AgentSessionContextCompressionOptions) {
+        return this.agentSessionContextCompressor.compress(options);
     }
 
     /**

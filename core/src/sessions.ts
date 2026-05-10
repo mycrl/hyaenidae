@@ -1,7 +1,10 @@
-import { BaseAskOptions } from "./";
-import { AgentSessionContextCompressor } from "./compressor";
-import { ModelProvider } from "./model";
-import { AgentConversationContext, AgentConversationTurn, AgentRunStream } from "./response";
+import { BaseAskOptions } from "./ask";
+import { ModelProvider } from "./model-provider";
+import {
+    AgentConversationContext,
+    AgentConversationTurn,
+    AgentRunStream,
+} from "./agent-run-stream";
 
 const MAX_STORED_TURNS = 4;
 
@@ -144,13 +147,10 @@ export class AgentSessionController {
                         turns: trimTurns(completedTurns),
                     };
 
-                    const agentSessionContextCompressor = new AgentSessionContextCompressor({
-                        ...request,
-                        client: request.modelProvider.getClient(),
-                    });
-
-                    agentSessionContextCompressor
-                        .compress({
+                    request.modelProvider
+                        .compressConversation({
+                            model: request.model,
+                            locale: request.locale,
                             ...(activeSession.conversation.summary === undefined
                                 ? {}
                                 : { previousSummary: activeSession.conversation.summary }),

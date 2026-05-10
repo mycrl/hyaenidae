@@ -1,8 +1,8 @@
 import { Agent, OpenAIProvider, run } from "@openai/agents";
-import { AgentConversationTurn, AgentRunStream } from "./response";
+import { AgentConversationTurn, AgentRunStream } from "./agent-run-stream";
 import OpenAI from "openai";
 import { createTools } from "./tools";
-import { BaseAskOptions, AgentAskSession } from ".";
+import { BaseAskOptions, AgentAskSession } from "./ask";
 
 const INSTRUCTION = `
 You are an autonomous browser operator inside an Electron app.
@@ -75,7 +75,7 @@ function buildConversationInput(
  * Minimal runtime contract implemented by agent adapters that can execute
  * a user request and stream intermediate activity back to the caller.
  */
-export declare class AgentRuntime<T> {
+export interface AgentRuntime<T> {
     /**
      * Starts a streamed agent run for the provided ask options.
      */
