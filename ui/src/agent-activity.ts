@@ -178,8 +178,12 @@ export const formatAgentActivity = (activity: StructuredAgentActivity, t: TFunct
         return {
             title:
                 activity.status === "running"
-                    ? t("chat.activityLabels.toolCalling", { name: activity.name })
-                    : t("chat.activityLabels.toolCompleted", { name: activity.name }),
+                    ? t("chat.activityLabels.toolCalling", {
+                          name: activity.name,
+                      })
+                    : t("chat.activityLabels.toolCompleted", {
+                          name: activity.name,
+                      }),
             ...(detail === undefined ? {} : { detail }),
         };
     }

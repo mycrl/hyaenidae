@@ -1,3 +1,5 @@
+import { app } from "electron";
+import path from "node:path";
 import { readFileSync } from "node:fs";
 
 export type Config = {
@@ -8,6 +10,8 @@ export type Config = {
     defaultHeight: number;
     openDevTools: boolean;
     preloadScriptPath: string;
+    settingsFilePath: string;
+    resourcesDir: string;
 };
 
 const DEFAULT_CONFIG: Config = {
@@ -17,7 +21,9 @@ const DEFAULT_CONFIG: Config = {
     defaultWidth: 1280,
     defaultHeight: 760,
     openDevTools: true,
-    preloadScriptPath: require.resolve("../../ui/dist/preload.js"),
+    preloadScriptPath: path.resolve("../../ui/dist/preload.js"),
+    settingsFilePath: path.join(app.getPath("userData"), "./settings.dat"),
+    resourcesDir: path.join(app.getPath("userData"), "./resources"),
 };
 
 export let CONFIG: Config = {} as any;
@@ -29,11 +35,11 @@ export let CONFIG: Config = {} as any;
  * @param path - The file path to the configuration JSON file.
  * Defaults to "../../config.json".
  */
-export function initConfig(path = "../../config.json") {
-    console.info("Initializing configuration from", path);
+export function initConfig(configFilePath = path.resolve("../../config.json")) {
+    console.info("Initializing configuration from", configFilePath);
 
     try {
-        CONFIG = Object.assign(DEFAULT_CONFIG, JSON.parse(readFileSync(path, "utf-8")));
+        CONFIG = Object.assign(DEFAULT_CONFIG, JSON.parse(readFileSync(configFilePath, "utf-8")));
     } catch {
         console.warn("Failed to read configuration file, using default configuration.");
 

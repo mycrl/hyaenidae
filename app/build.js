@@ -2,7 +2,7 @@ import esbuild from "esbuild";
 
 esbuild
     .build({
-        entryPoints: ["./src/preload.ts"],
+        entryPoints: ["./src/browser/preload.ts"],
         bundle: true,
         platform: "node",
         outdir: "./dist",

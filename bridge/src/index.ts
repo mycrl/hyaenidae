@@ -290,6 +290,9 @@ export class BridgeService {
          */
         private readonly timeout: number = 10000,
     ) {
+        this.handler = handler;
+        this.timeout = timeout;
+
         handler.on(BridgeService.RPC_METHOD, (message) => {
             const listener = this.listeners[message.method];
             if (listener) {

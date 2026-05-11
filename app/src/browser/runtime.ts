@@ -112,7 +112,9 @@ const sanitizeAccessibilityNode = (
             : { description: sanitizeString(node.description) }),
         ...(node.value === undefined
             ? {}
-            : { value: localSensitive ? REDACTED_TEXT : sanitizeString(node.value) }),
+            : {
+                  value: localSensitive ? REDACTED_TEXT : sanitizeString(node.value),
+              }),
         ...(node.selector === undefined ? {} : { selector: node.selector }),
         ...(node.children === undefined
             ? {}
@@ -440,7 +442,9 @@ class VisionGrounder {
                 ...(candidate.element.role === undefined ? {} : { role: candidate.element.role }),
                 ...((candidate.element.text ?? candidate.element.ariaLabel) === undefined
                     ? {}
-                    : { text: candidate.element.text ?? candidate.element.ariaLabel }),
+                    : {
+                          text: candidate.element.text ?? candidate.element.ariaLabel,
+                      }),
                 ...(candidate.element.href === undefined ? {} : { url: candidate.element.href }),
             }));
     }

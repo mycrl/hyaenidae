@@ -1,9 +1,13 @@
 import { create } from "zustand";
 
+export type ApiProviderType = "google" | "openai" | "custom";
+
 export interface ApiProviderSettings {
     id: string;
     name: string;
-    baseURL: string;
+    type: ApiProviderType;
+    model: string;
+    baseUrl: string;
     apiKey: string;
 }
 
@@ -28,9 +32,22 @@ export const DEFAULT_SETTINGS: AppSettings = {
 export const createProviderSettings = (): ApiProviderSettings => ({
     id: `provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: "",
-    baseURL: "",
+    type: "openai",
+    model: "gpt-4.1-mini",
+    baseUrl: "",
     apiKey: "",
 });
+
+const toProviderType = (value: unknown): ApiProviderType => {
+    switch (value) {
+        case "google":
+        case "openai":
+        case "custom":
+            return value;
+        default:
+            return "openai";
+    }
+};
 
 export const normalizeSettings = (value: unknown): AppSettings => {
     const record = isRecord(value) ? value : {};
@@ -38,7 +55,9 @@ export const normalizeSettings = (value: unknown): AppSettings => {
         ? record.providers.filter(isRecord).map((provider, index) => ({
               id: toString(provider.id, `provider-${index + 1}`),
               name: toString(provider.name, `Provider ${index + 1}`),
-              baseURL: toString(provider.baseURL),
+              type: toProviderType(provider.type),
+              model: toString(provider.model, "gpt-4.1-mini"),
+              baseUrl: toString(provider.baseUrl ?? provider.baseURL),
               apiKey: toString(provider.apiKey),
           }))
         : [];
@@ -51,28 +70,31 @@ export const normalizeSettings = (value: unknown): AppSettings => {
     };
 };
 
-const normalizeProviderBaseUrl = (baseURL?: string) => baseURL?.trim() ?? "";
+const normalizeProviderBaseUrl = (baseUrl?: string) => baseUrl?.trim() ?? "";
 
 const dedupeSettingsProviders = (settings: AppSettings): AppSettings => {
-    const keptProviderIdsByBaseUrl = new Map<string, string>();
+    const keptProviderIds = new Set<string>();
     const providers = settings.providers.filter((provider) => {
-        const baseURL = normalizeProviderBaseUrl(provider.baseURL);
+        const id = provider.id.trim();
 
-        if (!baseURL) {
-            return true;
-        }
-
-        if (keptProviderIdsByBaseUrl.has(baseURL)) {
+        if (!id) {
             return false;
         }
 
-        keptProviderIdsByBaseUrl.set(baseURL, provider.id);
+        if (keptProviderIds.has(id)) {
+            return false;
+        }
+
+        keptProviderIds.add(id);
         return true;
     });
 
     return {
         ...settings,
-        providers,
+        providers: providers.map((provider) => ({
+            ...provider,
+            baseUrl: normalizeProviderBaseUrl(provider.baseUrl),
+        })),
     };
 };
 
@@ -128,7 +150,9 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
 
         try {
             const dedupedSettings = dedupeSettingsProviders(settings);
-            await hyaenidae.bridge.request("shell:settings-set", { settings: dedupedSettings });
+            await hyaenidae.bridge.request("shell:settings-set", {
+                settings: dedupedSettings,
+            });
 
             const result = await hyaenidae.bridge.request("shell:settings-get");
             const normalized = normalizeSettings(result.settings);

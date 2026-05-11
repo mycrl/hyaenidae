@@ -73,21 +73,20 @@
         "noProviders": "No providers have been configured yet.",
         "providerLabel": "Provider",
         "providerName": "Display name",
-        "providerId": "Settings ID",
+        "providerType": "Provider type",
         "providerBaseURL": "Base URL",
         "providerBaseURLPlaceholder": "http://127.0.0.1:8000/v1",
         "providerApiKey": "API key",
-        "defaultProvider": "Default provider",
-        "defaultModel": "Default model",
+        "providerTypes": {
+            "openai": "OpenAI",
+            "google": "Google",
+            "custom": "Custom"
+        },
         "advancedPlaceholder": "This section is reserved for future settings so the page can grow without redesigning the navigation.",
         "sections": {
             "providers": {
                 "title": "Providers",
                 "description": "Configure one or more API providers for the agent."
-            },
-            "agent": {
-                "title": "Agent defaults",
-                "description": "Choose which provider and model the chat panel should prefer by default."
             },
             "advanced": {
                 "title": "Advanced",

@@ -5,6 +5,7 @@ import { useSettingsStore } from "../state/settings";
 import {
     DEFAULT_SETTINGS,
     createProviderSettings,
+    type ApiProviderType,
     type ApiProviderSettings,
     type AppSettings,
 } from "../state/settings";
@@ -71,6 +72,8 @@ export default function SettingsPage() {
             providers: [...current.providers, provider],
         }));
     };
+
+    const providerTypeOptions: ApiProviderType[] = ["openai", "google", "custom"];
 
     const removeProvider = (id: string) => {
         setDraft((current) => ({
@@ -157,8 +160,12 @@ export default function SettingsPage() {
                                                         `${t("settings.providerLabel")} ${index + 1}`}
                                                 </div>
                                                 <div className="text-[11px] text-slate-500">
-                                                    {provider.baseURL ||
-                                                        t("settings.providerBaseURLPlaceholder")}
+                                                    {provider.type === "custom"
+                                                        ? provider.baseUrl ||
+                                                          t("settings.providerBaseURLPlaceholder")
+                                                        : t(
+                                                              `settings.providerTypes.${provider.type}`,
+                                                          )}
                                                 </div>
                                             </div>
 
@@ -185,32 +192,46 @@ export default function SettingsPage() {
                                                 />
                                             </FieldLabel>
 
-                                            <FieldLabel label={t("settings.providerId")}>
-                                                <input
-                                                    value={provider.id}
-                                                    onChange={(event) =>
+                                            <FieldLabel label={t("settings.providerType")}>
+                                                <select
+                                                    value={provider.type}
+                                                    onChange={(event) => {
+                                                        const nextType = event.target
+                                                            .value as ApiProviderType;
                                                         updateProvider(provider.id, {
-                                                            id: event.target.value,
-                                                        })
-                                                    }
+                                                            type: nextType,
+                                                            baseUrl:
+                                                                nextType === "custom"
+                                                                    ? provider.baseUrl
+                                                                    : "",
+                                                        });
+                                                    }}
                                                     className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
-                                                />
+                                                >
+                                                    {providerTypeOptions.map((type) => (
+                                                        <option key={type} value={type}>
+                                                            {t(`settings.providerTypes.${type}`)}
+                                                        </option>
+                                                    ))}
+                                                </select>
                                             </FieldLabel>
 
-                                            <FieldLabel label={t("settings.providerBaseURL")}>
-                                                <input
-                                                    value={provider.baseURL}
-                                                    onChange={(event) =>
-                                                        updateProvider(provider.id, {
-                                                            baseURL: event.target.value,
-                                                        })
-                                                    }
-                                                    placeholder={t(
-                                                        "settings.providerBaseURLPlaceholder",
-                                                    )}
-                                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
-                                                />
-                                            </FieldLabel>
+                                            {provider.type === "custom" ? (
+                                                <FieldLabel label={t("settings.providerBaseURL")}>
+                                                    <input
+                                                        value={provider.baseUrl}
+                                                        onChange={(event) =>
+                                                            updateProvider(provider.id, {
+                                                                baseUrl: event.target.value,
+                                                            })
+                                                        }
+                                                        placeholder={t(
+                                                            "settings.providerBaseURLPlaceholder",
+                                                        )}
+                                                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+                                                    />
+                                                </FieldLabel>
+                                            ) : null}
 
                                             <FieldLabel label={t("settings.providerApiKey")}>
                                                 <input

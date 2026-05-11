@@ -119,15 +119,26 @@ browser.shell.bridge.handle("agent:chat-ask", async (options) => {
             });
 
             stream.on("text", (message: string) => {
-                browser.shell.bridge.send("agent:chat-response", { message, sessionId, id });
+                browser.shell.bridge.send("agent:chat-response", {
+                    message,
+                    sessionId,
+                    id,
+                });
             });
 
             stream.on("activity", (activity: AgentActivityEvent) => {
-                browser.shell.bridge.send("agent:chat-activity", { id, sessionId, ...activity });
+                browser.shell.bridge.send("agent:chat-activity", {
+                    id,
+                    sessionId,
+                    ...activity,
+                });
             });
 
             stream.on("end", () => {
-                browser.shell.bridge.send("agent:chat-response-done", { sessionId, id });
+                browser.shell.bridge.send("agent:chat-response-done", {
+                    sessionId,
+                    id,
+                });
             });
         })
         .catch((error: Error) => {

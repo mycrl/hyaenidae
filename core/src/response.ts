@@ -73,7 +73,9 @@ export class AskResponse extends EventEmitter {
             this.handleRunItemEvent(
                 event as {
                     name?: string;
-                    item?: { toJSON?: () => { rawItem?: Record<string, unknown> } };
+                    item?: {
+                        toJSON?: () => { rawItem?: Record<string, unknown> };
+                    };
                 },
             );
         } else if (eventType === "agent_updated_stream_event") {
@@ -192,7 +194,9 @@ export class AskResponse extends EventEmitter {
                 : { conversationId: this.runResult.state._conversationId }),
             ...(this.runResult.state._previousResponseId === undefined
                 ? {}
-                : { previousResponseId: this.runResult.state._previousResponseId }),
+                : {
+                      previousResponseId: this.runResult.state._previousResponseId,
+                  }),
         };
     }
 

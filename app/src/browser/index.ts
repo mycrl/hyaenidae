@@ -154,11 +154,15 @@ export class Browser extends EventEmitter {
             });
 
             tab.webContents.on("did-start-loading", async () => {
-                await this.shell.bridge.request("shell:tab-start-loading", { id });
+                await this.shell.bridge.request("shell:tab-start-loading", {
+                    id,
+                });
             });
 
             tab.webContents.on("did-stop-loading", async () => {
-                await this.shell.bridge.request("shell:tab-stop-loading", { id });
+                await this.shell.bridge.request("shell:tab-stop-loading", {
+                    id,
+                });
             });
 
             tab.webContents.on("did-navigate", async (_, url) => {

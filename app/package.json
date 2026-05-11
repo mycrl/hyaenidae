@@ -7,12 +7,14 @@
     "main": "index.js",
     "scripts": {
         "start": "electron .",
-        "build": "tsc",
-        "dev": "tsc && electron ."
+        "build": "node build.js && tsc",
+        "dev": "node build.js && tsc && electron ."
     },
     "dependencies": {
         "@hyaenidae/bridge": "1.0.0",
         "@hyaenidae/core": "1.0.0",
+        "esbuild": "0.28.0",
+        "node-llama-cpp": "^3.18.1",
         "pino-pretty": "^13.1.3"
     }
 }

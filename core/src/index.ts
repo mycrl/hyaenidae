@@ -108,10 +108,14 @@ export class Hyaenidae {
                             maxTurns: AGENT_MAX_TURNS,
                             ...(options.conversation?.conversationId === undefined
                                 ? {}
-                                : { conversationId: options.conversation.conversationId }),
+                                : {
+                                      conversationId: options.conversation.conversationId,
+                                  }),
                             ...(options.conversation?.previousResponseId === undefined
                                 ? {}
-                                : { previousResponseId: options.conversation.previousResponseId }),
+                                : {
+                                      previousResponseId: options.conversation.previousResponseId,
+                                  }),
                         },
                     ),
                 );

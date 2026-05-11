@@ -1,14 +1,20 @@
-import type { AgentActivityItem, AgentResult, AgentStreamItem } from "@hyaenidae/bridge";
+import type {
+    AgentActivityItem,
+    AgentResult,
+    AgentStreamItem,
+    ModelProvider,
+} from "@hyaenidae/bridge";
 import { create } from "zustand";
 import i18n from "../i18n";
 import { normalizeSettings, type ApiProviderSettings } from "./settings";
 
 export interface AgentProviderItem {
-    id: number;
+    id: string;
     name: string;
-    settingId?: string;
+    type: ApiProviderSettings["type"];
+    model: string;
     apiKey: string;
-    baseURL: string;
+    baseUrl: string;
 }
 
 export interface AgentSessionItem {
@@ -44,7 +50,7 @@ interface AgentConversation {
 interface AgentStoreState {
     sessions: AgentSessionItem[];
     providers: AgentProviderItem[];
-    selectedProviderId: number | null;
+    selectedProviderId: string | null;
     selectedModel: string;
     models: string[];
     conversations: Record<number, AgentConversation>;
@@ -54,11 +60,11 @@ interface AgentStoreState {
     error: string | null;
     initializeRpc: () => Promise<void>;
     refreshProviders: () => Promise<void>;
-    selectProvider: (id: number) => Promise<void>;
+    selectProvider: (id: string) => Promise<void>;
     setSelectedModel: (model: string) => void;
     createSession: (name?: string) => Promise<number | null>;
     selectSession: (id: number) => void;
-    sendMessage: (input: { message: string; provider: number; model: string }) => Promise<void>;
+    sendMessage: (input: { message: string; provider: string; model: string }) => Promise<void>;
     stopActiveResponse: () => Promise<void>;
 }
 
@@ -95,55 +101,30 @@ const ensureConversation = (
     };
 };
 
-const hasRuntimeConfig = (provider: { baseURL?: string; apiKey?: string }) =>
-    Boolean(provider.baseURL?.trim() || provider.apiKey?.trim());
+const normalizeSession = (session: { id: number; name?: string }): AgentSessionItem => ({
+    id: session.id,
+    name: session.name?.trim() || i18n.t("chat.newConversation"),
+});
 
-const normalizeProviderBaseUrl = (baseURL?: string) => baseURL?.trim() ?? "";
+const normalizeProviderBaseUrl = (baseUrl?: string) => baseUrl?.trim() ?? "";
 
-const consumeMatchingSetting = (
-    settingsProviders: ApiProviderSettings[],
-    runtimeProvider: { baseURL: string },
-) => {
-    const matchingIndex = settingsProviders.findIndex(
-        (provider) =>
-            normalizeProviderBaseUrl(provider.baseURL) ===
-            normalizeProviderBaseUrl(runtimeProvider.baseURL),
-    );
-
-    if (matchingIndex < 0) {
-        return null;
+const isProviderConfigured = (provider: ApiProviderSettings) => {
+    if (provider.type === "custom") {
+        return Boolean(normalizeProviderBaseUrl(provider.baseUrl));
     }
 
-    const [matchingProvider] = settingsProviders.splice(matchingIndex, 1);
-    return matchingProvider;
+    return true;
 };
 
-const buildAgentProviders = (
-    runtimeProviders: { id: number; baseURL: string; apiKey: string }[],
-    settingsProviders: ApiProviderSettings[],
-): AgentProviderItem[] => {
-    const remainingSettingsProviders = settingsProviders
-        .filter(hasRuntimeConfig)
-        .map((provider) => ({
-            ...provider,
-        }));
-
-    return runtimeProviders.map((provider, index) => {
-        const matchingSetting = consumeMatchingSetting(remainingSettingsProviders, provider);
-
-        return {
-            id: provider.id,
-            settingId: matchingSetting?.id,
-            name:
-                matchingSetting?.name ||
-                matchingSetting?.id ||
-                provider.baseURL ||
-                `Provider ${index + 1}`,
-            baseURL: provider.baseURL,
-            apiKey: provider.apiKey,
-        };
-    });
-};
+const buildAgentProviders = (settingsProviders: ApiProviderSettings[]): AgentProviderItem[] =>
+    settingsProviders.filter(isProviderConfigured).map((provider, index) => ({
+        id: provider.id,
+        name: provider.name || provider.id || `Provider ${index + 1}`,
+        type: provider.type,
+        model: provider.model,
+        baseUrl: provider.baseUrl,
+        apiKey: provider.apiKey,
+    }));
 
 const TOOL_UNFRIENDLY_MODEL_PATTERN =
     /embed|embedding|rerank|moderation|whisper|tts|stt|transcribe|vision-preview|omni-moderation/i;
@@ -174,48 +155,30 @@ const pickPreferredModel = (models: string[], currentModel: string) => {
     return models[0] ?? currentModel;
 };
 
-const findMatchingRuntimeProviderIndex = (
-    runtimeProviders: { id: number; baseURL: string; apiKey: string }[],
-    provider: { baseURL: string },
-) =>
-    runtimeProviders.findIndex(
-        (runtimeProvider) =>
-            normalizeProviderBaseUrl(runtimeProvider.baseURL) ===
-            normalizeProviderBaseUrl(provider.baseURL),
-    );
+const toModelProvider = (provider: AgentProviderItem, model: string): ModelProvider => {
+    const resolvedModel = model || provider.model || "gpt-4.1-mini";
 
-const reconcileProviderInstances = async (settingsProviders: ApiProviderSettings[]) => {
-    const providerResult = await hyaenidae.bridge.request("agent:provider-list");
-    const remainingRuntimeProviders = [...(providerResult.providers ?? [])];
-    const configuredProviders = settingsProviders.filter(hasRuntimeConfig);
-
-    for (const provider of configuredProviders) {
-        const matchingIndex = findMatchingRuntimeProviderIndex(remainingRuntimeProviders, provider);
-
-        if (matchingIndex >= 0) {
-            const [matchingProvider] = remainingRuntimeProviders.splice(matchingIndex, 1);
-
-            if (matchingProvider.apiKey !== provider.apiKey) {
-                await hyaenidae.bridge.request("agent:provider-remove", {
-                    id: matchingProvider.id,
-                });
-                await hyaenidae.bridge.request("agent:provider-create", {
-                    baseURL: provider.baseURL,
-                    apiKey: provider.apiKey,
-                });
-            }
-
-            continue;
-        }
-
-        await hyaenidae.bridge.request("agent:provider-create", {
-            baseURL: provider.baseURL,
-            apiKey: provider.apiKey,
-        });
-    }
-
-    for (const provider of remainingRuntimeProviders) {
-        await hyaenidae.bridge.request("agent:provider-remove", { id: provider.id });
+    switch (provider.type) {
+        case "google":
+            return {
+                type: "google",
+                model: resolvedModel,
+                apiKey: provider.apiKey || undefined,
+            };
+        case "custom":
+            return {
+                type: "custom",
+                baseUrl: normalizeProviderBaseUrl(provider.baseUrl),
+                model: resolvedModel,
+                apiKey: provider.apiKey || undefined,
+            };
+        case "openai":
+        default:
+            return {
+                type: "openai",
+                model: resolvedModel,
+                apiKey: provider.apiKey || undefined,
+            };
     }
 };
 
@@ -237,62 +200,73 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
 
         set({ initialized: true, isLoadingSessions: true, error: null });
 
-        hyaenidae.bridge.on("agent:chat-response", ({ session, id, message }: AgentStreamItem) => {
-            set((state) => {
-                const sessionName =
-                    state.sessions.find((item) => item.id === session)?.name ??
-                    i18n.t("chat.newConversation");
-                const conversation = ensureConversation(state.conversations, session, sessionName);
-                const existingMessage = conversation.messages.find(
-                    (item) => item.id === id && item.role === "assistant",
-                );
-
-                const messages = existingMessage
-                    ? conversation.messages.map((item) =>
-                          item.id === id && item.role === "assistant"
-                              ? {
-                                    ...item,
-                                    content: `${item.content}${message}`,
-                                    status: "streaming" as const,
-                                }
-                              : item,
-                      )
-                    : [
-                          ...conversation.messages,
-                          {
-                              id,
-                              role: "assistant" as const,
-                              content: message,
-                              timestamp: getTimestamp(),
-                              status: "streaming" as const,
-                          },
-                      ];
-
-                return {
-                    error: null,
-                    conversations: {
-                        ...state.conversations,
-                        [session]: {
-                            ...conversation,
-                            messages,
-                            activeResponseId: id,
-                            isResponding: true,
-                        },
-                    },
-                };
-            });
+        hyaenidae.bridge.on("shell:settings-changed", async () => {
+            await get().refreshProviders();
         });
 
         hyaenidae.bridge.on(
-            "agent:chat-activity",
-            ({ session, id, ...activity }: AgentActivityItem) => {
+            "agent:chat-response",
+            ({ sessionId, id, message }: AgentStreamItem) => {
                 set((state) => {
                     const sessionName =
-                        state.sessions.find((item) => item.id === session)?.name ??
+                        state.sessions.find((item) => item.id === sessionId)?.name ??
                         i18n.t("chat.newConversation");
                     const conversation = ensureConversation(
                         state.conversations,
-                        session,
+                        sessionId,
+                        sessionName,
+                    );
+                    const existingMessage = conversation.messages.find(
+                        (item) => item.id === id && item.role === "assistant",
+                    );
+
+                    const messages = existingMessage
+                        ? conversation.messages.map((item) =>
+                              item.id === id && item.role === "assistant"
+                                  ? {
+                                        ...item,
+                                        content: `${item.content}${message}`,
+                                        status: "streaming" as const,
+                                    }
+                                  : item,
+                          )
+                        : [
+                              ...conversation.messages,
+                              {
+                                  id,
+                                  role: "assistant" as const,
+                                  content: message,
+                                  timestamp: getTimestamp(),
+                                  status: "streaming" as const,
+                              },
+                          ];
+
+                    return {
+                        error: null,
+                        conversations: {
+                            ...state.conversations,
+                            [sessionId]: {
+                                ...conversation,
+                                messages,
+                                activeResponseId: id,
+                                isResponding: true,
+                            },
+                        },
+                    };
+                });
+            },
+        );
+
+        hyaenidae.bridge.on(
+            "agent:chat-activity",
+            ({ sessionId, id, ...activity }: AgentActivityItem) => {
+                set((state) => {
+                    const sessionName =
+                        state.sessions.find((item) => item.id === sessionId)?.name ??
+                        i18n.t("chat.newConversation");
+                    const conversation = ensureConversation(
+                        state.conversations,
+                        sessionId,
                         sessionName,
                     );
                     const existingMessage = conversation.messages.find(
@@ -338,7 +312,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                         error: null,
                         conversations: {
                             ...state.conversations,
-                            [session]: {
+                            [sessionId]: {
                                 ...conversation,
                                 messages,
                                 activeResponseId: id,
@@ -350,13 +324,17 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
             },
         );
 
-        hyaenidae.bridge.on("agent:chat-response-done", ({ session, id, error }: AgentResult) => {
+        hyaenidae.bridge.on("agent:chat-response-done", ({ sessionId, id, error }: AgentResult) => {
             set((state) => {
                 const sessionName =
-                    state.sessions.find((item) => item.id === session)?.name ??
+                    state.sessions.find((item) => item.id === sessionId)?.name ??
                     i18n.t("chat.newConversation");
 
-                const conversation = ensureConversation(state.conversations, session, sessionName);
+                const conversation = ensureConversation(
+                    state.conversations,
+                    sessionId,
+                    sessionName,
+                );
                 const hasAssistantMessage = conversation.messages.some(
                     (item) => item.id === id && item.role === "assistant",
                 );
@@ -388,7 +366,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                     error: error ?? state.error,
                     conversations: {
                         ...state.conversations,
-                        [session]: {
+                        [sessionId]: {
                             ...conversation,
                             messages,
                             activeResponseId:
@@ -405,7 +383,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         try {
             await get().refreshProviders();
             const result = await hyaenidae.bridge.request("agent:session-list");
-            const sessions = result.sessions ?? [];
+            const sessions = (result.sessions ?? []).map(normalizeSession);
 
             set((state) => ({
                 sessions,
@@ -442,10 +420,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         try {
             const settingsResult = await hyaenidae.bridge.request("shell:settings-get");
             const settings = normalizeSettings(settingsResult.settings);
-            await reconcileProviderInstances(settings.providers);
-
-            const result = await hyaenidae.bridge.request("agent:provider-list");
-            const providers = buildAgentProviders(result.providers ?? [], settings.providers);
+            const providers = buildAgentProviders(settings.providers);
             const selectedProviderId = providers.some(
                 (provider) => provider.id === get().selectedProviderId,
             )
@@ -473,12 +448,26 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         }
     },
     selectProvider: async (id) => {
+        const provider = get().providers.find((item) => item.id === id);
+
+        if (!provider) {
+            set({
+                selectedProviderId: null,
+                models: [],
+                error: i18n.t("chat.noProvidersConfigured"),
+            });
+            return;
+        }
+
         set({ selectedProviderId: id, error: null });
 
         try {
-            const result = await hyaenidae.bridge.request("agent:provider-get-models", { id });
+            const result = await hyaenidae.bridge.request(
+                "agent:provider-get-models",
+                toModelProvider(provider, provider.model),
+            );
             const models = filterAgentModels(result.models ?? []);
-            const selectedModel = pickPreferredModel(models, get().selectedModel);
+            const selectedModel = pickPreferredModel(models, get().selectedModel || provider.model);
 
             set({ models, selectedModel });
         } catch (error) {
@@ -524,6 +513,12 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
     sendMessage: async ({ message, provider, model }) => {
         const trimmed = message.trim();
         if (!trimmed) {
+            return;
+        }
+
+        const providerConfig = get().providers.find((item) => item.id === provider);
+        if (!providerConfig) {
+            set({ error: i18n.t("chat.noProvidersConfigured") });
             return;
         }
 
@@ -576,8 +571,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         try {
             const result = await hyaenidae.bridge.request("agent:chat-ask", {
                 session: sessionId,
-                provider,
-                model,
+                modelProvider: toModelProvider(providerConfig, model),
                 message: trimmed,
                 locale: i18n.language,
             });
@@ -666,7 +660,6 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
 
         try {
             await hyaenidae.bridge.request("agent:chat-stop", {
-                session: sessionId,
                 id: conversation.activeResponseId,
             });
         } catch (error) {

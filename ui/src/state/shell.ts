@@ -172,7 +172,9 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
             return;
         }
 
-        await hyaenidae.bridge.request("shell:tab-go-back", { id: activeTabId });
+        await hyaenidae.bridge.request("shell:tab-go-back", {
+            id: activeTabId,
+        });
     },
     goForward: async () => {
         const { activeTabId } = get();

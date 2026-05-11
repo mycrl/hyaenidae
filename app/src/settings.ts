@@ -1,6 +1,6 @@
-import { app } from "electron";
-import { join, dirname } from "node:path";
-import { mkdir, writeFile, readFile, stat } from "node:fs/promises";
+import { safeStorage } from "electron";
+import { writeFile, readFile } from "node:fs/promises";
+import { CONFIG } from "./config";
 
 /**
  * SettingsManager is responsible for reading and writing application settings
@@ -11,10 +11,10 @@ import { mkdir, writeFile, readFile, stat } from "node:fs/promises";
  * subdirectory of the user's data path.
  */
 export class SettingsManager {
-    private settings: any = null;
+    private settings: any = {};
 
-    constructor(private path = join(app.getPath("userData"), "hyaenidae/settings.json")) {
-        console.info("SettingsManager initialized with path:", this.path);
+    constructor() {
+        console.info("SettingsManager initialized with path:", CONFIG.settingsFilePath);
     }
 
     async load() {
@@ -23,12 +23,14 @@ export class SettingsManager {
         }
 
         try {
-            this.settings = JSON.parse(await readFile(this.path, "utf-8"));
+            this.settings = JSON.parse(
+                safeStorage.decryptString(await readFile(CONFIG.settingsFilePath)),
+            );
         } catch {
             console.warn("No existing settings found, starting with empty settings.");
-
-            this.settings = {};
         }
+
+        console.debug("Loaded settings:", this.settings);
 
         return this.settings;
     }
@@ -41,11 +43,9 @@ export class SettingsManager {
             ...settings,
         };
 
-        // Ensure the directory exists before writing the file
-        if ((await stat(this.path).catch(() => null)) == null) {
-            await mkdir(dirname(this.path), { recursive: true });
-        }
-
-        await writeFile(this.path, JSON.stringify(this.settings, null, 4), "utf-8");
+        await writeFile(
+            CONFIG.settingsFilePath,
+            safeStorage.encryptString(JSON.stringify(this.settings)),
+        );
     }
 }

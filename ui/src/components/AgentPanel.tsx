@@ -341,7 +341,7 @@ export default function AgentPanel() {
                     <select
                         value={selectedProviderId ?? ""}
                         onChange={(e) => {
-                            void selectProvider(Number(e.target.value));
+                            void selectProvider(e.target.value);
                         }}
                         aria-label={t("chat.provider")}
                         className="h-8 max-w-[160px] rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-700 outline-none"

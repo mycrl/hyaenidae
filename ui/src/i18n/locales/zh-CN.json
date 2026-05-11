@@ -73,21 +73,20 @@
         "noProviders": "当前还没有配置任何提供商。",
         "providerLabel": "提供商",
         "providerName": "显示名称",
-        "providerId": "设置 ID",
+        "providerType": "提供商类型",
         "providerBaseURL": "Base URL",
         "providerBaseURLPlaceholder": "http://127.0.0.1:8000/v1",
         "providerApiKey": "API Key",
-        "defaultProvider": "默认提供商",
-        "defaultModel": "默认模型",
+        "providerTypes": {
+            "openai": "OpenAI",
+            "google": "Google",
+            "custom": "自定义"
+        },
         "advancedPlaceholder": "这个区域为未来设置项预留，后续扩展时不需要重做导航结构。",
         "sections": {
             "providers": {
                 "title": "提供商",
                 "description": "配置一个或多个给 Agent 使用的 API 提供商。"
-            },
-            "agent": {
-                "title": "Agent 默认值",
-                "description": "选择聊天面板默认优先使用的提供商和模型。"
             },
             "advanced": {
                 "title": "高级",

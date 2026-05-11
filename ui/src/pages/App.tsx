@@ -18,8 +18,6 @@ export default function App() {
     const initializeRpc = useTabStore((state) => state.initializeRpc);
     const initializeAgentRpc = useAgentStore((state) => state.initializeRpc);
     const initializeSettingsRpc = useSettingsStore((state) => state.initializeRpc);
-    const settingsProviders = useSettingsStore((state) => state.settings.providers);
-    const refreshProviders = useAgentStore((state) => state.refreshProviders);
     const isAgentPanelOpen = useTabStore((state) => state.isAgentPanelOpen);
     const layoutChanged = useTabStore((state) => state.layoutChanged);
     const [agentPanelWidth, setAgentPanelWidth] = useState(AGENT_PANEL_DEFAULT_WIDTH);
@@ -66,10 +64,6 @@ export default function App() {
         initializeRpc,
         initializeSettingsRpc,
     ]);
-
-    useEffect(() => {
-        void refreshProviders();
-    }, [refreshProviders, settingsProviders]);
 
     useEffect(() => {
         emitLayoutChanged(agentPanelWidth);
