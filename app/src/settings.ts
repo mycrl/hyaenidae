@@ -14,7 +14,7 @@ export class SettingsManager {
     private settings: any = null;
 
     constructor(private path = join(app.getPath("userData"), "hyaenidae/settings.json")) {
-        console.log("SettingsManager initialized with path:", this.path);
+        console.info("SettingsManager initialized with path:", this.path);
     }
 
     async load() {
@@ -34,7 +34,7 @@ export class SettingsManager {
     }
 
     async restore(settings: any) {
-        console.log("Restoring settings:", settings);
+        console.info("Restoring settings:", settings);
 
         this.settings = {
             ...(this.settings || {}),

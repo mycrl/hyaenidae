@@ -5,28 +5,32 @@ export interface Layout {
     agentPanelWidth: number;
 }
 
+export type ModelProvider = (
+    | { type: "google" }
+    | { type: "openai" }
+    | { type: "custom"; baseUrl: string }
+) & { model: string; apiKey?: string };
+
 export interface AgentSession {
-    session: number;
+    id: number;
+    name?: string;
 }
 
-export interface Provider {
-    apiKey: string;
-    baseURL: string;
-}
-
-export interface AgentAsk extends AgentSession {
-    provider: number;
-    model: string;
+export interface AgentAskOptions {
+    modelProvider: ModelProvider;
+    session: AgentSession;
     message: string;
     locale: string;
 }
 
-export interface AgentStreamItem extends AgentSession {
+export interface AgentStreamItem {
+    sessionId: number;
     id: number;
     message: string;
 }
 
-export interface AgentActivityItem extends AgentSession {
+export interface AgentActivityItem {
+    sessionId: number;
     id: number;
     key: string;
     kind: "reasoning" | "tool" | "status";
@@ -35,7 +39,8 @@ export interface AgentActivityItem extends AgentSession {
     data?: unknown;
 }
 
-export interface AgentResult extends AgentSession {
+export interface AgentResult {
+    sessionId: number;
     id: number;
     error?: string;
 }
@@ -182,35 +187,19 @@ export interface Api {
     "shell:settings-changed": [void, void];
 
     /**
-     * Retrieves a list of available model providers.
-     */
-    "agent:provider-list": [void, { providers: (Provider & { id: number })[] }];
-
-    /**
      * Retrieves a list of available models for a given provider ID.
      */
-    "agent:provider-get-models": [{ id: number }, { models: string[] }];
-
-    /**
-     * Creates a new agent provider with the specified model and returns the
-     * unique ID of the created provider.
-     */
-    "agent:provider-create": [Provider, { id: number }];
-
-    /**
-     * Removes an existing agent provider by its unique ID.
-     */
-    "agent:provider-remove": [{ id: number }, void];
+    "agent:provider-get-models": [ModelProvider, { models: string[] }];
 
     /**
      * Retrieves a list of active agent sessions.
      */
-    "agent:session-list": [void, { sessions: { id: number; name: string }[] }];
+    "agent:session-list": [void, { sessions: AgentSession[] }];
 
     /**
      * Creates a new agent session with an optional name.
      */
-    "agent:session-create": [{ name?: string }, { id: number }];
+    "agent:session-create": [{ name?: string }, AgentSession];
 
     /**
      * Removes an existing agent session by its unique ID.
@@ -220,7 +209,7 @@ export interface Api {
     /**
      * Sends a message to an agent or chat model.
      */
-    "agent:chat-ask": [AgentAsk, { id: number }];
+    "agent:chat-ask": [AgentAskOptions, { id: number }];
 
     /**
      * Triggers when a response is received from an agent or chat model.

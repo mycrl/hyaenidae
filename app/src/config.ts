@@ -30,7 +30,7 @@ export let CONFIG: Config = {} as any;
  * Defaults to "../../config.json".
  */
 export function initConfig(path = "../../config.json") {
-    console.log("Initializing configuration from", path);
+    console.info("Initializing configuration from", path);
 
     try {
         CONFIG = Object.assign(DEFAULT_CONFIG, JSON.parse(readFileSync(path, "utf-8")));

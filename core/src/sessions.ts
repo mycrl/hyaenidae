@@ -1,198 +1,257 @@
-import { BaseAskOptions } from "./ask";
-import { ModelProvider } from "./model-provider";
-import {
-    AgentConversationContext,
-    AgentConversationTurn,
-    AgentRunStream,
-} from "./agent-run-stream";
+import { AskOptions } from ".";
+import { trimTurns, createOpenAIClient, extractResponseText } from "./helper";
+import { AgentConversationContext, AgentConversationTurn, AskResponse } from "./response";
 
-const MAX_STORED_TURNS = 4;
+const MAX_COMPRESSION_SOURCE_TURNS = 10;
+
+const CONTEXT_COMPRESSION_PROMPT = `
+You compress browser-agent session context for the next turn.
+Preserve only the information needed to continue the task reliably.
+Prioritize:
+- the user's current goal
+- confirmed preferences and constraints
+- important decisions already made
+- key observations that changed the plan
+- the key path completed so far
+- the current state in that path, including blockers or waiting-for-user steps
+- the most likely next step
+
+Do not include:
+- screenshots or image payload details
+- raw tool logs, tool call arguments, or execution-by-execution narration
+- repetitive wording, filler, or chain-of-thought
+- details that no longer affect the task
+
+Do not drop critical facts such as product requirements, quantities, URLs that matter, selected items, login state, explicit user approvals, or blockers.
+
+Return plain text using exactly these sections:
+Goal:
+Constraints:
+Progress:
+Current state:
+Next step:
+`;
 
 /**
- * Keeps only the most recent turns that should be persisted on the session.
+ * Input used to condense recent conversation history into a portable summary.
+ *
+ * This extends a normal ask request with the turn material that should be
+ * compressed, letting summarization reuse the same provider and locale choices
+ * as the foreground run.
  */
-const trimTurns = (turns: AgentConversationTurn[]) => turns.slice(-MAX_STORED_TURNS);
-
-/**
- * Lightweight session entry shown in the UI session list.
- */
-export interface AgentSessionSummary {
-    id: number;
-    name: string;
+export interface SessionCompressionOptions extends AskOptions {
+    previousSummary?: string;
+    turns: AgentConversationTurn[];
 }
 
 /**
- * Full in-memory session record including resumable conversation state.
+ * Produces compact resumable context for long-running sessions.
+ *
+ * The summary is intentionally lossy: it keeps task-critical state, decisions,
+ * and blockers while discarding execution noise that would only bloat later
+ * prompts.
  */
-interface AgentSessionState extends AgentSessionSummary {
+export class SessionCompressor {
+    /**
+     * Compresses the latest useful slice of the conversation.
+     *
+     * This method uses the provider chosen for the active session, so the
+     * compression quality and language generally track the user's current model
+     * configuration instead of relying on a hidden secondary model.
+     */
+    static async compress(options: SessionCompressionOptions) {
+        const turns = options.turns.slice(-MAX_COMPRESSION_SOURCE_TURNS);
+
+        const response = await createOpenAIClient(options.modelProvider).responses.create({
+            model: options.modelProvider.model,
+            input: [
+                {
+                    role: "system",
+                    content: [
+                        {
+                            type: "input_text",
+                            text: CONTEXT_COMPRESSION_PROMPT,
+                        },
+                    ],
+                },
+                {
+                    role: "user",
+                    content: [
+                        {
+                            type: "input_text",
+                            text: [
+                                `Write the compressed context in ${options.locale} unless the user explicitly asked for another language.`,
+                                options.previousSummary
+                                    ? `Previous compressed context:\n${options.previousSummary}`
+                                    : "Previous compressed context: none",
+                                "Recent conversation turns:",
+                                ...turns.map(
+                                    (turn) =>
+                                        `${turn.role === "user" ? "User" : "Assistant"}: ${turn.content}`,
+                                ),
+                            ].join("\n\n"),
+                        },
+                    ],
+                },
+            ],
+        });
+
+        return extractResponseText(response);
+    }
+}
+
+/**
+ * Lightweight session record surfaced to callers and the UI.
+ */
+export interface Session {
+    id: number;
+    name?: string;
+}
+
+/**
+ * Internal session state that also carries resumable conversation metadata.
+ */
+interface SessionState extends Session {
     conversation: AgentConversationContext;
 }
 
 /**
- * Ask payload augmented with session and provider ownership details.
+ * Owns in-memory chat sessions and their resumable conversation state.
+ *
+ * This manager is intentionally ephemeral. Persistence, if needed, should live
+ * above core so the runtime can decide when and how sessions are stored.
  */
-export interface AgentRunRequest extends BaseAskOptions {
-    session: number;
-    modelProvider: ModelProvider;
-}
-
-/**
- * Handle returned immediately after starting a streamed agent run.
- */
-export interface AgentRunResult {
-    id: number;
-    streamPromise: Promise<AgentRunStream>;
-}
-
-/**
- * Resolved form of an agent run handle once the stream has been created.
- */
-export interface AgentRunStreamResult {
-    id: number;
-    stream: AgentRunStream;
-}
-
-/**
- * Owns the lifecycle of chat sessions and keeps short resumable context per
- * session between agent runs.
- */
-export class AgentSessionController {
-    private askCounter = 0;
-    private readonly sessions: AgentSessionState[] = [];
-
-    constructor() {}
+export class SessionManager {
+    private counter = 0;
+    private sessions: { [key: number]: SessionState } = {};
 
     /**
-     * Returns the list of known sessions for navigation and selection.
+     * Returns the lightweight session list used by callers and UI state.
      */
-    listSessions() {
-        return this.sessions.map(({ id, name }) => ({ id, name }));
+    list(): Session[] {
+        return Object.values(this.sessions).map(({ id, name }) => ({ id, name }) as Session);
     }
 
     /**
-     * Creates a new session with an optional display name.
+     * Looks up the live in-memory state for a session.
      */
-    createSession(name?: string) {
-        const id = this.sessions.length;
-        const session = {
-            id,
-            name: name?.trim() || `Session ${id + 1}`,
-            conversation: {},
+    get(session: Session): SessionState | undefined {
+        return this.sessions[session.id];
+    }
+
+    /**
+     * Creates a new empty session with no prior conversation state.
+     */
+    create(name?: string): Session {
+        let summary = {
+            id: this.counter++,
+            name,
+        } as Session;
+
+        this.sessions[summary.id] = {
+            ...summary,
+            conversation: {} as AgentConversationContext,
         };
 
-        this.sessions.push(session);
-
-        return session;
+        return summary;
     }
 
     /**
-     * Removes a session and its stored conversation state.
+     * Deletes a session and its associated conversation state.
      */
-    removeSession(id: number) {
-        const index = this.sessions.findIndex((item) => item.id === id);
-        if (index !== -1) {
-            this.sessions.splice(index, 1);
+    removeWithID(id: number) {
+        delete this.sessions[id];
+    }
+
+    /**
+     * Prepares a single ask call using the session's current stored context.
+     *
+     * The returned nextTurns include the new user message so stream completion
+     * logic can append the assistant response without re-reading session state.
+     */
+    turnAskOptions(askOptions: AskOptions) {
+        const sessionState = this.sessions[askOptions.session.id];
+        if (!sessionState) {
+            throw new Error(`Session with id ${askOptions.session.id} not found`);
         }
-    }
 
-    /**
-     * Starts a streamed agent run for a session and updates session state when
-     * the run completes.
-     */
-    ask(request: AgentRunRequest): AgentRunResult {
-        const session = this.assertSession(request.session);
-        const id = this.askCounter++;
-        const historicalTurns = trimTurns(session.conversation.turns ?? []);
+        const historicalTurns = trimTurns(sessionState.conversation.turns ?? []);
         const nextTurns = [
             ...historicalTurns,
             {
                 role: "user" as const,
-                content: request.message,
+                content: askOptions.message,
             },
         ];
 
-        const streamPromise = request.modelProvider
-            .ask({
-                ...request,
+        return {
+            nextTurns,
+            options: {
+                ...askOptions,
                 conversation: {
-                    ...session.conversation,
+                    ...sessionState.conversation,
                     turns: historicalTurns,
                 },
-            })
-            .then((stream) => {
-                stream.on("end", () => {
-                    const latestConversation = stream.getConversationContext();
-                    const activeSession = this.sessions.find((item) => item.id === request.session);
-                    if (!activeSession) {
-                        return;
-                    }
-
-                    const assistantOutput = stream.getOutputText();
-                    const completedTurns =
-                        assistantOutput.length > 0
-                            ? [
-                                  ...nextTurns,
-                                  {
-                                      role: "assistant" as const,
-                                      content: assistantOutput,
-                                  },
-                              ]
-                            : nextTurns;
-
-                    activeSession.conversation = {
-                        ...latestConversation,
-                        ...(activeSession.conversation.summary === undefined
-                            ? {}
-                            : { summary: activeSession.conversation.summary }),
-                        turns: trimTurns(completedTurns),
-                    };
-
-                    request.modelProvider
-                        .compressConversation({
-                            model: request.model,
-                            locale: request.locale,
-                            ...(activeSession.conversation.summary === undefined
-                                ? {}
-                                : { previousSummary: activeSession.conversation.summary }),
-                            turns: completedTurns,
-                        })
-                        .then((summary) => {
-                            const currentSession = this.sessions.find(
-                                (item) => item.id === request.session,
-                            );
-                            if (!currentSession || summary.trim().length === 0) {
-                                return;
-                            }
-
-                            currentSession.conversation = {
-                                ...currentSession.conversation,
-                                summary,
-                                turns: trimTurns(completedTurns),
-                            };
-                        })
-                        .catch(() => {
-                            // Keep the uncompressed recent-turn fallback when summary generation fails.
-                        });
-                });
-
-                return stream;
-            });
-
-        return {
-            id,
-            streamPromise,
+            },
         };
     }
 
     /**
-     * Resolves a session id or throws when the caller refers to an unknown session.
+     * Attaches end-of-stream bookkeeping for session history and compression.
+     *
+     * Compression runs in the background on a best-effort basis. The session is
+     * first updated with the fresh resumable identifiers so a failed summary pass
+     * does not block continuing the conversation.
      */
-    private assertSession(id: number) {
-        const session = this.sessions.find((item) => item.id === id);
-        if (!session) {
-            throw new Error(`Unknown agent session: ${id}`);
-        }
+    hookupStreamEnd(options: AskOptions, nextTurns: AgentConversationTurn[], stream: AskResponse) {
+        stream.on("end", () => {
+            const latestConversation = stream.getConversationContext();
+            const activeSession = this.get(options.session);
+            if (!activeSession) {
+                return;
+            }
 
-        return session;
+            const assistantOutput = stream.getOutputText();
+            const completedTurns =
+                assistantOutput.length > 0
+                    ? [
+                          ...nextTurns,
+                          {
+                              role: "assistant" as const,
+                              content: assistantOutput,
+                          },
+                      ]
+                    : nextTurns;
+
+            activeSession.conversation = {
+                ...latestConversation,
+                ...(activeSession.conversation.summary === undefined
+                    ? {}
+                    : { summary: activeSession.conversation.summary }),
+                turns: trimTurns(completedTurns),
+            };
+
+            SessionCompressor.compress({
+                ...options,
+                ...(activeSession.conversation.summary === undefined
+                    ? {}
+                    : { previousSummary: activeSession.conversation.summary }),
+                turns: completedTurns,
+            })
+                .then((summary) => {
+                    if (summary.trim().length === 0) {
+                        return;
+                    }
+
+                    activeSession.conversation = {
+                        ...activeSession.conversation,
+                        summary,
+                        turns: trimTurns(completedTurns),
+                    };
+                })
+                .catch((error: any) => {
+                    console.error("Error during conversation compression:", error);
+                });
+        });
     }
 }

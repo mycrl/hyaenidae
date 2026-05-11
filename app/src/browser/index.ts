@@ -3,7 +3,6 @@ import EventEmitter from "node:events";
 import { Layout, Bridge } from "@hyaenidae/bridge";
 import { CONFIG } from "../config";
 import { SettingsManager } from "../settings";
-import { ModelProviderController } from "@hyaenidae/core";
 
 export function isApplicationRegisteredUrl(url: string) {
     return url == CONFIG.shellUrl || url == CONFIG.settingsUrl;
@@ -35,10 +34,7 @@ export class Browser extends EventEmitter {
     public tabs: View[] = [];
     public shell: View;
 
-    constructor(
-        private readonly settingsManager: SettingsManager,
-        private readonly modelProviders: ModelProviderController,
-    ) {
+    constructor(private readonly settingsManager: SettingsManager) {
         super();
 
         this.baseWindow = new BaseWindow({
@@ -50,7 +46,7 @@ export class Browser extends EventEmitter {
             titleBarStyle: "hidden",
         });
 
-        console.log("Browser view initialized");
+        console.info("Browser view initialized");
 
         this.shell = new View({
             webPreferences: {
@@ -59,7 +55,7 @@ export class Browser extends EventEmitter {
             },
         });
 
-        console.log("Shell view initialized");
+        console.info("Shell view initialized");
 
         // Create the window frame content view
         {
@@ -120,7 +116,7 @@ export class Browser extends EventEmitter {
     async create(url: string = "about:blank") {
         const isHyaenidaeUrl = isApplicationRegisteredUrl(url);
 
-        console.log("Creating new tab with URL:", url);
+        console.info("Creating new tab with URL:", url);
 
         const tab = new View({
             webPreferences: isHyaenidaeUrl

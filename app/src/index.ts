@@ -1,54 +1,21 @@
 import { app } from "electron";
-
-import {
-    AgentActivityEvent,
-    AgentSessionController,
-    ModelProviderController,
-} from "@hyaenidae/core";
+import { AgentActivityEvent, Hyaenidae, getModelsFromModelProvider } from "@hyaenidae/core";
 import { ElectronBrowserRuntime } from "./browser/runtime";
 import { Browser } from "./browser";
 import { CONFIG, initConfig } from "./config";
 import { SettingsManager } from "./settings";
+import { registerLogger } from "./logger";
 
+registerLogger();
 initConfig();
 
+const coreService = new Hyaenidae();
 const settingsManager = new SettingsManager();
-const modelProviders = new ModelProviderController();
-const browser = new Browser(settingsManager, modelProviders);
-const agentSessions = new AgentSessionController();
+const browser = new Browser(settingsManager);
 const browserRuntime = new ElectronBrowserRuntime(browser);
 
 browser.on("all-tabs-closed", () => {
     app.quit();
-});
-
-browser.shell.bridge.handle("agent:provider-list", async () => {
-    return {
-        providers: Object.entries(modelProviders.getProviders()).map(([id, provider]) => ({
-            id: Number(id),
-            apiKey: provider.options.apiKey,
-            baseURL: provider.options.baseURL,
-        })),
-    };
-});
-
-browser.shell.bridge.handle("agent:provider-get-models", async ({ id }) => {
-    const provider = modelProviders.getProvider(id);
-    if (!provider) {
-        throw new Error(`Model provider with id ${id} not found`);
-    }
-
-    const models = await provider.getModels();
-    return { models };
-});
-
-browser.shell.bridge.handle("agent:provider-create", async ({ apiKey, baseURL }) => {
-    const id = modelProviders.create({ apiKey, baseURL });
-    return { id };
-});
-
-browser.shell.bridge.handle("agent:provider-remove", async ({ id }) => {
-    modelProviders.remove(id);
 });
 
 browser.shell.bridge.handle("shell:settings-get", async () => {
@@ -118,77 +85,61 @@ browser.shell.bridge.on("shell:layout-changed", (layout) => {
     browser.updateLayout(layout);
 });
 
+browser.shell.bridge.handle("agent:provider-get-models", async (modelProvider) => {
+    return { models: await getModelsFromModelProvider(modelProvider) };
+});
+
 browser.shell.bridge.handle("agent:session-list", async () => {
-    return { sessions: agentSessions.listSessions() };
+    return { sessions: coreService.sessionManager.list() };
 });
 
 browser.shell.bridge.handle("agent:session-create", async ({ name }) => {
-    const session = agentSessions.createSession(name);
-    return { id: session.id };
+    return coreService.sessionManager.create(name);
 });
 
 browser.shell.bridge.handle("agent:session-remove", async ({ id }) => {
-    agentSessions.removeSession(id);
+    coreService.sessionManager.removeWithID(id);
 });
 
-browser.shell.bridge.handle(
-    "agent:chat-ask",
-    async ({ provider, session, model, message, locale }) => {
-        const modelProvider = modelProviders.getProvider(provider);
-        if (!modelProvider) {
-            throw new Error(`Model provider with id ${provider} not found`);
-        }
+browser.shell.bridge.handle("agent:chat-ask", async (options) => {
+    const sessionId = options.session.id;
+    const { id, askTask } = coreService.ask({
+        ...options,
+        browserRuntime,
+    });
 
-        const { id, streamPromise } = agentSessions.ask({
-            session,
-            model,
-            message,
-            locale,
-            browserRuntime,
-            modelProvider,
-        });
-
-        streamPromise
-            .then((stream) => {
-                stream.on("error", (error: Error) => {
-                    browser.shell.bridge.send("agent:chat-response-done", {
-                        error: error.message,
-                        session,
-                        id,
-                    });
-                });
-
-                stream.on("text", (message: string) => {
-                    browser.shell.bridge.send("agent:chat-response", {
-                        id,
-                        session,
-                        message,
-                    });
-                });
-
-                stream.on("activity", (activity: AgentActivityEvent) => {
-                    browser.shell.bridge.send("agent:chat-activity", {
-                        id,
-                        session,
-                        ...activity,
-                    });
-                });
-
-                stream.on("end", () => {
-                    browser.shell.bridge.send("agent:chat-response-done", { id, session });
-                });
-            })
-            .catch((error: Error) => {
+    askTask()
+        .then((stream) => {
+            stream.on("error", (error: Error) => {
                 browser.shell.bridge.send("agent:chat-response-done", {
                     error: error.message,
-                    session,
+                    sessionId,
                     id,
                 });
             });
 
-        return { id };
-    },
-);
+            stream.on("text", (message: string) => {
+                browser.shell.bridge.send("agent:chat-response", { message, sessionId, id });
+            });
+
+            stream.on("activity", (activity: AgentActivityEvent) => {
+                browser.shell.bridge.send("agent:chat-activity", { id, sessionId, ...activity });
+            });
+
+            stream.on("end", () => {
+                browser.shell.bridge.send("agent:chat-response-done", { sessionId, id });
+            });
+        })
+        .catch((error: Error) => {
+            browser.shell.bridge.send("agent:chat-response-done", {
+                error: error.message,
+                sessionId,
+                id,
+            });
+        });
+
+    return { id };
+});
 
 {
     let isReady = false;
@@ -198,7 +149,7 @@ browser.shell.bridge.handle(
         if (!isReady) {
             isReady = true;
 
-            console.log("Shell is ready. Creating initial tab with URL:", CONFIG.defaultTabUrl);
+            console.info("Shell is ready. Creating initial tab with URL:", CONFIG.defaultTabUrl);
 
             await browser.create(CONFIG.defaultTabUrl);
         }

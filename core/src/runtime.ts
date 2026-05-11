@@ -204,6 +204,7 @@ export interface BrowserRuntime {
      * Captures a compact DOM and accessibility snapshot for reasoning.
      */
     snapshotDom(tabId?: number): Promise<BrowserDomSnapshot>;
+
     /**
      * Captures a screenshot of the visible page for visual inspection.
      */
