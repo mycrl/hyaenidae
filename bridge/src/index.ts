@@ -18,7 +18,7 @@ export interface AgentSession {
 
 export interface AgentAskOptions {
     modelProvider: ModelProvider;
-    session: AgentSession;
+    session: number;
     message: string;
     locale: string;
 }

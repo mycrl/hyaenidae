@@ -135,8 +135,8 @@ export class SessionManager {
     /**
      * Looks up the live in-memory state for a session.
      */
-    get(session: Session): SessionState | undefined {
-        return this.sessions[session.id];
+    get(id: number): SessionState | undefined {
+        return this.sessions[id];
     }
 
     /**
@@ -159,7 +159,7 @@ export class SessionManager {
     /**
      * Deletes a session and its associated conversation state.
      */
-    removeWithID(id: number) {
+    remove(id: number) {
         delete this.sessions[id];
     }
 
@@ -170,9 +170,9 @@ export class SessionManager {
      * logic can append the assistant response without re-reading session state.
      */
     turnAskOptions(askOptions: AskOptions) {
-        const sessionState = this.sessions[askOptions.session.id];
+        const sessionState = this.sessions[askOptions.session];
         if (!sessionState) {
-            throw new Error(`Session with id ${askOptions.session.id} not found`);
+            throw new Error(`Session with id ${askOptions.session} not found`);
         }
 
         const historicalTurns = trimTurns(sessionState.conversation.turns ?? []);

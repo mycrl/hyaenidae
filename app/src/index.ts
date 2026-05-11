@@ -98,11 +98,11 @@ browser.shell.bridge.handle("agent:session-create", async ({ name }) => {
 });
 
 browser.shell.bridge.handle("agent:session-remove", async ({ id }) => {
-    coreService.sessionManager.removeWithID(id);
+    coreService.sessionManager.remove(id);
 });
 
 browser.shell.bridge.handle("agent:chat-ask", async (options) => {
-    const sessionId = options.session.id;
+    const sessionId = options.session;
     const { id, askTask } = coreService.ask({
         ...options,
         browserRuntime,

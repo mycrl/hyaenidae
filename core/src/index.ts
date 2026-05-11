@@ -1,6 +1,6 @@
 import { AskResponse } from "./response";
 import { Agent, run } from "@openai/agents";
-import { Session, SessionManager } from "./sessions";
+import { SessionManager } from "./sessions";
 import { buildConversationInput, createModel } from "./helper";
 import { BrowserRuntime } from "./runtime";
 import { createTools } from "./tools";
@@ -8,6 +8,7 @@ import { createTools } from "./tools";
 export { getModelsFromModelProvider } from "./helper";
 export * from "./runtime";
 export * from "./response";
+export * from "./sessions";
 
 const AGENT_MAX_TURNS = 30;
 
@@ -64,7 +65,7 @@ export type ModelProvider = (
  */
 export interface AskOptions {
     modelProvider: ModelProvider;
-    session: Session;
+    session: number;
     message: string;
     locale: string;
     browserRuntime: BrowserRuntime;
