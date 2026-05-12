@@ -1,11 +1,11 @@
 import { AskResponse } from "./response";
-import { Agent, run } from "@openai/agents";
+import { stepCountIs, streamText } from "ai";
 import { SessionManager } from "./sessions";
-import { buildConversationInput, createModel } from "./helper";
+import { buildConversationInput, createModelWithModelProvider } from "./helper";
 import { BrowserRuntime } from "./runtime";
 import { createTools } from "./tools";
 
-export { getModelsFromModelProvider } from "./helper";
+export { getModelsWithModelProvider } from "./helper";
 export * from "./runtime";
 export * from "./response";
 export * from "./sessions";
@@ -87,40 +87,19 @@ export class Hyaenidae {
             id: this.askCounter++,
             askTask: async () => {
                 const { options, nextTurns } = this.sessionManager.turnAskOptions(askOptions);
-
-                const agent = new Agent({
-                    name: "Hyaenidae Main Agent",
-                    instructions: MAIN_AGENT_PROMPT.replace(/{{LOCALE}}/g, options.locale),
-                    model: await createModel(options.modelProvider),
-                    tools: createTools(options),
-                });
-
                 const stream = new AskResponse(
-                    await run(
-                        agent,
-                        buildConversationInput(
+                    streamText({
+                        model: createModelWithModelProvider(options.modelProvider),
+                        system: MAIN_AGENT_PROMPT.replace(/{{LOCALE}}/g, options.locale),
+                        prompt: buildConversationInput(
                             options.conversation?.summary,
                             options.conversation?.turns ?? [],
                             options.message,
                         ),
-                        {
-                            stream: true,
-                            maxTurns: AGENT_MAX_TURNS,
-                            ...(options.conversation?.conversationId === undefined
-                                ? {}
-                                : {
-                                      conversationId: options.conversation.conversationId,
-                                  }),
-                            ...(options.conversation?.previousResponseId === undefined
-                                ? {}
-                                : {
-                                      previousResponseId: options.conversation.previousResponseId,
-                                  }),
-                        },
-                    ),
+                        tools: createTools(options),
+                        stopWhen: stepCountIs(AGENT_MAX_TURNS),
+                    }),
                 );
-
-                stream.start();
 
                 this.sessionManager.hookupStreamEnd(options, nextTurns, stream);
 

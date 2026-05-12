@@ -11,7 +11,7 @@ import { CONFIG } from "./config";
  * subdirectory of the user's data path.
  */
 export class SettingsManager {
-    private settings: any = {};
+    private settings: any = null;
 
     constructor() {
         console.info("SettingsManager initialized with path:", CONFIG.settingsFilePath);
@@ -30,7 +30,7 @@ export class SettingsManager {
             console.warn("No existing settings found, starting with empty settings.");
         }
 
-        console.debug("Loaded settings:", this.settings);
+        console.info("Loaded settings:", this.settings);
 
         return this.settings;
     }

@@ -1,7 +1,7 @@
-import { tool } from "@openai/agents";
+import { generateText, tool } from "ai";
 import { z as zod, ZodObject, ZodRawShape } from "zod";
 import { AskOptions } from ".";
-import { createOpenAIClient, extractResponseText } from "./helper";
+import { createModelWithModelProvider } from "./helper";
 
 /**
  * Shared tab-target schema used by browser tools.
@@ -20,21 +20,19 @@ export const withOptional = <T extends ZodRawShape, U extends ZodRawShape>(
 ) => base.extend(extra.shape);
 
 /**
- * Creates the browser tool set exposed to the agent runtime.
+ * Creates the browser tool set exposed to the AI SDK runtime.
  */
-export const createTools = (askOptions: AskOptions) => [
-    tool({
-        name: "list_tabs",
+export const createTools = (askOptions: AskOptions) => ({
+    list_tabs: tool({
         description: "List all open browser tabs with focus and loading state.",
-        parameters: zod.object({}),
+        inputSchema: zod.object({}),
         execute: async () => ({
             tabs: await askOptions.browserRuntime.listTabs(),
         }),
     }),
-    tool({
-        name: "open_tab",
+    open_tab: tool({
         description: "Open a new browser tab and optionally load a URL.",
-        parameters: zod.object({
+        inputSchema: zod.object({
             url: zod
                 .string()
                 .nullable()
@@ -44,20 +42,18 @@ export const createTools = (askOptions: AskOptions) => [
             tab: await askOptions.browserRuntime.openTab(url ?? undefined),
         }),
     }),
-    tool({
-        name: "focus_tab",
+    focus_tab: tool({
         description: "Focus an existing tab so subsequent actions target it.",
-        parameters: zod.object({
+        inputSchema: zod.object({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => ({
             tab: await askOptions.browserRuntime.focusTab(tabId),
         }),
     }),
-    tool({
-        name: "close_tab",
+    close_tab: tool({
         description: "Close a browser tab that is no longer needed.",
-        parameters: zod.object({
+        inputSchema: zod.object({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => {
@@ -66,10 +62,9 @@ export const createTools = (askOptions: AskOptions) => [
             return { ok: true, tabId };
         },
     }),
-    tool({
-        name: "load_url",
+    load_url: tool({
         description: "Navigate a tab to a URL.",
-        parameters: zod
+        inputSchema: zod
             .object({
                 tabId: zod.number().describe("The target tab id."),
             })
@@ -80,10 +75,9 @@ export const createTools = (askOptions: AskOptions) => [
             tab: await askOptions.browserRuntime.load(tabId, url),
         }),
     }),
-    tool({
-        name: "reload_tab",
+    reload_tab: tool({
         description: "Reload a tab.",
-        parameters: zod.object({
+        inputSchema: zod.object({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => {
@@ -92,10 +86,9 @@ export const createTools = (askOptions: AskOptions) => [
             return { ok: true, tabId };
         },
     }),
-    tool({
-        name: "go_back",
+    go_back: tool({
         description: "Navigate backward in tab history.",
-        parameters: zod.object({
+        inputSchema: zod.object({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => {
@@ -104,10 +97,9 @@ export const createTools = (askOptions: AskOptions) => [
             return { ok: true, tabId };
         },
     }),
-    tool({
-        name: "go_forward",
+    go_forward: tool({
         description: "Navigate forward in tab history.",
-        parameters: zod.object({
+        inputSchema: zod.object({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => {
@@ -116,11 +108,10 @@ export const createTools = (askOptions: AskOptions) => [
             return { ok: true, tabId };
         },
     }),
-    tool({
-        name: "act_on_page",
+    act_on_page: tool({
         description:
             "Perform a concrete DOM-grounded page action such as click, type, or scroll. Prefer this over point-based actions.",
-        parameters: withOptional(
+        inputSchema: withOptional(
             optionalTabIdSchema,
             zod.object({
                 action: zod.enum(["click", "type", "scroll"]).describe("The action to perform."),
@@ -154,11 +145,10 @@ export const createTools = (askOptions: AskOptions) => [
                 ...(amount == null ? {} : { amount }),
             }),
     }),
-    tool({
-        name: "act_at_point",
+    act_at_point: tool({
         description:
             "Fallback action for approximate viewport coordinates. Only use this after DOM selectors, AX clues, and grounded DOM targets fail.",
-        parameters: withOptional(
+        inputSchema: withOptional(
             optionalTabIdSchema,
             zod.object({
                 action: zod.enum(["click", "type"]).describe("The fallback action to perform."),
@@ -181,18 +171,16 @@ export const createTools = (askOptions: AskOptions) => [
                 ...(text == null ? {} : { text }),
             }),
     }),
-    tool({
-        name: "snapshot_dom",
+    snapshot_dom: tool({
         description:
             "Read the current page using a compact DOM snapshot plus accessibility data. Good for selectors and semantic structure, but it may miss visually obvious answer cards or rich widgets. If the snapshot does not answer the question and the missing information may be visible on screen but underrepresented in DOM mode, use inspect_vision.",
-        parameters: optionalTabIdSchema,
+        inputSchema: optionalTabIdSchema,
         execute: async ({ tabId }) => askOptions.browserRuntime.snapshotDom(tabId ?? undefined),
     }),
-    tool({
-        name: "inspect_vision",
+    inspect_vision: tool({
         description:
             "Capture a screenshot and inspect what is visibly rendered on the page. Use this for search result answer cards, weather widgets, charts, maps, popovers, canvas content, or when compact DOM data is insufficient or ambiguous.",
-        parameters: withOptional(
+        inputSchema: withOptional(
             optionalTabIdSchema,
             zod.object({
                 prompt: zod
@@ -205,14 +193,14 @@ export const createTools = (askOptions: AskOptions) => [
         execute: async ({ tabId, prompt }) => {
             const snapshot = await askOptions.browserRuntime.captureScreenshot(tabId ?? undefined);
 
-            const response = await createOpenAIClient(askOptions.modelProvider).responses.create({
-                model: askOptions.modelProvider.model,
-                input: [
+            const response = await generateText({
+                model: createModelWithModelProvider(askOptions.modelProvider),
+                messages: [
                     {
                         role: "user",
                         content: [
                             {
-                                type: "input_text",
+                                type: "text",
                                 text: [
                                     "You are inspecting a browser screenshot for a browser automation agent.",
                                     `Write the analysis in ${askOptions.locale} unless the user explicitly asked for another language.`,
@@ -221,9 +209,8 @@ export const createTools = (askOptions: AskOptions) => [
                                 ].join("\n"),
                             },
                             {
-                                type: "input_image",
-                                image_url: `data:${snapshot.mimeType};base64,${snapshot.base64}`,
-                                detail: "auto",
+                                type: "image",
+                                image: `data:${snapshot.mimeType};base64,${snapshot.base64}`,
                             },
                         ],
                     },
@@ -234,22 +221,20 @@ export const createTools = (askOptions: AskOptions) => [
                 tabId: snapshot.tabId,
                 width: snapshot.width,
                 height: snapshot.height,
-                analysis: extractResponseText(response),
+                analysis: response.text,
             };
         },
     }),
-    tool({
-        name: "capture_vision",
+    capture_vision: tool({
         description: "Capture a raw screenshot for debugging or external inspection.",
-        parameters: optionalTabIdSchema,
+        inputSchema: optionalTabIdSchema,
         execute: async ({ tabId }) =>
             askOptions.browserRuntime.captureScreenshot(tabId ?? undefined),
     }),
-    tool({
-        name: "ground_from_vision",
+    ground_from_vision: tool({
         description:
             "Resolve a visual description to likely DOM selectors or targets before clicking or typing. The returned point is only a backup when DOM selectors fail.",
-        parameters: withOptional(
+        inputSchema: withOptional(
             optionalTabIdSchema,
             zod.object({
                 description: zod
@@ -265,11 +250,10 @@ export const createTools = (askOptions: AskOptions) => [
             ),
         }),
     }),
-    tool({
-        name: "run_tab_script",
+    run_tab_script: tool({
         description:
             "Run a short script inside the tab to inspect or automate page state. Prefer read-only scripts unless an explicit mutation is needed.",
-        parameters: withOptional(
+        inputSchema: withOptional(
             optionalTabIdSchema,
             zod.object({
                 script: zod
@@ -296,4 +280,4 @@ export const createTools = (askOptions: AskOptions) => [
                       : { tabId, script, args },
             ),
     }),
-];
+});

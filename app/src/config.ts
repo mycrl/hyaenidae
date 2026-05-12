@@ -21,7 +21,7 @@ const DEFAULT_CONFIG: Config = {
     defaultWidth: 1280,
     defaultHeight: 760,
     openDevTools: true,
-    preloadScriptPath: path.resolve("../../ui/dist/preload.js"),
+    preloadScriptPath: path.resolve("./dist/preload.js"),
     settingsFilePath: path.join(app.getPath("userData"), "./settings.dat"),
     resourcesDir: path.join(app.getPath("userData"), "./resources"),
 };
@@ -45,4 +45,6 @@ export function initConfig(configFilePath = path.resolve("../../config.json")) {
 
         CONFIG = DEFAULT_CONFIG;
     }
+
+    console.info("Configuration initialized:", CONFIG);
 }

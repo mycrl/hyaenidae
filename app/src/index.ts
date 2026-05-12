@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { AgentActivityEvent, Hyaenidae, getModelsFromModelProvider } from "@hyaenidae/core";
+import { AgentActivityEvent, Hyaenidae, getModelsWithModelProvider } from "@hyaenidae/core";
 import { ElectronBrowserRuntime } from "./browser/runtime";
 import { Browser } from "./browser";
 import { CONFIG, initConfig } from "./config";
@@ -86,7 +86,7 @@ browser.shell.bridge.on("shell:layout-changed", (layout) => {
 });
 
 browser.shell.bridge.handle("agent:provider-get-models", async (modelProvider) => {
-    return { models: await getModelsFromModelProvider(modelProvider) };
+    return { models: await getModelsWithModelProvider(modelProvider) };
 });
 
 browser.shell.bridge.handle("agent:session-list", async () => {
@@ -140,6 +140,8 @@ browser.shell.bridge.handle("agent:chat-ask", async (options) => {
                     id,
                 });
             });
+
+            void stream.start();
         })
         .catch((error: Error) => {
             browser.shell.bridge.send("agent:chat-response-done", {

@@ -1,5 +1,6 @@
+import { generateText } from "ai";
 import { AskOptions } from ".";
-import { trimTurns, createOpenAIClient, extractResponseText } from "./helper";
+import { createModelWithModelProvider, trimTurns } from "./helper";
 import { AgentConversationContext, AgentConversationTurn, AskResponse } from "./response";
 
 const MAX_COMPRESSION_SOURCE_TURNS = 10;
@@ -62,41 +63,22 @@ export class SessionCompressor {
     static async compress(options: SessionCompressionOptions) {
         const turns = options.turns.slice(-MAX_COMPRESSION_SOURCE_TURNS);
 
-        const response = await createOpenAIClient(options.modelProvider).responses.create({
-            model: options.modelProvider.model,
-            input: [
-                {
-                    role: "system",
-                    content: [
-                        {
-                            type: "input_text",
-                            text: CONTEXT_COMPRESSION_PROMPT,
-                        },
-                    ],
-                },
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "input_text",
-                            text: [
-                                `Write the compressed context in ${options.locale} unless the user explicitly asked for another language.`,
-                                options.previousSummary
-                                    ? `Previous compressed context:\n${options.previousSummary}`
-                                    : "Previous compressed context: none",
-                                "Recent conversation turns:",
-                                ...turns.map(
-                                    (turn) =>
-                                        `${turn.role === "user" ? "User" : "Assistant"}: ${turn.content}`,
-                                ),
-                            ].join("\n\n"),
-                        },
-                    ],
-                },
-            ],
+        const response = await generateText({
+            model: createModelWithModelProvider(options.modelProvider),
+            system: CONTEXT_COMPRESSION_PROMPT,
+            prompt: [
+                `Write the compressed context in ${options.locale} unless the user explicitly asked for another language.`,
+                options.previousSummary
+                    ? `Previous compressed context:\n${options.previousSummary}`
+                    : "Previous compressed context: none",
+                "Recent conversation turns:",
+                ...turns.map(
+                    (turn) => `${turn.role === "user" ? "User" : "Assistant"}: ${turn.content}`,
+                ),
+            ].join("\n\n"),
         });
 
-        return extractResponseText(response);
+        return response.text.trim();
     }
 }
 

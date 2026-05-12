@@ -269,6 +269,12 @@ const U32_MAX = 4294967295;
 export class BridgeService {
     private counter = 0;
     private listeners: { [key: string]: (message: Message) => void } = {};
+    private readonly handler: {
+        send: (method: string, message: any) => void;
+        on: (method: string, callback: (message: any) => void) => void;
+        off: (method: string) => void;
+    };
+    private readonly timeout: number;
 
     static RPC_METHOD = "rpc:message";
 
@@ -278,7 +284,7 @@ export class BridgeService {
          * The handler must implement a `send` method for sending messages and
          * an `on` method for registering a callback to handle incoming messages.
          */
-        private readonly handler: {
+        handler: {
             send: (method: string, message: any) => void;
             on: (method: string, callback: (message: any) => void) => void;
             off: (method: string) => void;
@@ -288,7 +294,7 @@ export class BridgeService {
          * response is not received within this time frame, the request will be
          * rejected with a timeout error.
          */
-        private readonly timeout: number = 10000,
+        timeout: number = 10000,
     ) {
         this.handler = handler;
         this.timeout = timeout;
