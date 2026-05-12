@@ -203,22 +203,49 @@ export interface Api {
      */
     "shell:settings-changed": [void, void];
 
+    /**
+     * Search for models on the Hugging Face hub using a query string.
+     */
     "model:search": [{ query: string; limit?: number }, { models: ModelInfo[] }];
 
+    /**
+     * Retrieve downloadable files for a given model repository.
+     */
     "model:get-files": [{ model: string }, { files: ModelFileInfo[] }];
 
+    /**
+     * Download a model artifact (and optional mmproj) into the local cache.
+     */
     "model:download": [{ name: string; modelPath: string; mmprojPath?: string }, void];
 
+    /**
+     * List locally cached models stored under the resources directory.
+     */
     "model:get-local-models": [void, { models: string[] }];
 
+    /**
+     * Remove a locally cached model directory.
+     */
     "model:remove-local-model": [{ model: string }, void];
 
+    /**
+     * List available local runner binary directories.
+     */
     "model:get-runners": [void, { runners: string[] }];
 
+    /**
+     * Query whether a local runner (loader) is currently running.
+     */
     "model:get-runner-status": [void, { runing: boolean }];
 
+    /**
+     * Start a runner for the specified local model and return connection info.
+     */
     "model:start-runner": [{ model: string; runner: string }, { baseUrl: string; apiKey: string }];
 
+    /**
+     * Stop the currently running local runner (if any).
+     */
     "model:stop-runner": [void, void];
 
     /**
