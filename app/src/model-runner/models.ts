@@ -1,15 +1,15 @@
 import { listModels, downloadFile, listFiles } from "@huggingface/hub";
-import { pipeline } from "node:stream/promises";
 import { stat, mkdir, readdir, rm } from "node:fs/promises";
+import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
+import { Transform } from "node:stream";
 import path from "node:path";
 import { CONFIG } from "../config";
-import { Transform } from "node:stream";
 
 /**
  * Model metadata returned from Hugging Face for the search result list.
  */
-export interface ModelInfo {
+export interface Model {
     id: string;
     name: string;
     downloads: number;
@@ -23,109 +23,111 @@ export interface ModelInfo {
 /**
  * A downloadable file inside a model repository, classified by its role.
  */
-export interface ModelFileInfo {
+export interface File {
     type: "model" | "mmproj";
     size: number;
     path: string;
 }
 
+/**
+ * Heuristic to identify GGUF files by extension, case-insensitive.
+ */
 const isGgufFile = (filePath: string) => filePath.toLowerCase().endsWith(".gguf");
 
+/**
+ * Heuristic to identify mmproj files by name, case-insensitive, allowing
+ * for flexible naming conventions but ensuring the key substring is present.
+ */
 const isMmprojFile = (filePath: string) => path.basename(filePath).toLowerCase().includes("mmproj");
 
-const classifyModelFile = (filePath: string): ModelFileInfo["type"] =>
+/**
+ * Classify a file as either the main model file or an optional mmproj companion
+ * based on its name. This allows for flexible naming conventions while still
+ * distinguishing the primary model artifact from additional metadata files.
+ */
+const classifyModelFile = (filePath: string): File["type"] =>
     isMmprojFile(filePath) ? "mmproj" : "model";
 
-export class LocalModelsManager {
+/**
+ * Utility to collect all items from an async iterable into an array. This
+ * is used to gather results from the Hugging Face Hub API, which may return
+ * paginated async iterables for models and files.
+ */
+const collectAsyncIterator = async <T>(iter: AsyncIterable<T>): Promise<T[]> => {
+    const results: T[] = [];
+
+    for await (const item of iter) {
+        results.push(item);
+    }
+
+    return results;
+};
+
+export namespace RemoteModelsManager {
     /**
      * Search Hugging Face for downloadable GGUF models and keep the payload shape
      * aligned with the UI-facing model list.
      */
-    static async searchModels(query: string, limit: number = 20) {
-        let models: ModelInfo[] = [];
-
-        for await (const model of listModels({
-            search: { query, tags: ["gguf"] },
-            additionalFields: ["tags", "author"],
-            sort: "downloads",
-            limit,
-        })) {
-            models.push(model as unknown as ModelInfo);
-        }
-
-        return models;
-    }
+    export const search = async (query: string, limit: number = 20) => {
+        return (await collectAsyncIterator(
+            listModels({
+                search: { query, tags: ["gguf"] },
+                additionalFields: ["tags", "author"],
+                sort: "downloads",
+                limit,
+            }),
+        )) as unknown as Model[];
+    };
 
     /**
      * Inspect a model repository and collect GGUF files, splitting the main model
      * file from the optional mmproj companion file by name.
      */
-    static async getModelFiles(name: string) {
-        let files: ModelFileInfo[] = [];
-
-        for await (const { type, size, path } of listFiles({
-            repo: {
-                type: "model",
-                name,
-            },
-        })) {
-            if (type === "file" && isGgufFile(path)) {
-                files.push({ type: classifyModelFile(path), size, path });
-            }
-        }
-
-        return files;
-    }
-
-    /**
-     * Enumerate downloaded GGUF files for a cached repository.
-     */
-    static async getLocalModelFiles(name: string): Promise<ModelFileInfo[]> {
-        const localModelDir = path.join(CONFIG.resourcesDir, `./models/${name}`);
-        const files = await readdir(localModelDir);
-
-        return Promise.all(
-            files
-                .filter((file) => isGgufFile(file))
-                .sort((left, right) => left.localeCompare(right))
-                .map(async (file) => {
-                    const filePath = path.join(localModelDir, file);
-                    const fileStat = await stat(filePath);
-
-                    return {
-                        type: classifyModelFile(file),
-                        size: fileStat.size,
-                        path: file,
-                    } satisfies ModelFileInfo;
-                }),
-        );
-    }
+    export const getFiles = async (name: string) => {
+        return (await collectAsyncIterator(
+            listFiles({
+                repo: {
+                    type: "model",
+                    name,
+                },
+            }),
+        ).then((items) =>
+            items.filter((item) => item.type === "file" && isGgufFile(item.path)),
+        )) as unknown as File[];
+    };
 
     /**
      * Download the selected model artifact, and optionally its mmproj companion,
      * into the local resources model cache.
      */
-    static async downloadModel(
-        { name, files }: { name: string; files: ModelFileInfo[] },
+    export const download = async (
+        { name, files }: { name: string; files: File[] },
         onProgress?: (progress: number) => void,
-    ) {
+    ) => {
         const [username, model] = name.split("/") as [string, string];
         if (!username || !model) {
             throw new Error(`Invalid model name: ${name}`);
         }
 
-        const localModelDir = path.join(CONFIG.resourcesDir, `./models/${username}/${model}`);
+        const modelDir = path.join(CONFIG.resourcesDir, `./models/${username}/${model}`);
 
+        // Ensure the local model directory exists before downloading files into
+        // it. This prevents potential race conditions where multiple files are
+        // being downloaded in parallel into the same directory.
         if (
-            !(await stat(localModelDir)
+            !(await stat(modelDir)
                 .then(() => true)
                 .catch(() => false))
         ) {
-            await mkdir(localModelDir, { recursive: true });
+            await mkdir(modelDir, { recursive: true });
         }
 
-        let currentSize = 0;
         const countSize = files.reduce((acc, file) => acc + file.size, 0);
+        if (countSize === 0) {
+            return;
+        }
+
+        let downloadedSize = 0;
 
         await Promise.all(
             files.map(async ({ path: item }) => {
@@ -141,93 +143,91 @@ export class LocalModelsManager {
                     throw new Error(`File ${item} not found in model ${name}`);
                 }
 
-                const targetPath = path.join(localModelDir, item);
-
-                await mkdir(path.dirname(targetPath), { recursive: true });
-
                 await pipeline(
                     response.stream(),
+                    // Create a transform stream to track download progress and
+                    // report it via the onProgress callback.
                     new Transform({
                         transform(chunk, _, callback) {
                             if (onProgress && countSize > 0) {
-                                currentSize += chunk.length;
-                                onProgress(currentSize / countSize);
+                                downloadedSize += chunk.length;
+
+                                onProgress(downloadedSize / countSize);
                             }
 
                             callback(null, chunk);
                         },
                     }),
-                    createWriteStream(targetPath),
+                    createWriteStream(path.join(modelDir, item)),
                 );
             }),
         );
-    }
+    };
+}
 
+export namespace LocalModelsManager {
     /**
      * Enumerate locally cached models using the on-disk owner/repo directory
      * layout.
      */
-    static async getLocalModels(): Promise<string[]> {
+    export const list = async (): Promise<string[]> => {
         let models: string[] = [];
 
-        const localModelsDir = path.join(CONFIG.resourcesDir, `./models`);
+        const modelsDir = path.join(CONFIG.resourcesDir, `./models`);
 
-        for (const username of await readdir(localModelsDir)) {
-            for (const model of await readdir(path.join(localModelsDir, username))) {
+        for (const username of await readdir(modelsDir)) {
+            for (const model of await readdir(path.join(modelsDir, username))) {
                 models.push(`${username}/${model}`);
             }
         }
 
         return models;
-    }
+    };
+
+    /**
+     * Enumerate downloaded GGUF files for a cached repository.
+     */
+    export const getFiles = async (name: string): Promise<File[]> => {
+        const modelDir = path.join(CONFIG.resourcesDir, `./models/${name}`);
+
+        return (await readdir(modelDir))
+            .filter(isGgufFile)
+            .sort((left, right) => left.localeCompare(right))
+            .map((path) => {
+                return {
+                    type: classifyModelFile(path),
+                    path,
+                    // The file size is not critical for local files since they
+                    // are already downloaded, and obtaining it would require
+                    // additional fs.stat calls. We can set it to 0 or omit it
+                    // since the local file management logic does not rely on
+                    // the size.
+                    size: 0,
+                } satisfies File;
+            });
+    };
 
     /**
      * Given a locally cached model name, return the file paths for the model
      * and its optional mmproj file. These can be used directly as loader inputs
      * without redownloading from Hugging Face.
      */
-    static async getLocalModelPaths(name: string, modelFile?: string, mmprojFile?: string) {
-        const localModelDir = path.join(CONFIG.resourcesDir, `./models/${name}`);
-
-        const files = await this.getLocalModelFiles(name);
-        const modelFiles = files.filter((file) => file.type === "model");
-        const mmprojFiles = files.filter((file) => file.type === "mmproj");
-        const selectedModelFile =
-            modelFile && modelFiles.some((file) => file.path === modelFile)
-                ? modelFile
-                : modelFiles[0]?.path;
-
-        if (!selectedModelFile) {
-            throw new Error(`Model files not found for ${name}`);
-        }
-
-        const selectedMmprojFile =
-            mmprojFile && mmprojFiles.some((file) => file.path === mmprojFile)
-                ? mmprojFile
-                : mmprojFiles.length === 1
-                  ? mmprojFiles[0]!.path
-                  : undefined;
+    export const resolvePaths = async (name: string, modelFile: string, mmprojFile?: string) => {
+        const modelDir = path.join(CONFIG.resourcesDir, `./models/${name}`);
 
         return {
-            modelPath: path.join(localModelDir, selectedModelFile),
-            mmprojPath: selectedMmprojFile
-                ? path.join(localModelDir, selectedMmprojFile)
-                : undefined,
+            modelPath: path.join(modelDir, modelFile),
+            mmprojPath: mmprojFile ? path.join(modelDir, mmprojFile) : undefined,
         };
-    }
+    };
 
     /**
      * Remove the cached directory for a single model repo.
      */
-    static async removeLocalModel(name: string) {
-        const [username, model] = name.split("/") as [string, string];
-        if (!username || !model) {
-            throw new Error(`Invalid model name: ${name}`);
-        }
-
-        await rm(path.join(CONFIG.resourcesDir, `./models/${username}/${model}`), {
+    export const remove = async (name: string) => {
+        await rm(path.join(CONFIG.resourcesDir, `./models/${name}`), {
             recursive: true,
             force: true,
         });
-    }
+    };
 }

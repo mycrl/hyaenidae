@@ -3,7 +3,7 @@ import EventEmitter from "node:events";
 import { Layout, Bridge } from "@hyaenidae/bridge";
 import { CONFIG } from "../config";
 import { SettingsManager } from "../settings";
-import { LocalModelsManager } from "../model-runner/models";
+import { LocalModelsManager, RemoteModelsManager } from "../model-runner/models";
 import { ModelRunnerCounter } from "../model-runner";
 
 export function isApplicationRegisteredUrl(url: string) {
@@ -197,13 +197,13 @@ export class Browser extends EventEmitter {
 
             tab.bridge.handle("model:search", async ({ query, limit }) => {
                 return {
-                    models: await LocalModelsManager.searchModels(query, limit),
+                    models: await RemoteModelsManager.search(query, limit),
                 };
             });
 
             tab.bridge.handle("model:get-files", async ({ model }) => {
                 return {
-                    files: await LocalModelsManager.getModelFiles(model),
+                    files: await RemoteModelsManager.getFiles(model),
                 };
             });
 
@@ -219,7 +219,7 @@ export class Browser extends EventEmitter {
                     return;
                 }
 
-                LocalModelsManager.downloadModel(options, (progress) => {
+                RemoteModelsManager.download(options, (progress) => {
                     tab.bridge.send("model:download-progress", {
                         name: options.name,
                         path: targetPath,
@@ -247,18 +247,18 @@ export class Browser extends EventEmitter {
 
             tab.bridge.handle("model:get-local-models", async () => {
                 return {
-                    models: await LocalModelsManager.getLocalModels(),
+                    models: await LocalModelsManager.list(),
                 };
             });
 
             tab.bridge.handle("model:get-local-model-files", async ({ model }) => {
                 return {
-                    files: await LocalModelsManager.getLocalModelFiles(model),
+                    files: await LocalModelsManager.getFiles(model),
                 };
             });
 
             tab.bridge.handle("model:remove-local-model", async ({ model }) => {
-                await LocalModelsManager.removeLocalModel(model);
+                await LocalModelsManager.remove(model);
             });
 
             tab.bridge.handle("model:get-runners", async () => {

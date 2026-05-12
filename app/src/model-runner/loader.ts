@@ -98,7 +98,7 @@ export class Loader extends EventEmitter {
      */
     static create(options: LoaderOptions) {
         return new Promise<Loader>((resolve, reject) => {
-            const loader = new Loader(options);
+            const runner = new Loader(options);
 
             // Set up a timeout to reject the promise if the loader doesn't
             // emit 'listening' within the specified time
@@ -106,13 +106,13 @@ export class Loader extends EventEmitter {
                 reject(new Error("LlmLauncher timed out while waiting for listening event"));
             }, options.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS);
 
-            loader.once("listening", () => {
+            runner.once("listening", () => {
                 clearTimeout(timer);
 
-                resolve(loader);
+                resolve(runner);
             });
 
-            loader.once("error", (err) => {
+            runner.once("error", (err) => {
                 clearTimeout(timer);
 
                 reject(err);

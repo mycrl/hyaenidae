@@ -54,7 +54,7 @@ export class ModelRunnerCounter {
      * @returns Connection info object containing `baseUrl` and `apiKey`
      */
     async start(options: StartRunnerOptions) {
-        const { modelPath, mmprojPath } = await LocalModelsManager.getLocalModelPaths(
+        const { modelPath, mmprojPath } = await LocalModelsManager.resolvePaths(
             options.model,
             options.modelFile,
             options.mmprojFile,
