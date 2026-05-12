@@ -3,5 +3,5 @@
 </p>
 <h1 align="center">Hyaenidae</h1>
 <p align="center">
-  An AI browser agent with DOM-first automation, vision fallback, tool calling, and flexible multi-provider support.
+  An AI browser with DOM-first automation, vision fallback, tool calling, and flexible multi-provider support.
 </p>
