@@ -5,6 +5,8 @@ import { Browser } from "./browser";
 import { CONFIG, initConfig } from "./config";
 import { SettingsManager } from "./settings";
 import { registerLogger } from "./logger";
+import { LocalModelsManager } from "./model-runner/models";
+import { ModelRunnerCounter } from "./model-runner";
 
 registerLogger();
 initConfig();
@@ -12,6 +14,7 @@ initConfig();
 const coreService = new Hyaenidae();
 const settingsManager = new SettingsManager();
 const browser = new Browser(settingsManager);
+const modelRunnerCounter = new ModelRunnerCounter();
 const browserRuntime = new ElectronBrowserRuntime(browser);
 
 browser.on("all-tabs-closed", () => {
@@ -152,6 +155,52 @@ browser.shell.bridge.handle("agent:chat-ask", async (options) => {
         });
 
     return { id };
+});
+
+browser.shell.bridge.handle("model:search", async ({ query, limit }) => {
+    return {
+        models: await LocalModelsManager.searchModels(query, limit),
+    };
+});
+
+browser.shell.bridge.handle("model:get-files", async ({ model }) => {
+    return {
+        files: await LocalModelsManager.getModelFiles(model),
+    };
+});
+
+browser.shell.bridge.handle("model:download", async (options) => {
+    await LocalModelsManager.downloadModel(options);
+});
+
+browser.shell.bridge.handle("model:get-local-models", async () => {
+    return {
+        models: await LocalModelsManager.getLocalModels(),
+    };
+});
+
+browser.shell.bridge.handle("model:remove-local-model", async ({ model }) => {
+    await LocalModelsManager.removeLocalModel(model);
+});
+
+browser.shell.bridge.handle("model:get-runners", async () => {
+    return {
+        runners: await modelRunnerCounter.getRunners(),
+    };
+});
+
+browser.shell.bridge.handle("model:get-runner-status", async () => {
+    return {
+        runing: modelRunnerCounter.isRuning,
+    };
+});
+
+browser.shell.bridge.handle("model:start-runner", async ({ model, runner }) => {
+    return await modelRunnerCounter.start(model, runner);
+});
+
+browser.shell.bridge.handle("model:stop-runner", async () => {
+    await modelRunnerCounter.stop();
 });
 
 {

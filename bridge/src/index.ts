@@ -45,6 +45,23 @@ export interface AgentResult {
     error?: string;
 }
 
+export interface ModelInfo {
+    id: string;
+    name: string;
+    downloads: number;
+    updatedAt: string;
+    links: number;
+    task?: string;
+    author: string;
+    tags: string[];
+}
+
+export interface ModelFileInfo {
+    type: "model" | "mmproj";
+    size: number;
+    path: string;
+}
+
 export interface Api {
     /**
      * Navigates forward to the next history entry in the specified tab
@@ -185,6 +202,24 @@ export interface Api {
      * Triggers when the application settings are changed.
      */
     "shell:settings-changed": [void, void];
+
+    "model:search": [{ query: string; limit?: number }, { models: ModelInfo[] }];
+
+    "model:get-files": [{ model: string }, { files: ModelFileInfo[] }];
+
+    "model:download": [{ name: string; modelPath: string; mmprojPath?: string }, void];
+
+    "model:get-local-models": [void, { models: string[] }];
+
+    "model:remove-local-model": [{ model: string }, void];
+
+    "model:get-runners": [void, { runners: string[] }];
+
+    "model:get-runner-status": [void, { runing: boolean }];
+
+    "model:start-runner": [{ model: string; runner: string }, { baseUrl: string; apiKey: string }];
+
+    "model:stop-runner": [void, void];
 
     /**
      * Retrieves a list of available models for a given provider ID.

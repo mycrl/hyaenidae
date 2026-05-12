@@ -1,6 +1,7 @@
 import { app } from "electron";
 import path from "node:path";
 import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 
 export type Config = {
     defaultTabUrl: string;
@@ -12,6 +13,7 @@ export type Config = {
     preloadScriptPath: string;
     settingsFilePath: string;
     resourcesDir: string;
+    defaultLocalApiKey: string;
 };
 
 const DEFAULT_CONFIG: Config = {
@@ -24,6 +26,7 @@ const DEFAULT_CONFIG: Config = {
     preloadScriptPath: path.resolve("./dist/preload.js"),
     settingsFilePath: path.join(app.getPath("userData"), "./settings.dat"),
     resourcesDir: path.join(app.getPath("userData"), "./resources"),
+    defaultLocalApiKey: randomUUID(),
 };
 
 export let CONFIG: Config = {} as any;

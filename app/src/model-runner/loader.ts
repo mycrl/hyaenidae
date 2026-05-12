@@ -3,7 +3,7 @@ import { EventEmitter } from "node:events";
 
 export const DEFAULT_LOAD_TIMEOUT_MS = 15000;
 
-export interface LocalLlmLoaderOptions {
+export interface LoaderOptions {
     // API key for llama-server authentication
     apiKey: string;
     // Directory containing llama-server binary and metadata
@@ -18,21 +18,11 @@ export interface LocalLlmLoaderOptions {
     loadTimeoutMs?: number;
 }
 
-export interface LocalLlmLoaderFromResourcesOptions {
-    apiKey: string;
-    resourceDir?: string;
-    model: {
-        path: string;
-        mmproj?: string;
-    };
-    loadTimeoutMs?: number;
-}
-
-export class LocalLlmLoader extends EventEmitter {
+export class Loader extends EventEmitter {
     private subProcess: ChildProcessWithoutNullStreams;
     private port?: number;
 
-    constructor(options: LocalLlmLoaderOptions) {
+    constructor(options: LoaderOptions) {
         super();
 
         this.subProcess = spawnSubProcess(
@@ -98,11 +88,11 @@ export class LocalLlmLoader extends EventEmitter {
     }
 
     /**
-     * Creates a LocalLlmLoader instance and waits for it server to start listening.
+     * Creates a Loader instance and waits for it server to start listening.
      */
-    static create(options: LocalLlmLoaderOptions) {
-        return new Promise<LocalLlmLoader>((resolve, reject) => {
-            const loader = new LocalLlmLoader(options);
+    static create(options: LoaderOptions) {
+        return new Promise<Loader>((resolve, reject) => {
+            const loader = new Loader(options);
 
             // Set up a timeout to reject the promise if the loader doesn't
             // emit 'listening' within the specified time
