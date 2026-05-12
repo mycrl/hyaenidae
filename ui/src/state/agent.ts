@@ -12,7 +12,6 @@ export interface AgentProviderItem {
     id: string;
     name: string;
     type: ApiProviderSettings["type"];
-    model: string;
     apiKey: string;
     baseUrl: string;
 }
@@ -109,6 +108,10 @@ const normalizeSession = (session: { id: number; name?: string }): AgentSessionI
 const normalizeProviderBaseUrl = (baseUrl?: string) => baseUrl?.trim() ?? "";
 
 const isProviderConfigured = (provider: ApiProviderSettings) => {
+    if (provider.type === "local-runner") {
+        return Boolean(normalizeProviderBaseUrl(provider.baseUrl));
+    }
+
     if (provider.type === "custom") {
         return Boolean(normalizeProviderBaseUrl(provider.baseUrl));
     }
@@ -121,7 +124,6 @@ const buildAgentProviders = (settingsProviders: ApiProviderSettings[]): AgentPro
         id: provider.id,
         name: provider.name || provider.id || `Provider ${index + 1}`,
         type: provider.type,
-        model: provider.model,
         baseUrl: provider.baseUrl,
         apiKey: provider.apiKey,
     }));
@@ -129,54 +131,36 @@ const buildAgentProviders = (settingsProviders: ApiProviderSettings[]): AgentPro
 const TOOL_UNFRIENDLY_MODEL_PATTERN =
     /embed|embedding|rerank|moderation|whisper|tts|stt|transcribe|vision-preview|omni-moderation/i;
 
-const PREFERRED_AGENT_MODELS = ["gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini", "gpt-4o"];
-
 const filterAgentModels = (models: string[]) => {
     const filteredModels = models.filter((model) => !TOOL_UNFRIENDLY_MODEL_PATTERN.test(model));
 
     return filteredModels.length > 0 ? filteredModels : models;
 };
 
-const pickPreferredModel = (models: string[], currentModel: string) => {
-    if (models.includes(currentModel)) {
-        return currentModel;
-    }
-
-    const preferredNamedModel = PREFERRED_AGENT_MODELS.find((model) => models.includes(model));
-    if (preferredNamedModel) {
-        return preferredNamedModel;
-    }
-
-    const likelyAgentModel = models.find((model) => !TOOL_UNFRIENDLY_MODEL_PATTERN.test(model));
-    if (likelyAgentModel) {
-        return likelyAgentModel;
-    }
-
-    return models[0] ?? currentModel;
-};
+const pickSelectedModel = (models: string[], currentModel: string) =>
+    models.includes(currentModel) ? currentModel : "";
 
 const toModelProvider = (provider: AgentProviderItem, model: string): ModelProvider => {
-    const resolvedModel = model || provider.model || "gpt-4.1-mini";
-
     switch (provider.type) {
         case "google":
             return {
                 type: "google",
-                model: resolvedModel,
+                model,
                 apiKey: provider.apiKey || undefined,
             };
         case "custom":
+        case "local-runner":
             return {
                 type: "custom",
                 baseUrl: normalizeProviderBaseUrl(provider.baseUrl),
-                model: resolvedModel,
+                model,
                 apiKey: provider.apiKey || undefined,
             };
         case "openai":
         default:
             return {
                 type: "openai",
-                model: resolvedModel,
+                model,
                 apiKey: provider.apiKey || undefined,
             };
     }
@@ -186,7 +170,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
     sessions: [],
     providers: [],
     selectedProviderId: null,
-    selectedModel: "gpt-4.1-mini",
+    selectedModel: "",
     models: [],
     conversations: {},
     activeSessionId: null,
@@ -436,13 +420,14 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
             if (selectedProviderId !== null) {
                 await get().selectProvider(selectedProviderId);
             } else {
-                set({ models: [] });
+                set({ models: [], selectedModel: "" });
             }
         } catch (error) {
             set({
                 providers: [],
                 selectedProviderId: null,
                 models: [],
+                selectedModel: "",
                 error: error instanceof Error ? error.message : i18n.t("chat.failedToLoadModels"),
             });
         }
@@ -454,6 +439,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
             set({
                 selectedProviderId: null,
                 models: [],
+                selectedModel: "",
                 error: i18n.t("chat.noProvidersConfigured"),
             });
             return;
@@ -464,15 +450,16 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         try {
             const result = await hyaenidae.bridge.request(
                 "agent:provider-get-models",
-                toModelProvider(provider, provider.model),
+                toModelProvider(provider, ""),
             );
             const models = filterAgentModels(result.models ?? []);
-            const selectedModel = pickPreferredModel(models, get().selectedModel || provider.model);
+            const selectedModel = pickSelectedModel(models, get().selectedModel);
 
             set({ models, selectedModel });
         } catch (error) {
             set({
                 models: [],
+                selectedModel: "",
                 error: error instanceof Error ? error.message : i18n.t("chat.failedToLoadModels"),
             });
         }
@@ -513,6 +500,11 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
     sendMessage: async ({ message, provider, model }) => {
         const trimmed = message.trim();
         if (!trimmed) {
+            return;
+        }
+
+        if (!model.trim()) {
+            set({ error: i18n.t("chat.modelRequired") });
             return;
         }
 

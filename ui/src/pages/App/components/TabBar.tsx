@@ -7,7 +7,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { useShellStore } from "../state/shell";
+import { useShellStore } from "../../../state/shell";
 
 export default function TabBar() {
     const { t } = useTranslation();

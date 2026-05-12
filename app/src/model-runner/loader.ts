@@ -16,6 +16,8 @@ export interface LoaderOptions {
     // Optional timeout for loader to start and emit 'listening' event
     // (default: DEFAULT_LOAD_TIMEOUT_MS)
     loadTimeoutMs?: number;
+    // Optional callback to receive real-time logs from llama-server output
+    onLogs?: (logs: string) => void;
 }
 
 export class Loader extends EventEmitter {
@@ -66,6 +68,10 @@ export class Loader extends EventEmitter {
                         this.port = Number(lineBuffer.trim().split("127.0.0.1:")[1]!);
 
                         this.emit("listening");
+                    }
+
+                    if (options.onLogs) {
+                        options.onLogs(lineBuffer);
                     }
 
                     lineBuffer = "";

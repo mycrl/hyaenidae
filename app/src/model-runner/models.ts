@@ -4,6 +4,7 @@ import { stat, mkdir, readdir, rm } from "node:fs/promises";
 import { createWriteStream } from "node:fs";
 import path from "node:path";
 import { CONFIG } from "../config";
+import { Transform } from "node:stream";
 
 /**
  * Model metadata returned from Hugging Face for the search result list.
@@ -27,6 +28,13 @@ export interface ModelFileInfo {
     size: number;
     path: string;
 }
+
+const isGgufFile = (filePath: string) => filePath.toLowerCase().endsWith(".gguf");
+
+const isMmprojFile = (filePath: string) => path.basename(filePath).toLowerCase().includes("mmproj");
+
+const classifyModelFile = (filePath: string): ModelFileInfo["type"] =>
+    isMmprojFile(filePath) ? "mmproj" : "model";
 
 export class LocalModelsManager {
     /**
@@ -61,12 +69,8 @@ export class LocalModelsManager {
                 name,
             },
         })) {
-            if (type === "file" && path.endsWith(".gguf")) {
-                if (path.startsWith("mmproj-")) {
-                    files.push({ type: "mmproj", size, path });
-                } else {
-                    files.push({ type: "model", size, path });
-                }
+            if (type === "file" && isGgufFile(path)) {
+                files.push({ type: classifyModelFile(path), size, path });
             }
         }
 
@@ -74,18 +78,37 @@ export class LocalModelsManager {
     }
 
     /**
+     * Enumerate downloaded GGUF files for a cached repository.
+     */
+    static async getLocalModelFiles(name: string): Promise<ModelFileInfo[]> {
+        const localModelDir = path.join(CONFIG.resourcesDir, `./models/${name}`);
+        const files = await readdir(localModelDir);
+
+        return Promise.all(
+            files
+                .filter((file) => isGgufFile(file))
+                .sort((left, right) => left.localeCompare(right))
+                .map(async (file) => {
+                    const filePath = path.join(localModelDir, file);
+                    const fileStat = await stat(filePath);
+
+                    return {
+                        type: classifyModelFile(file),
+                        size: fileStat.size,
+                        path: file,
+                    } satisfies ModelFileInfo;
+                }),
+        );
+    }
+
+    /**
      * Download the selected model artifact, and optionally its mmproj companion,
      * into the local resources model cache.
      */
-    static async downloadModel({
-        name,
-        modelPath,
-        mmprojPath,
-    }: {
-        name: string;
-        modelPath: string;
-        mmprojPath?: string;
-    }) {
+    static async downloadModel(
+        { name, files }: { name: string; files: ModelFileInfo[] },
+        onProgress?: (progress: number) => void,
+    ) {
         const [username, model] = name.split("/") as [string, string];
         if (!username || !model) {
             throw new Error(`Invalid model name: ${name}`);
@@ -101,8 +124,11 @@ export class LocalModelsManager {
             await mkdir(localModelDir, { recursive: true });
         }
 
+        let currentSize = 0;
+        const countSize = files.reduce((acc, file) => acc + file.size, 0);
+
         await Promise.all(
-            [modelPath, ...(mmprojPath ? [mmprojPath] : [])].map(async (item) => {
+            files.map(async ({ path: item }) => {
                 const response = await downloadFile({
                     repo: {
                         type: "model",
@@ -115,9 +141,23 @@ export class LocalModelsManager {
                     throw new Error(`File ${item} not found in model ${name}`);
                 }
 
+                const targetPath = path.join(localModelDir, item);
+
+                await mkdir(path.dirname(targetPath), { recursive: true });
+
                 await pipeline(
                     response.stream(),
-                    createWriteStream(path.join(localModelDir, item)),
+                    new Transform({
+                        transform(chunk, _, callback) {
+                            if (onProgress && countSize > 0) {
+                                currentSize += chunk.length;
+                                onProgress(currentSize / countSize);
+                            }
+
+                            callback(null, chunk);
+                        },
+                    }),
+                    createWriteStream(targetPath),
                 );
             }),
         );
@@ -146,20 +186,33 @@ export class LocalModelsManager {
      * and its optional mmproj file. These can be used directly as loader inputs
      * without redownloading from Hugging Face.
      */
-    static async getLocalModelPaths(name: string) {
+    static async getLocalModelPaths(name: string, modelFile?: string, mmprojFile?: string) {
         const localModelDir = path.join(CONFIG.resourcesDir, `./models/${name}`);
 
-        const files = await readdir(localModelDir);
-        const modelPath = files.find((it) => !it.startsWith("mmproj-"));
-        const mmprojPath = files.find((it) => it.startsWith("mmproj-"));
+        const files = await this.getLocalModelFiles(name);
+        const modelFiles = files.filter((file) => file.type === "model");
+        const mmprojFiles = files.filter((file) => file.type === "mmproj");
+        const selectedModelFile =
+            modelFile && modelFiles.some((file) => file.path === modelFile)
+                ? modelFile
+                : modelFiles[0]?.path;
 
-        if (!modelPath) {
+        if (!selectedModelFile) {
             throw new Error(`Model files not found for ${name}`);
         }
 
+        const selectedMmprojFile =
+            mmprojFile && mmprojFiles.some((file) => file.path === mmprojFile)
+                ? mmprojFile
+                : mmprojFiles.length === 1
+                  ? mmprojFiles[0]!.path
+                  : undefined;
+
         return {
-            modelPath: path.join(localModelDir, modelPath),
-            mmprojPath: mmprojPath ? path.join(localModelDir, mmprojPath) : undefined,
+            modelPath: path.join(localModelDir, selectedModelFile),
+            mmprojPath: selectedMmprojFile
+                ? path.join(localModelDir, selectedMmprojFile)
+                : undefined,
         };
     }
 

@@ -4,6 +4,13 @@ import { CONFIG } from "../config";
 import { Loader } from "./loader";
 import { LocalModelsManager } from "./models";
 
+export interface StartRunnerOptions {
+    model: string;
+    modelFile: string;
+    mmprojFile?: string;
+    runner: string;
+}
+
 /**
  * Manage local model runners (runners) and control their lifecycle.
  *
@@ -14,7 +21,7 @@ export class ModelRunnerCounter {
     /**
      * The currently active Loader instance. Null means no model is running.
      */
-    private loader: Loader | null = null;
+    private runner: { loader: Loader; options: StartRunnerOptions } | null = null;
 
     /**
      * @param runnersDir Root path where runner binary directories live. Defaults
@@ -33,8 +40,8 @@ export class ModelRunnerCounter {
     /**
      * Whether a Loader instance is currently running.
      */
-    get isRuning() {
-        return this.loader !== null;
+    get runnerOptions() {
+        return this.runner?.options || null;
     }
 
     /**
@@ -46,12 +53,16 @@ export class ModelRunnerCounter {
      * @param runner Runner name corresponding to a subdirectory in resources
      * @returns Connection info object containing `baseUrl` and `apiKey`
      */
-    async start(model: string, runner: string) {
-        const { modelPath, mmprojPath } = await LocalModelsManager.getLocalModelPaths(model);
+    async start(options: StartRunnerOptions) {
+        const { modelPath, mmprojPath } = await LocalModelsManager.getLocalModelPaths(
+            options.model,
+            options.modelFile,
+            options.mmprojFile,
+        );
 
-        this.loader = await Loader.create({
+        const loader = await Loader.create({
             apiKey: CONFIG.defaultLocalApiKey,
-            binaryDir: path.join(CONFIG.resourcesDir, `./runners/${runner}`),
+            binaryDir: path.join(CONFIG.resourcesDir, `./runners/${options.runner}`),
             model: {
                 path: modelPath,
                 mmproj: mmprojPath,
@@ -59,19 +70,21 @@ export class ModelRunnerCounter {
         });
 
         console.info(
-            `Started loader for model ${model} using runner ${runner}, listening at ${this.loader.baseUrl}`,
+            `Started loader for model ${options.model} using runner ${options.runner}, listening at ${loader.baseUrl}`,
         );
 
+        this.runner = { loader, options };
+
         for (const event of ["error", "exit"] as const) {
-            this.loader.on(event, (param: any) => {
+            loader.on(event, (param: any) => {
                 console.error(`Loader ${event} event:`, param);
 
-                this.loader = null;
+                this.runner = null;
             });
         }
 
         return {
-            baseUrl: this.loader.baseUrl,
+            baseUrl: loader.baseUrl,
             apiKey: CONFIG.defaultLocalApiKey,
         };
     }
@@ -81,10 +94,10 @@ export class ModelRunnerCounter {
      * reference.
      */
     async stop() {
-        if (this.loader) {
-            await this.loader.shutdown();
+        if (this.runner) {
+            await this.runner.loader.shutdown();
 
-            this.loader = null;
+            this.runner = null;
 
             console.info(`Stopped loader and cleared runner state`);
         }

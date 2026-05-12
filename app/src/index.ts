@@ -157,26 +157,6 @@ browser.shell.bridge.handle("agent:chat-ask", async (options) => {
     return { id };
 });
 
-browser.shell.bridge.handle("model:get-local-models", async () => {
-    return {
-        models: await LocalModelsManager.getLocalModels(),
-    };
-});
-
-browser.shell.bridge.handle("model:get-runner-status", async () => {
-    return {
-        runing: modelRunnerCounter.isRuning,
-    };
-});
-
-browser.shell.bridge.handle("model:start-runner", async ({ model, runner }) => {
-    return await modelRunnerCounter.start(model, runner);
-});
-
-browser.shell.bridge.handle("model:stop-runner", async () => {
-    await modelRunnerCounter.stop();
-});
-
 {
     let isReady = false;
 

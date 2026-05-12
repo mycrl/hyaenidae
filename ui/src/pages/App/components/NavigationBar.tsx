@@ -8,7 +8,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useShellStore } from "../state/shell";
+import { useShellStore } from "../../../state/shell";
 
 export default function NavigationBar() {
     const { t } = useTranslation();

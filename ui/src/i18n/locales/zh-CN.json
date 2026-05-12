@@ -10,6 +10,10 @@
         "restore": "恢复",
         "close": "关闭"
     },
+    "common": {
+        "errorTitle": "错误",
+        "dismiss": "知道了"
+    },
     "nav": {
         "back": "后退",
         "forward": "前进",
@@ -46,9 +50,11 @@
         "noProviders": "暂无提供商",
         "noProvidersConfigured": "还没有配置任何 API 提供商，请先打开设置页添加。",
         "failedToLoadModels": "加载提供商模型失败。",
+        "modelRequired": "请先选择模型。",
         "prompt": "请输入你想让 AI 助手做的事...",
         "send": "发送",
         "sendMessage": "发送消息",
+        "selectModel": "请选择模型",
         "activityLabels": {
             "reasoningRunning": "正在分析下一步",
             "reasoningCompleted": "已完成当前分析步骤",
@@ -61,7 +67,7 @@
     "settings": {
         "open": "打开设置",
         "title": "设置",
-        "subtitle": "管理 API 提供商，并为未来更多设置项预留结构。",
+        "subtitle": "管理 API 提供商、本地模型，并为未来更多设置项预留结构。",
         "loading": "正在加载设置...",
         "saving": "正在保存...",
         "save": "保存设置",
@@ -80,17 +86,59 @@
         "providerTypes": {
             "openai": "OpenAI",
             "google": "Google",
-            "custom": "自定义"
+            "custom": "自定义",
+            "local-runner": "本地运行器"
         },
-        "advancedPlaceholder": "这个区域为未来设置项预留，后续扩展时不需要重做导航结构。",
+        "localRunnerProvider": {
+            "title": "local-runner",
+            "description": "这个提供商用于本地运行，不在设置里暴露 URL 和 API Key。",
+            "model": "模型"
+        },
+        "localModels": {
+            "title": "本地模型",
+            "description": "管理已下载的模型，并显式启动运行器。",
+            "runnerTitle": "运行器控制",
+            "runnerDescription": "选择运行器二进制、模型并启动，或停止当前运行器。",
+            "runnerRunning": "运行中",
+            "runnerStopped": "已停止",
+            "startRunner": "启动运行器",
+            "stopRunner": "停止运行器",
+            "runnerLabel": "运行器二进制",
+            "selectRunner": "请选择运行器",
+            "runnerModelLabel": "模型仓库",
+            "selectModel": "请选择模型",
+            "runnerModelFileLabel": "模型文件",
+            "selectModelFile": "请选择模型文件",
+            "runnerMmprojLabel": "MMProj 文件",
+            "selectMmproj": "不使用 mmproj / 稍后再选",
+            "openSearch": "搜索模型",
+            "searchDialogTitle": "搜索模型",
+            "searchDialogDescription": "在弹窗里搜索 Hugging Face 仓库，并下载 GGUF 文件。",
+            "searchDialogEmpty": "搜索模型后，这里会显示可下载的 GGUF 文件。",
+            "searchDialogClose": "关闭",
+            "searchPlaceholder": "搜索 Hugging Face 模型",
+            "search": "搜索",
+            "refresh": "刷新运行器",
+            "refreshLocal": "刷新本地模型",
+            "installedTitle": "已安装模型",
+            "installedDescription": "浏览已下载的模型，或打开搜索弹窗继续添加。",
+            "noInstalled": "还没有下载任何本地模型。",
+            "noSearchResults": "搜索模型后，这里会显示可下载的 GGUF 文件。",
+            "failed": "加载本地模型失败。",
+            "download": "下载",
+            "downloading": "下载中 {{progress}}%",
+            "delete": "删除",
+            "showFiles": "展开文件列表",
+            "chooseFiles": "选择要下载的文件"
+        },
         "sections": {
             "providers": {
                 "title": "提供商",
                 "description": "配置一个或多个给 Agent 使用的 API 提供商。"
             },
-            "advanced": {
-                "title": "高级",
-                "description": "为未来设置分区预留的位置。"
+            "localModels": {
+                "title": "本地模型",
+                "description": "搜索、下载、删除，并启动本地运行器。"
             }
         }
     },

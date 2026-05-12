@@ -10,6 +10,10 @@
         "restore": "Restore",
         "close": "Close"
     },
+    "common": {
+        "errorTitle": "Error",
+        "dismiss": "Dismiss"
+    },
     "nav": {
         "back": "Back",
         "forward": "Forward",
@@ -46,9 +50,11 @@
         "noProviders": "No providers",
         "noProvidersConfigured": "No API provider is configured yet. Open Settings to add one.",
         "failedToLoadModels": "Failed to load provider models.",
+        "modelRequired": "Please select a model first.",
         "prompt": "Ask the agent...",
         "send": "Send",
         "sendMessage": "Send message",
+        "selectModel": "Select a model",
         "activityLabels": {
             "reasoningRunning": "Thinking through the next step",
             "reasoningCompleted": "Finished the current reasoning step",
@@ -61,7 +67,7 @@
     "settings": {
         "open": "Open settings",
         "title": "Settings",
-        "subtitle": "Manage API providers and keep room for more application settings later.",
+        "subtitle": "Manage API providers, local models, and room for more application settings later.",
         "loading": "Loading settings...",
         "saving": "Saving...",
         "save": "Save settings",
@@ -80,17 +86,59 @@
         "providerTypes": {
             "openai": "OpenAI",
             "google": "Google",
-            "custom": "Custom"
+            "custom": "Custom",
+            "local-runner": "Local runner"
         },
-        "advancedPlaceholder": "This section is reserved for future settings so the page can grow without redesigning the navigation.",
+        "localRunnerProvider": {
+            "title": "local-runner",
+            "description": "This provider is reserved for local execution and does not expose a URL or API key in settings.",
+            "model": "Model"
+        },
+        "localModels": {
+            "title": "Local models",
+            "description": "Manage downloaded models and start a runner explicitly.",
+            "runnerTitle": "Runner control",
+            "runnerDescription": "Pick a runner binary, choose a model, start it, or stop the active runner.",
+            "runnerRunning": "Running",
+            "runnerStopped": "Stopped",
+            "startRunner": "Start runner",
+            "stopRunner": "Stop runner",
+            "runnerLabel": "Runner binary",
+            "selectRunner": "Select a runner",
+            "runnerModelLabel": "Model repo",
+            "selectModel": "Select a model",
+            "runnerModelFileLabel": "Model file",
+            "selectModelFile": "Select a model file",
+            "runnerMmprojLabel": "MMProj file",
+            "selectMmproj": "No mmproj / select later",
+            "openSearch": "Search models",
+            "searchDialogTitle": "Search models",
+            "searchDialogDescription": "Search Hugging Face repositories and download GGUF files from the modal.",
+            "searchDialogEmpty": "Search for a model to see downloadable GGUF files.",
+            "searchDialogClose": "Close",
+            "searchPlaceholder": "Search Hugging Face models",
+            "search": "Search",
+            "refresh": "Refresh runners",
+            "refreshLocal": "Refresh local models",
+            "installedTitle": "Installed models",
+            "installedDescription": "Browse downloaded models or open the search dialog to add more.",
+            "noInstalled": "No local models have been downloaded yet.",
+            "noSearchResults": "Search for a model to see downloadable GGUF files.",
+            "failed": "Failed to load local models.",
+            "download": "Download",
+            "downloading": "Downloading {{progress}}%",
+            "delete": "Delete",
+            "showFiles": "Show files",
+            "chooseFiles": "Choose files to download"
+        },
         "sections": {
             "providers": {
                 "title": "Providers",
                 "description": "Configure one or more API providers for the agent."
             },
-            "advanced": {
-                "title": "Advanced",
-                "description": "Placeholder for future settings sections."
+            "localModels": {
+                "title": "Local models",
+                "description": "Search, download, delete, and start a local runner."
             }
         }
     },

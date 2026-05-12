@@ -62,6 +62,13 @@ export interface ModelFileInfo {
     path: string;
 }
 
+export interface StartRunnerOptions {
+    model: string;
+    modelFile: string;
+    mmprojFile?: string;
+    runner: string;
+}
+
 export interface Api {
     /**
      * Navigates forward to the next history entry in the specified tab
@@ -216,12 +223,30 @@ export interface Api {
     /**
      * Download a model artifact (and optional mmproj) into the local cache.
      */
-    "model:download": [{ name: string; modelPath: string; mmprojPath?: string }, void];
+    "model:download": [{ name: string; files: ModelFileInfo[] }, void];
+
+    /**
+     * Triggers when a model download fails, providing the name of the model and
+     * the error message
+     */
+    "model:download-fail": [{ name: string; path: string; error: string }, void];
+
+    /**
+     * Triggers periodically during a model download to report progress,
+     * providing the name of the model and the current progress as a
+     * percentage (0 to 1)
+     */
+    "model:download-progress": [{ name: string; path: string; progress: number }, void];
 
     /**
      * List locally cached models stored under the resources directory.
      */
     "model:get-local-models": [void, { models: string[] }];
+
+    /**
+     * List downloaded GGUF files for a locally cached model repository.
+     */
+    "model:get-local-model-files": [{ model: string }, { files: ModelFileInfo[] }];
 
     /**
      * Remove a locally cached model directory.
@@ -236,12 +261,12 @@ export interface Api {
     /**
      * Query whether a local runner (loader) is currently running.
      */
-    "model:get-runner-status": [void, { runing: boolean }];
+    "model:get-runner-status": [void, { options: StartRunnerOptions | null }];
 
     /**
      * Start a runner for the specified local model and return connection info.
      */
-    "model:start-runner": [{ model: string; runner: string }, { baseUrl: string; apiKey: string }];
+    "model:start-runner": [StartRunnerOptions, { baseUrl: string; apiKey: string }];
 
     /**
      * Stop the currently running local runner (if any).
@@ -331,12 +356,6 @@ const U32_MAX = 4294967295;
 export class BridgeService {
     private counter = 0;
     private listeners: { [key: string]: (message: Message) => void } = {};
-    private readonly handler: {
-        send: (method: string, message: any) => void;
-        on: (method: string, callback: (message: any) => void) => void;
-        off: (method: string) => void;
-    };
-    private readonly timeout: number;
 
     static RPC_METHOD = "rpc:message";
 
@@ -346,21 +365,12 @@ export class BridgeService {
          * The handler must implement a `send` method for sending messages and
          * an `on` method for registering a callback to handle incoming messages.
          */
-        handler: {
+        private readonly handler: {
             send: (method: string, message: any) => void;
             on: (method: string, callback: (message: any) => void) => void;
             off: (method: string) => void;
         },
-        /**
-         * Defines the timeout duration (in milliseconds) for RPC requests. If a
-         * response is not received within this time frame, the request will be
-         * rejected with a timeout error.
-         */
-        timeout: number = 10000,
     ) {
-        this.handler = handler;
-        this.timeout = timeout;
-
         handler.on(BridgeService.RPC_METHOD, (message) => {
             const listener = this.listeners[message.method];
             if (listener) {
@@ -385,7 +395,11 @@ export class BridgeService {
      * rejects with an error if the request times out or if an error response is
      * received.
      */
-    async request<T extends keyof Api>(method: T, params?: Api[T][0]): Promise<Api[T][1]> {
+    async request<T extends keyof Api>(
+        method: T,
+        params?: Api[T][0],
+        { timeout }: { timeout: number } = { timeout: 10000 },
+    ): Promise<Api[T][1]> {
         const id = this.counter++;
         const listenerKey = `${method}-relay-${id}`;
 
@@ -401,14 +415,14 @@ export class BridgeService {
         } as Message);
 
         return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
+            const timer = setTimeout(() => {
                 delete this.listeners[listenerKey];
 
                 reject(new Error(`RPC request timed out: ${method}`));
-            }, this.timeout);
+            }, timeout);
 
             this.listeners[listenerKey] = (message: Message) => {
-                clearTimeout(timeout);
+                clearTimeout(timer);
 
                 message.type === MessageType.Error
                     ? reject(new Error(message.params))
@@ -487,35 +501,32 @@ export class BridgeService {
  * process to the main process and handling responses.
  */
 export class BridgeRenderer extends BridgeService {
-    constructor(timeout?: number) {
+    constructor() {
         let callbacks: { [key: string]: any } = {};
 
-        super(
-            {
-                send: (method, message) => {
-                    console.debug("Renderer Sending IPC message:", method, message);
+        super({
+            send: (method, message) => {
+                console.debug("Renderer Sending IPC message:", method, message);
 
-                    ipcRenderer.send(method, message);
-                },
-                on: (method, callback) => {
-                    callbacks[method] = (_: any, message: any) => {
-                        console.debug("Renderer Received IPC message:", method, message);
-
-                        callback(message);
-                    };
-
-                    ipcRenderer.on(method, callbacks[method]);
-                },
-                off: (method) => {
-                    if (callbacks[method]) {
-                        ipcRenderer.off(method, callbacks[method]);
-
-                        delete callbacks[method];
-                    }
-                },
+                ipcRenderer.send(method, message);
             },
-            timeout,
-        );
+            on: (method, callback) => {
+                callbacks[method] = (_: any, message: any) => {
+                    console.debug("Renderer Received IPC message:", method, message);
+
+                    callback(message);
+                };
+
+                ipcRenderer.on(method, callbacks[method]);
+            },
+            off: (method) => {
+                if (callbacks[method]) {
+                    ipcRenderer.off(method, callbacks[method]);
+
+                    delete callbacks[method];
+                }
+            },
+        });
     }
 }
 
@@ -529,34 +540,31 @@ export class BridgeRenderer extends BridgeService {
  * instance, which is used to send messages to the appropriate renderer process.
  */
 export class Bridge extends BridgeService {
-    constructor(webContents: WebContents, timeout?: number) {
+    constructor(webContents: WebContents) {
         let callbacks: { [key: string]: any } = {};
 
-        super(
-            {
-                on: (method, callback) => {
-                    callbacks[method] = (_: any, message: any) => {
-                        console.debug("Main Received IPC message:", method, message);
+        super({
+            on: (method, callback) => {
+                callbacks[method] = (_: any, message: any) => {
+                    console.debug("Main Received IPC message:", method, message);
 
-                        callback(message);
-                    };
+                    callback(message);
+                };
 
-                    webContents.ipc.on(method, callbacks[method]);
-                },
-                send: (method, message) => {
-                    console.debug("Main Sending IPC message:", method, message);
-
-                    webContents.send(method, message);
-                },
-                off: (method) => {
-                    if (callbacks[method]) {
-                        webContents.ipc.off(method, callbacks[method]);
-
-                        delete callbacks[method];
-                    }
-                },
+                webContents.ipc.on(method, callbacks[method]);
             },
-            timeout,
-        );
+            send: (method, message) => {
+                console.debug("Main Sending IPC message:", method, message);
+
+                webContents.send(method, message);
+            },
+            off: (method) => {
+                if (callbacks[method]) {
+                    webContents.ipc.off(method, callbacks[method]);
+
+                    delete callbacks[method];
+                }
+            },
+        });
     }
 }

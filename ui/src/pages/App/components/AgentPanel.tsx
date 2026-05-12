@@ -8,8 +8,8 @@ import {
 import MarkdownIt from "markdown-it";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { formatAgentActivity } from "../agent-activity";
-import { useAgentStore } from "../state/agent.ts";
+import { formatAgentActivity } from "../agent-activity.ts";
+import { useAgentStore } from "../../../state/agent.ts";
 
 const markdown = new MarkdownIt({
     html: false,
@@ -29,7 +29,6 @@ export default function AgentPanel() {
     const activeSessionId = useAgentStore((state) => state.activeSessionId);
     const isLoadingSessions = useAgentStore((state) => state.isLoadingSessions);
     const error = useAgentStore((state) => state.error);
-    const initializeRpc = useAgentStore((state) => state.initializeRpc);
     const createSession = useAgentStore((state) => state.createSession);
     const selectSession = useAgentStore((state) => state.selectSession);
     const sendAgentMessage = useAgentStore((state) => state.sendMessage);
@@ -59,10 +58,6 @@ export default function AgentPanel() {
     }, [activeConversation?.title, activeSessionId, sessions, t]);
 
     useEffect(() => {
-        void initializeRpc();
-    }, [initializeRpc]);
-
-    useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
@@ -76,7 +71,7 @@ export default function AgentPanel() {
 
     const sendMessage = async () => {
         const trimmed = inputValue.trim();
-        if (!trimmed || isResponding || selectedProviderId === null) {
+        if (!trimmed || isResponding || selectedProviderId === null || !selectedModel) {
             return;
         }
 
@@ -362,9 +357,7 @@ export default function AgentPanel() {
                         aria-label={t("chat.model")}
                         className="h-8 max-w-[180px] rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-700 outline-none"
                     >
-                        {models.length === 0 ? (
-                            <option value={selectedModel}>{selectedModel}</option>
-                        ) : null}
+                        <option value="">{t("chat.selectModel")}</option>
                         {models.map((model) => (
                             <option key={model} value={model}>
                                 {model}
@@ -383,7 +376,7 @@ export default function AgentPanel() {
 
                             void sendMessage();
                         }}
-                        disabled={isLoadingSessions || providers.length === 0}
+                        disabled={isLoadingSessions || providers.length === 0 || !selectedModel}
                         className="ml-auto h-8 px-3 rounded-lg bg-blue-600 text-white flex items-center gap-1.5 justify-center hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:bg-slate-300"
                         aria-label={isResponding ? t("chat.stopResponse") : t("chat.sendMessage")}
                         title={isResponding ? t("chat.stop") : t("chat.send")}

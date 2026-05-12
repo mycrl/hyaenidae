@@ -1,20 +1,26 @@
 import { create } from "zustand";
 
-export type ApiProviderType = "google" | "openai" | "custom";
+export type ApiProviderType = "google" | "openai" | "custom" | "local-runner";
 
 export interface ApiProviderSettings {
     id: string;
     name: string;
     type: ApiProviderType;
-    model: string;
     baseUrl: string;
     apiKey: string;
+}
+
+export interface LocalRunnerSettings {
+    runnerId: string;
+    modelRepo: string;
+    modelFile: string;
+    mmprojFile: string;
 }
 
 export interface AppSettings {
     schemaVersion: 1;
     providers: ApiProviderSettings[];
-    extra?: Record<string, unknown>;
+    localRunner: LocalRunnerSettings;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -25,15 +31,33 @@ const toString = (value: unknown, fallback = "") =>
 
 export const DEFAULT_SETTINGS: AppSettings = {
     schemaVersion: 1,
-    providers: [],
-    extra: {},
+    providers: [createLocalRunnerProvider()],
+    localRunner: createLocalRunnerSettings(),
 };
+
+export function createLocalRunnerSettings(): LocalRunnerSettings {
+    return {
+        runnerId: "",
+        modelRepo: "",
+        modelFile: "",
+        mmprojFile: "",
+    };
+}
+
+export function createLocalRunnerProvider(): ApiProviderSettings {
+    return {
+        id: "provider-local",
+        name: "local-runner",
+        type: "local-runner",
+        baseUrl: "",
+        apiKey: "",
+    };
+}
 
 export const createProviderSettings = (): ApiProviderSettings => ({
     id: `provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: "",
     type: "openai",
-    model: "gpt-4.1-mini",
     baseUrl: "",
     apiKey: "",
 });
@@ -43,6 +67,7 @@ const toProviderType = (value: unknown): ApiProviderType => {
         case "google":
         case "openai":
         case "custom":
+        case "local-runner":
             return value;
         default:
             return "openai";
@@ -51,22 +76,41 @@ const toProviderType = (value: unknown): ApiProviderType => {
 
 export const normalizeSettings = (value: unknown): AppSettings => {
     const record = isRecord(value) ? value : {};
+    const localRunnerRecord = isRecord(record.localRunner) ? record.localRunner : {};
     const providers = Array.isArray(record.providers)
         ? record.providers.filter(isRecord).map((provider, index) => ({
               id: toString(provider.id, `provider-${index + 1}`),
               name: toString(provider.name, `Provider ${index + 1}`),
               type: toProviderType(provider.type),
-              model: toString(provider.model, "gpt-4.1-mini"),
               baseUrl: toString(provider.baseUrl ?? provider.baseURL),
               apiKey: toString(provider.apiKey),
           }))
         : [];
-    const extra = isRecord(record.extra) ? record.extra : {};
+    const localRunnerProvider = providers.find((provider) => provider.type === "local-runner");
+    const normalizedProviders = [
+        localRunnerProvider ?? createLocalRunnerProvider(),
+        ...providers.filter((provider) => provider.type !== "local-runner"),
+    ];
 
     return {
         schemaVersion: 1,
-        providers,
-        extra,
+        providers: normalizedProviders.map((provider) =>
+            provider.type === "local-runner"
+                ? {
+                      ...createLocalRunnerProvider(),
+                      id: provider.id || "provider-local",
+                      name: provider.name || "local-runner",
+                      baseUrl: normalizeProviderBaseUrl(provider.baseUrl),
+                      apiKey: toString(provider.apiKey),
+                  }
+                : provider,
+        ),
+        localRunner: {
+            runnerId: toString(localRunnerRecord.runnerId),
+            modelRepo: toString(localRunnerRecord.modelRepo ?? localRunnerRecord.model),
+            modelFile: toString(localRunnerRecord.modelFile),
+            mmprojFile: toString(localRunnerRecord.mmprojFile),
+        },
     };
 };
 
@@ -95,6 +139,12 @@ const dedupeSettingsProviders = (settings: AppSettings): AppSettings => {
             ...provider,
             baseUrl: normalizeProviderBaseUrl(provider.baseUrl),
         })),
+        localRunner: {
+            runnerId: settings.localRunner.runnerId.trim(),
+            modelRepo: settings.localRunner.modelRepo.trim(),
+            modelFile: settings.localRunner.modelFile.trim(),
+            mmprojFile: settings.localRunner.mmprojFile.trim(),
+        },
     };
 };
 

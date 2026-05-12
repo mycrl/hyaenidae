@@ -207,13 +207,53 @@ export class Browser extends EventEmitter {
                 };
             });
 
-            tab.bridge.handle("model:download", async (options) => {
-                await LocalModelsManager.downloadModel(options);
+            tab.bridge.on("model:download", (options) => {
+                const targetPath = options.files[0]?.path;
+
+                if (!targetPath) {
+                    tab.bridge.send("model:download-fail", {
+                        name: options.name,
+                        path: "",
+                        error: "No file selected for download.",
+                    });
+                    return;
+                }
+
+                LocalModelsManager.downloadModel(options, (progress) => {
+                    tab.bridge.send("model:download-progress", {
+                        name: options.name,
+                        path: targetPath,
+                        progress,
+                    });
+                })
+                    .then(() => {
+                        tab.bridge.send("model:download-progress", {
+                            name: options.name,
+                            path: targetPath,
+                            progress: 1,
+                        });
+                    })
+                    .catch((error) => {
+                        tab.bridge.send("model:download-fail", {
+                            name: options.name,
+                            path: targetPath,
+                            error:
+                                error instanceof Error
+                                    ? error.message
+                                    : "Failed to download model.",
+                        });
+                    });
             });
 
             tab.bridge.handle("model:get-local-models", async () => {
                 return {
                     models: await LocalModelsManager.getLocalModels(),
+                };
+            });
+
+            tab.bridge.handle("model:get-local-model-files", async ({ model }) => {
+                return {
+                    files: await LocalModelsManager.getLocalModelFiles(model),
                 };
             });
 
@@ -225,6 +265,20 @@ export class Browser extends EventEmitter {
                 return {
                     runners: await this.modelRunnerCounter.getRunners(),
                 };
+            });
+
+            tab.bridge.handle("model:get-runner-status", async () => {
+                return {
+                    options: this.modelRunnerCounter.runnerOptions,
+                };
+            });
+
+            tab.bridge.handle("model:start-runner", async (options) => {
+                return await this.modelRunnerCounter.start(options);
+            });
+
+            tab.bridge.handle("model:stop-runner", async () => {
+                await this.modelRunnerCounter.stop();
             });
         }
 

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import AgentPanel from "../components/AgentPanel";
-import AgentPanelResizeHandle from "../components/AgentPanelResizeHandle";
-import NavigationBar from "../components/NavigationBar";
-import TabBar from "../components/TabBar";
-import { useAgentStore } from "../state/agent";
-import { useSettingsStore } from "../state/settings";
-import { useTabStore } from "../state/shell";
+import AgentPanel from "./components/AgentPanel";
+import AgentPanelResizeHandle from "./components/AgentPanelResizeHandle";
+import NavigationBar from "./components/NavigationBar";
+import TabBar from "./components/TabBar";
+import { useAgentStore } from "../../state/agent";
+import { useSettingsStore } from "../../state/settings";
+import { useTabStore } from "../../state/shell";
 
 const AGENT_PANEL_MIN_WIDTH = 320;
 const AGENT_PANEL_DEFAULT_WIDTH = 450;

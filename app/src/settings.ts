@@ -38,10 +38,7 @@ export class SettingsManager {
     async restore(settings: any) {
         console.info("Restoring settings:", settings);
 
-        this.settings = {
-            ...(this.settings || {}),
-            ...settings,
-        };
+        this.settings = settings;
 
         await writeFile(
             CONFIG.settingsFilePath,
