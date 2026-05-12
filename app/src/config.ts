@@ -38,7 +38,9 @@ export let CONFIG: Config = {} as any;
  * @param path - The file path to the configuration JSON file.
  * Defaults to "../../config.json".
  */
-export function initConfig(configFilePath = path.resolve("../../config.json")) {
+export function initConfig(
+    configFilePath = process.env.CONFIG_FILE_PATH ?? path.resolve("../../config.json"),
+) {
     console.info("Initializing configuration from", configFilePath);
 
     try {

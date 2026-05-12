@@ -13,8 +13,8 @@ initConfig();
 
 const coreService = new Hyaenidae();
 const settingsManager = new SettingsManager();
-const browser = new Browser(settingsManager);
 const modelRunnerCounter = new ModelRunnerCounter();
+const browser = new Browser(settingsManager, modelRunnerCounter);
 const browserRuntime = new ElectronBrowserRuntime(browser);
 
 browser.on("all-tabs-closed", () => {
@@ -144,7 +144,7 @@ browser.shell.bridge.handle("agent:chat-ask", async (options) => {
                 });
             });
 
-            void stream.start();
+            stream.start();
         })
         .catch((error: Error) => {
             browser.shell.bridge.send("agent:chat-response-done", {
@@ -157,35 +157,9 @@ browser.shell.bridge.handle("agent:chat-ask", async (options) => {
     return { id };
 });
 
-browser.shell.bridge.handle("model:search", async ({ query, limit }) => {
-    return {
-        models: await LocalModelsManager.searchModels(query, limit),
-    };
-});
-
-browser.shell.bridge.handle("model:get-files", async ({ model }) => {
-    return {
-        files: await LocalModelsManager.getModelFiles(model),
-    };
-});
-
-browser.shell.bridge.handle("model:download", async (options) => {
-    await LocalModelsManager.downloadModel(options);
-});
-
 browser.shell.bridge.handle("model:get-local-models", async () => {
     return {
         models: await LocalModelsManager.getLocalModels(),
-    };
-});
-
-browser.shell.bridge.handle("model:remove-local-model", async ({ model }) => {
-    await LocalModelsManager.removeLocalModel(model);
-});
-
-browser.shell.bridge.handle("model:get-runners", async () => {
-    return {
-        runners: await modelRunnerCounter.getRunners(),
     };
 });
 

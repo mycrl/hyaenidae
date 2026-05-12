@@ -58,6 +58,18 @@ export class ModelRunnerCounter {
             } as any,
         });
 
+        console.info(
+            `Started loader for model ${model} using runner ${runner}, listening at ${this.loader.baseUrl}`,
+        );
+
+        for (const event of ["error", "exit"] as const) {
+            this.loader.on(event, (param: any) => {
+                console.error(`Loader ${event} event:`, param);
+
+                this.loader = null;
+            });
+        }
+
         return {
             baseUrl: this.loader.baseUrl,
             apiKey: CONFIG.defaultLocalApiKey,
@@ -73,6 +85,8 @@ export class ModelRunnerCounter {
             await this.loader.shutdown();
 
             this.loader = null;
+
+            console.info(`Stopped loader and cleared runner state`);
         }
     }
 }

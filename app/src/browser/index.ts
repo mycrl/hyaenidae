@@ -3,6 +3,8 @@ import EventEmitter from "node:events";
 import { Layout, Bridge } from "@hyaenidae/bridge";
 import { CONFIG } from "../config";
 import { SettingsManager } from "../settings";
+import { LocalModelsManager } from "../model-runner/models";
+import { ModelRunnerCounter } from "../model-runner";
 
 export function isApplicationRegisteredUrl(url: string) {
     return url == CONFIG.shellUrl || url == CONFIG.settingsUrl;
@@ -34,7 +36,10 @@ export class Browser extends EventEmitter {
     public tabs: View[] = [];
     public shell: View;
 
-    constructor(private readonly settingsManager: SettingsManager) {
+    constructor(
+        private readonly settingsManager: SettingsManager,
+        private readonly modelRunnerCounter: ModelRunnerCounter,
+    ) {
         super();
 
         this.baseWindow = new BaseWindow({
@@ -188,6 +193,38 @@ export class Browser extends EventEmitter {
                 await this.settingsManager.restore(settings);
 
                 this.shell.bridge.send("shell:settings-changed");
+            });
+
+            tab.bridge.handle("model:search", async ({ query, limit }) => {
+                return {
+                    models: await LocalModelsManager.searchModels(query, limit),
+                };
+            });
+
+            tab.bridge.handle("model:get-files", async ({ model }) => {
+                return {
+                    files: await LocalModelsManager.getModelFiles(model),
+                };
+            });
+
+            tab.bridge.handle("model:download", async (options) => {
+                await LocalModelsManager.downloadModel(options);
+            });
+
+            tab.bridge.handle("model:get-local-models", async () => {
+                return {
+                    models: await LocalModelsManager.getLocalModels(),
+                };
+            });
+
+            tab.bridge.handle("model:remove-local-model", async ({ model }) => {
+                await LocalModelsManager.removeLocalModel(model);
+            });
+
+            tab.bridge.handle("model:get-runners", async () => {
+                return {
+                    runners: await this.modelRunnerCounter.getRunners(),
+                };
             });
         }
 
