@@ -8,6 +8,7 @@ import {
 import MarkdownIt from "markdown-it";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import AsyncButton from "../../../components/AsyncButton";
 import { formatAgentActivity } from "../agent-activity.ts";
 import { useAgentStore } from "../../../state/agent.ts";
 
@@ -18,7 +19,7 @@ const markdown = new MarkdownIt({
 });
 
 export default function AgentPanel() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const [inputValue, setInputValue] = useState("");
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [expandedActivityMessageIds, setExpandedActivityMessageIds] = useState<number[]>([]);
@@ -28,7 +29,6 @@ export default function AgentPanel() {
     const conversations = useAgentStore((state) => state.conversations);
     const activeSessionId = useAgentStore((state) => state.activeSessionId);
     const isLoadingSessions = useAgentStore((state) => state.isLoadingSessions);
-    const error = useAgentStore((state) => state.error);
     const createSession = useAgentStore((state) => state.createSession);
     const selectSession = useAgentStore((state) => state.selectSession);
     const sendAgentMessage = useAgentStore((state) => state.sendMessage);
@@ -44,25 +44,26 @@ export default function AgentPanel() {
         activeSessionId !== null ? conversations[activeSessionId] : undefined;
     const messages = activeConversation?.messages ?? [];
     const isResponding = activeConversation?.isResponding ?? false;
+    const fallbackConversationTitle = t("chat.newConversation");
 
     const chatTitle = useMemo(() => {
         if (activeSessionId === null) {
-            return t("chat.newConversation");
+            return fallbackConversationTitle;
         }
 
-        return (
-            activeConversation?.title ??
-            sessions.find((session) => session.id === activeSessionId)?.name ??
-            t("chat.newConversation")
-        );
-    }, [activeConversation?.title, activeSessionId, sessions, t]);
+        const title =
+            activeConversation?.title ||
+            sessions.find((session) => session.id === activeSessionId)?.name;
+
+        return title?.trim() || fallbackConversationTitle;
+    }, [activeConversation?.title, activeSessionId, fallbackConversationTitle, sessions]);
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
     const createNewConversation = async () => {
-        const id = await createSession(t("chat.newConversation"));
+        const id = await createSession();
         if (id !== null) {
             setInputValue("");
             setIsHistoryOpen(false);
@@ -80,6 +81,7 @@ export default function AgentPanel() {
             message: trimmed,
             provider: selectedProviderId,
             model: selectedModel,
+            locale: i18n.resolvedLanguage ?? i18n.language,
         });
     };
 
@@ -96,21 +98,26 @@ export default function AgentPanel() {
     };
 
     return (
-        <aside className="relative h-full w-full flex flex-col bg-white text-slate-800">
-            <header className="h-12 border-b border-slate-200 px-3 flex items-center justify-between bg-white">
-                <span className="text-xs truncate">{chatTitle}</span>
+        <aside
+            tag="agent-panel-shell"
+            className="relative h-full w-full flex flex-col bg-white text-slate-800"
+        >
+            <header
+                tag="agent-panel-header"
+                className="h-12 border-b border-slate-200 px-3 flex items-center justify-between bg-white"
+            >
+                <span tag="agent-panel-title" className="text-xs truncate">
+                    {chatTitle}
+                </span>
 
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            void createNewConversation();
-                        }}
-                        className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+                <div tag="agent-panel-actions" className="flex items-center gap-2">
+                    <AsyncButton
+                        onClick={() => createNewConversation()}
+                        className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                     >
                         <PlusIcon className="w-3.5 h-3.5" />
                         <span>{t("chat.add")}</span>
-                    </button>
+                    </AsyncButton>
 
                     <button
                         type="button"
@@ -124,15 +131,24 @@ export default function AgentPanel() {
             </header>
 
             {isHistoryOpen && (
-                <div className="absolute right-3 top-14 z-10 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-                    <div className="mb-2 px-2 text-[11px] uppercase tracking-[0.16em] text-slate-400">
+                <div
+                    tag="agent-history-popover"
+                    className="absolute right-3 top-14 z-10 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+                >
+                    <div
+                        tag="agent-history-label"
+                        className="mb-2 px-2 text-[11px] uppercase tracking-[0.16em] text-slate-400"
+                    >
                         {t("chat.history")}
                     </div>
 
                     {sessions.length === 0 ? (
                         <p className="px-2 py-3 text-xs text-slate-500">{t("chat.emptyHistory")}</p>
                     ) : (
-                        <div className="max-h-72 overflow-y-auto space-y-1">
+                        <div
+                            tag="agent-history-list"
+                            className="max-h-72 overflow-y-auto space-y-1"
+                        >
                             {sessions.map((session) => (
                                 <button
                                     key={session.id}
@@ -148,7 +164,9 @@ export default function AgentPanel() {
                                             : "text-slate-700 hover:bg-slate-50",
                                     ].join(" ")}
                                 >
-                                    {conversations[session.id]?.title ?? session.name}
+                                    {conversations[session.id]?.title?.trim() ||
+                                        session.name?.trim() ||
+                                        fallbackConversationTitle}
                                 </button>
                             ))}
                         </div>
@@ -156,23 +174,29 @@ export default function AgentPanel() {
                 </div>
             )}
 
-            <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 px-3 py-3 space-y-3">
+            <div
+                tag="agent-message-stream"
+                className="flex-1 min-h-0 overflow-y-auto bg-slate-50 px-3 py-3 space-y-3"
+            >
                 {isLoadingSessions && (
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+                    <div
+                        tag="agent-stream-banner"
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500"
+                    >
                         {t("chat.loadingSessions")}
                     </div>
                 )}
 
-                {error && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                        {error}
-                    </div>
-                )}
-
                 {messages.length === 0 ? (
-                    <div className="h-full min-h-[160px] flex items-center justify-center">
-                        <div className="max-w-[360px] text-center px-6">
-                            <div className="mx-auto mb-4 h-11 w-11 rounded-2xl bg-blue-50/70 text-blue-600 flex items-center justify-center">
+                    <div
+                        tag="agent-empty-state"
+                        className="h-full min-h-[160px] flex items-center justify-center"
+                    >
+                        <div tag="agent-empty-card" className="max-w-[360px] text-center px-6">
+                            <div
+                                tag="agent-empty-icon"
+                                className="mx-auto mb-4 h-11 w-11 rounded-2xl bg-blue-50/70 text-blue-600 flex items-center justify-center"
+                            >
                                 <SparklesIcon className="w-5 h-5" />
                             </div>
                             <p className="text-sm text-slate-600 leading-7">{t("chat.greeting")}</p>
@@ -187,11 +211,12 @@ export default function AgentPanel() {
                             isStreamingAssistant || expandedActivityMessageIds.includes(message.id);
                         const shouldShowActivityPanel =
                             message.role === "assistant" && (hasActivities || isStreamingAssistant);
+                        const assistantErrorText = message.error || "";
                         const assistantContent =
                             message.role === "assistant"
                                 ? message.status === "streaming"
                                     ? ""
-                                    : message.content
+                                    : message.content || assistantErrorText
                                 : message.content;
 
                         return (
@@ -316,7 +341,7 @@ export default function AgentPanel() {
                 <div ref={messagesEndRef} />
             </div>
 
-            <div className="border-t border-slate-200 bg-white p-3 text-xs">
+            <div tag="agent-composer" className="border-t border-slate-200 bg-white p-3 text-xs">
                 <textarea
                     rows={5}
                     value={inputValue}
@@ -332,7 +357,7 @@ export default function AgentPanel() {
                     className="w-full resize-none rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-500 focus:bg-white"
                 />
 
-                <div className="mt-2 flex items-center gap-2">
+                <div tag="agent-composer-controls" className="mt-2 flex items-center gap-2">
                     <select
                         value={selectedProviderId ?? ""}
                         onChange={(e) => {
@@ -346,13 +371,14 @@ export default function AgentPanel() {
                         ) : null}
                         {providers.map((provider) => (
                             <option key={provider.id} value={provider.id}>
-                                {provider.name}
+                                {provider.name?.trim() ||
+                                    t(`settings.providerTypes.${provider.type}`)}
                             </option>
                         ))}
                     </select>
 
                     <select
-                        value={selectedModel}
+                        value={selectedModel ?? ""}
                         onChange={(e) => setSelectedModel(e.target.value)}
                         aria-label={t("chat.model")}
                         className="h-8 max-w-[180px] rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-700 outline-none"

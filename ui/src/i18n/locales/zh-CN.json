@@ -12,7 +12,8 @@
     },
     "common": {
         "errorTitle": "错误",
-        "dismiss": "知道了"
+        "dismiss": "知道了",
+        "now": "刚刚"
     },
     "nav": {
         "back": "后退",
@@ -31,10 +32,10 @@
         "greeting": "你好！我是你的 AI 助手，告诉我你下一步想做什么。",
         "emptyHistory": "还没有任何对话。",
         "loadingSessions": "正在加载对话...",
-        "failedToLoadSessions": "加载对话失败。",
-        "failedToCreateSession": "创建对话失败。",
-        "failedToSend": "发送消息失败。",
-        "failedToStop": "停止响应失败。",
+        "failedToLoadSessions": "加载对话失败",
+        "failedToCreateSession": "创建对话失败",
+        "failedToSend": "发送消息失败",
+        "failedToStop": "停止响应失败",
         "thinking": "正在思考...",
         "activity": "执行中",
         "showActivity": "展开思考和工具调用",
@@ -49,7 +50,7 @@
         "model": "模型",
         "noProviders": "暂无提供商",
         "noProvidersConfigured": "还没有配置任何 API 提供商，请先打开设置页添加。",
-        "failedToLoadModels": "加载提供商模型失败。",
+        "failedToLoadModels": "加载提供商模型失败",
         "modelRequired": "请先选择模型。",
         "prompt": "请输入你想让 AI 助手做的事...",
         "send": "发送",
@@ -69,7 +70,9 @@
         "title": "设置",
         "subtitle": "管理 API 提供商、本地模型，并为未来更多设置项预留结构。",
         "loading": "正在加载设置...",
+        "loadFailed": "加载设置失败",
         "saving": "正在保存...",
+        "saveFailed": "保存设置失败",
         "save": "保存设置",
         "reset": "重置",
         "none": "无",
@@ -124,7 +127,7 @@
             "installedDescription": "浏览已下载的模型，或打开搜索弹窗继续添加。",
             "noInstalled": "还没有下载任何本地模型。",
             "noSearchResults": "搜索模型后，这里会显示可下载的 GGUF 文件。",
-            "failed": "加载本地模型失败。",
+            "failed": "加载本地模型失败",
             "download": "下载",
             "downloading": "下载中 {{progress}}%",
             "delete": "删除",
@@ -141,8 +144,5 @@
                 "description": "搜索、下载、删除，并启动本地运行器。"
             }
         }
-    },
-    "common": {
-        "now": "刚刚"
     }
 }

@@ -23,6 +23,18 @@ export interface AppSettings {
     localRunner: LocalRunnerSettings;
 }
 
+export const SETTINGS_ERROR_CODE = {
+    LOAD_FAILED: "load_failed",
+    SAVE_FAILED: "save_failed",
+} as const;
+
+export interface SettingsErrorState {
+    code: (typeof SETTINGS_ERROR_CODE)[keyof typeof SETTINGS_ERROR_CODE] | null;
+    message: string | null;
+}
+
+export type SettingsErrorCode = NonNullable<SettingsErrorState["code"]>;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -80,7 +92,7 @@ export const normalizeSettings = (value: unknown): AppSettings => {
     const providers = Array.isArray(record.providers)
         ? record.providers.filter(isRecord).map((provider, index) => ({
               id: toString(provider.id, `provider-${index + 1}`),
-              name: toString(provider.name, `Provider ${index + 1}`),
+              name: toString(provider.name),
               type: toProviderType(provider.type),
               baseUrl: toString(provider.baseUrl ?? provider.baseURL),
               apiKey: toString(provider.apiKey),
@@ -153,7 +165,7 @@ interface SettingsStoreState {
     initialized: boolean;
     isLoading: boolean;
     isSaving: boolean;
-    error: string | null;
+    error: SettingsErrorState | null;
     initializeRpc: () => Promise<void>;
     reload: () => Promise<void>;
     save: (settings: AppSettings) => Promise<AppSettings | null>;
@@ -191,7 +203,16 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
         } catch (error) {
             set({
                 isLoading: false,
-                error: error instanceof Error ? error.message : "Failed to load settings.",
+                error:
+                    error instanceof Error
+                        ? {
+                              code: null,
+                              message: error.message,
+                          }
+                        : {
+                              code: SETTINGS_ERROR_CODE.LOAD_FAILED,
+                              message: null,
+                          },
             });
         }
     },
@@ -212,7 +233,16 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
         } catch (error) {
             set({
                 isSaving: false,
-                error: error instanceof Error ? error.message : "Failed to save settings.",
+                error:
+                    error instanceof Error
+                        ? {
+                              code: null,
+                              message: error.message,
+                          }
+                        : {
+                              code: SETTINGS_ERROR_CODE.SAVE_FAILED,
+                              message: null,
+                          },
             });
             return null;
         }

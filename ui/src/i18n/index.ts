@@ -16,6 +16,7 @@ i18n.use(initReactI18next).init({
     lng:
         typeof navigator !== "undefined" && navigator.language.startsWith("zh") ? "zh-CN" : "en-US",
     fallbackLng: "en-US",
+    initAsync: false,
     interpolation: {
         escapeValue: false,
     },

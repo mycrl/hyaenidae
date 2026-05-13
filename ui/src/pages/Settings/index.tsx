@@ -1,17 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import AsyncButton from "../../components/AsyncButton.tsx";
 import Banner from "./components/Banner";
 import LocalModelsSection from "./components/LocalModelsSection";
 import ProviderSettingsSection from "./components/ProviderSettingsSection";
 import SettingsSidebar, { type SettingsSection } from "./components/SettingsSidebar";
 import {
     DEFAULT_SETTINGS,
+    SETTINGS_ERROR_CODE,
     createLocalRunnerSettings,
     useSettingsStore,
     type AppSettings,
+    type SettingsErrorCode,
 } from "../../state/settings";
 
 type SectionId = "providers" | "local-models";
+
+const SETTINGS_ERROR_TRANSLATION_KEYS: Record<SettingsErrorCode, string> = {
+    [SETTINGS_ERROR_CODE.LOAD_FAILED]: "settings.loadFailed",
+    [SETTINGS_ERROR_CODE.SAVE_FAILED]: "settings.saveFailed",
+};
 
 const cloneSettings = (settings: AppSettings): AppSettings => ({
     schemaVersion: settings.schemaVersion,
@@ -27,6 +35,8 @@ export default function SettingsPage() {
     const isSaving = useSettingsStore((state) => state.isSaving);
     const error = useSettingsStore((state) => state.error);
     const save = useSettingsStore((state) => state.save);
+    const errorText =
+        error?.message ?? (error?.code ? t(SETTINGS_ERROR_TRANSLATION_KEYS[error.code]) : null);
 
     const [activeSection, setActiveSection] = useState<SectionId>("providers");
     const [draft, setDraft] = useState<AppSettings>(() => cloneSettings(DEFAULT_SETTINGS));
@@ -69,7 +79,7 @@ export default function SettingsPage() {
 
                 <section className="min-w-0 overflow-y-auto p-4">
                     {isLoading ? <Banner tone="neutral">{t("settings.loading")}</Banner> : null}
-                    {error ? <Banner tone="danger">{error}</Banner> : null}
+                    {errorText ? <Banner tone="danger">{errorText}</Banner> : null}
 
                     {activeSection === "providers" ? (
                         <ProviderSettingsSection
@@ -111,16 +121,14 @@ export default function SettingsPage() {
                             {t("settings.reset")}
                         </button>
 
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void save(draft);
-                            }}
-                            disabled={isSaving}
+                        <AsyncButton
+                            onClick={() => save(draft)}
+                            loading={isSaving}
+                            loadingContent={t("settings.saving")}
                             className="h-9 rounded-lg bg-blue-600 px-3 text-[13px] text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                         >
-                            {isSaving ? t("settings.saving") : t("settings.save")}
-                        </button>
+                            {t("settings.save")}
+                        </AsyncButton>
                     </div>
                 </section>
             </div>

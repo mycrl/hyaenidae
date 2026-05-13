@@ -5,7 +5,7 @@ import NavigationBar from "./components/NavigationBar";
 import TabBar from "./components/TabBar";
 import { useAgentStore } from "../../state/agent";
 import { useSettingsStore } from "../../state/settings";
-import { useTabStore } from "../../state/shell";
+import { useShellStore } from "../../state/shell";
 
 const AGENT_PANEL_MIN_WIDTH = 320;
 const AGENT_PANEL_DEFAULT_WIDTH = 450;
@@ -15,11 +15,11 @@ const DEFAULT_TAB_BAR_HEIGHT = 47;
 const DEFAULT_NAVIGATION_BAR_HEIGHT = 48;
 
 export default function App() {
-    const initializeRpc = useTabStore((state) => state.initializeRpc);
+    const initializeRpc = useShellStore((state) => state.initializeRpc);
     const initializeAgentRpc = useAgentStore((state) => state.initializeRpc);
     const initializeSettingsRpc = useSettingsStore((state) => state.initializeRpc);
-    const isAgentPanelOpen = useTabStore((state) => state.isAgentPanelOpen);
-    const layoutChanged = useTabStore((state) => state.layoutChanged);
+    const isAgentPanelOpen = useShellStore((state) => state.isAgentPanelOpen);
+    const layoutChanged = useShellStore((state) => state.layoutChanged);
     const [agentPanelWidth, setAgentPanelWidth] = useState(AGENT_PANEL_DEFAULT_WIDTH);
     const tabBarRef = useRef<HTMLDivElement | null>(null);
     const navigationBarRef = useRef<HTMLDivElement | null>(null);
@@ -70,19 +70,22 @@ export default function App() {
     }, [agentPanelWidth, emitLayoutChanged]);
 
     return (
-        <div className="h-screen select-none bg-slate-50">
-            <div className="h-full w-full overflow-hidden border border-slate-200 bg-white text-slate-800">
-                <div ref={tabBarRef}>
+        <div tag="app-shell" className="h-screen select-none bg-slate-50">
+            <div
+                tag="app-frame"
+                className="h-full w-full overflow-hidden border border-slate-200 bg-white text-slate-800"
+            >
+                <div tag="app-tabbar" ref={tabBarRef}>
                     <TabBar />
                 </div>
 
-                <div className="h-[calc(100%-3rem)] min-h-0 flex">
-                    <div className="flex-1 min-w-0 flex flex-col">
-                        <div ref={navigationBarRef}>
+                <div tag="app-body" className="h-[calc(100%-3rem)] min-h-0 flex">
+                    <div tag="app-main" className="flex-1 min-w-0 flex flex-col">
+                        <div tag="app-navigation" ref={navigationBarRef}>
                             <NavigationBar />
                         </div>
 
-                        <div className="flex-1 min-h-0 bg-white" />
+                        <div tag="app-canvas" className="flex-1 min-h-0 bg-white" />
                     </div>
 
                     {isAgentPanelOpen && (
@@ -95,6 +98,7 @@ export default function App() {
                             />
 
                             <div
+                                tag="app-agent-panel"
                                 style={{ width: `${agentPanelWidth}px` }}
                                 className="border-l border-slate-200 h-full overflow-hidden bg-white"
                             >

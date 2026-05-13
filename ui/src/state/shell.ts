@@ -1,11 +1,10 @@
 import { create } from "zustand";
-import i18n from "../i18n";
 import type { Layout } from "@hyaenidae/bridge";
 
 export interface Tab {
     id: number;
-    title: string;
-    url: string;
+    title?: string;
+    url?: string;
     isLoading: boolean;
     canGoBack: boolean;
     canGoForward: boolean;
@@ -26,8 +25,8 @@ interface ShellStoreState {
     focusTab: (id: number) => void;
     removeTab: (id: number) => void;
     setTabLoading: (id: number, isLoading: boolean) => void;
-    setTabUrl: (id: number, url: string) => void;
-    setTabTitle: (id: number, title: string) => void;
+    setTabUrl: (id: number, url?: string) => void;
+    setTabTitle: (id: number, title?: string) => void;
     setTabNavState: (id: number, canGoBack: boolean, canGoForward: boolean) => void;
     refreshTabNavState: (id: number) => Promise<void>;
     initializeRpc: () => Promise<void>;
@@ -65,8 +64,8 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
         hyaenidae.bridge.handle("shell:tab-created", async ({ id, url }) => {
             get().addTab({
                 id,
-                title: i18n.t("tabs.newTab"),
-                url: url ?? "",
+                url,
+                title: undefined,
                 isLoading: false,
                 canGoBack: false,
                 canGoForward: false,
@@ -96,7 +95,7 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
         });
 
         hyaenidae.bridge.handle("shell:tab-title-changed", async ({ id, title }) => {
-            get().setTabTitle(id, title ?? i18n.t("tabs.newTab"));
+            get().setTabTitle(id, title);
         });
 
         await hyaenidae.bridge.request("shell:ready");
@@ -251,5 +250,3 @@ export const useShellStore = create<ShellStoreState>((set, get) => ({
         hyaenidae.bridge.send("shell:layout-changed", layout);
     },
 }));
-
-export const useTabStore = useShellStore;

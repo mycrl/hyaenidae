@@ -18,13 +18,13 @@ export default function SettingsSidebar({
     onSectionChange: (sectionId: string) => void;
 }) {
     return (
-        <aside className="border-r border-slate-200 bg-white p-3">
-            <div className="mb-3">
+        <aside tag="settings-sidebar" className="border-r border-slate-200 bg-white p-3">
+            <div tag="settings-sidebar-header" className="mb-3">
                 <h1 className="text-base font-semibold text-slate-900">{title}</h1>
                 <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</p>
             </div>
 
-            <div className="space-y-1.5">
+            <div tag="settings-sidebar-list" className="space-y-1.5">
                 {sections.map((section) => (
                     <button
                         key={section.id}
@@ -37,8 +37,13 @@ export default function SettingsSidebar({
                                 : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-white",
                         ].join(" ")}
                     >
-                        <div className="text-sm font-medium">{section.title}</div>
-                        <div className="mt-0.5 text-xs leading-4.5 text-slate-500">
+                        <div tag="settings-sidebar-item-title" className="text-sm font-medium">
+                            {section.title}
+                        </div>
+                        <div
+                            tag="settings-sidebar-item-description"
+                            className="mt-0.5 text-xs leading-4.5 text-slate-500"
+                        >
                             {section.description}
                         </div>
                     </button>

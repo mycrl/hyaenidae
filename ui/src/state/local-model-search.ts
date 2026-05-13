@@ -10,12 +10,23 @@ interface DownloadState {
     error?: string;
 }
 
+export const LOCAL_MODEL_SEARCH_ERROR_CODE = {
+    SEARCH_FAILED: "search_failed",
+} as const;
+
+export interface LocalModelSearchErrorState {
+    code: (typeof LOCAL_MODEL_SEARCH_ERROR_CODE)[keyof typeof LOCAL_MODEL_SEARCH_ERROR_CODE] | null;
+    message: string | null;
+}
+
+export type LocalModelSearchErrorCode = NonNullable<LocalModelSearchErrorState["code"]>;
+
 interface LocalModelSearchStoreState {
     initialized: boolean;
     query: string;
     searchLoading: boolean;
     results: LocalModelSearchResult[];
-    error: string | null;
+    error: LocalModelSearchErrorState | null;
     downloadStates: Record<string, DownloadState>;
     completedVersion: number;
     initializeRpc: () => void;
@@ -116,7 +127,16 @@ export const useLocalModelSearchStore = create<LocalModelSearchStoreState>((set,
         } catch (error) {
             set({
                 searchLoading: false,
-                error: error instanceof Error ? error.message : "Failed to load local models.",
+                error:
+                    error instanceof Error
+                        ? {
+                              code: null,
+                              message: error.message,
+                          }
+                        : {
+                              code: LOCAL_MODEL_SEARCH_ERROR_CODE.SEARCH_FAILED,
+                              message: null,
+                          },
             });
         }
     },

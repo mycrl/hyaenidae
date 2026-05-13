@@ -2,7 +2,16 @@ import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import { useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { useLocalModelSearchStore } from "../../../state/local-model-search";
+import AsyncButton from "../../../components/AsyncButton.tsx";
+import {
+    LOCAL_MODEL_SEARCH_ERROR_CODE,
+    type LocalModelSearchErrorCode,
+    useLocalModelSearchStore,
+} from "../../../state/local-model-search";
+
+const LOCAL_MODEL_SEARCH_ERROR_TRANSLATION_KEYS: Record<LocalModelSearchErrorCode, string> = {
+    [LOCAL_MODEL_SEARCH_ERROR_CODE.SEARCH_FAILED]: "settings.localModels.failed",
+};
 
 export default function LocalModelSearchDialog({
     open,
@@ -28,6 +37,9 @@ export default function LocalModelSearchDialog({
     const downloadModel = useLocalModelSearchStore((state) => state.downloadModel);
     const getDownloadKey = (modelName: string, filePath: string) => `${modelName}:${filePath}`;
     const handledCompletedVersionRef = useRef(completedVersion);
+    const errorText =
+        error?.message ??
+        (error?.code ? t(LOCAL_MODEL_SEARCH_ERROR_TRANSLATION_KEYS[error.code]) : null);
 
     useEffect(() => {
         if (!initialized) {
@@ -67,10 +79,19 @@ export default function LocalModelSearchDialog({
     }
 
     return createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
-            <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
-                    <div>
+        <div
+            tag="model-search-overlay"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
+        >
+            <div
+                tag="model-search-panel"
+                className="flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+            >
+                <div
+                    tag="model-search-header"
+                    className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4"
+                >
+                    <div tag="model-search-title">
                         <h3 className="text-base font-semibold text-slate-900">
                             {t("settings.localModels.searchDialogTitle")}
                         </h3>
@@ -88,9 +109,12 @@ export default function LocalModelSearchDialog({
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-5">
-                    <div className="mb-4 flex items-center gap-2">
-                        <div className="flex h-10 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-blue-500 focus-within:bg-white">
+                <div tag="model-search-body" className="flex-1 overflow-y-auto p-5">
+                    <div tag="model-search-toolbar" className="mb-4 flex items-center gap-2">
+                        <div
+                            tag="model-search-input-shell"
+                            className="flex h-10 flex-1 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 focus-within:border-blue-500 focus-within:bg-white"
+                        >
                             <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
                             <input
                                 value={query}
@@ -105,30 +129,40 @@ export default function LocalModelSearchDialog({
                             />
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => void search()}
-                            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-blue-600 px-4 text-[13px] text-white transition-colors hover:bg-blue-700"
+                        <AsyncButton
+                            onClick={() => search()}
+                            loading={searchLoading}
+                            loadingContent={t("settings.loading")}
+                            className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-blue-600 px-4 text-[13px] text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                         >
                             {t("settings.localModels.search")}
-                        </button>
+                        </AsyncButton>
                     </div>
 
                     {searchLoading ? (
-                        <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-600">
+                        <div
+                            tag="model-search-loading"
+                            className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-600"
+                        >
                             {t("settings.loading")}
                         </div>
                     ) : null}
 
-                    {error ? (
-                        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
-                            {error}
+                    {errorText ? (
+                        <div
+                            tag="model-search-error"
+                            className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700"
+                        >
+                            {errorText}
                         </div>
                     ) : null}
 
-                    <div className="space-y-2">
+                    <div tag="model-search-results" className="space-y-2">
                         {results.length === 0 ? (
-                            <div className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-4 text-[13px] text-slate-500">
+                            <div
+                                tag="model-search-empty"
+                                className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-4 text-[13px] text-slate-500"
+                            >
                                 {query.trim()
                                     ? t("settings.localModels.noSearchResults")
                                     : t("settings.localModels.searchDialogEmpty")}
@@ -171,7 +205,7 @@ export default function LocalModelSearchDialog({
                                         </div>
                                     </summary>
 
-                                    <div className="mt-3 space-y-1">
+                                    <div tag="model-search-file-list" className="mt-3 space-y-1">
                                         {model.files.map((file) => {
                                             const downloadKey = getDownloadKey(
                                                 model.name,
@@ -187,14 +221,24 @@ export default function LocalModelSearchDialog({
 
                                             return (
                                                 <div
+                                                    tag="model-search-file-item"
                                                     key={`${model.id}:${file.path}`}
                                                     className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-2.5 py-2 text-[12px] text-slate-600"
                                                 >
-                                                    <div className="min-w-0">
-                                                        <div className="truncate text-slate-900">
+                                                    <div
+                                                        tag="model-search-file-details"
+                                                        className="min-w-0"
+                                                    >
+                                                        <div
+                                                            tag="model-search-file-name"
+                                                            className="truncate text-slate-900"
+                                                        >
                                                             {file.path}
                                                         </div>
-                                                        <div className="text-[11px] text-slate-500">
+                                                        <div
+                                                            tag="model-search-file-meta"
+                                                            className="text-[11px] text-slate-500"
+                                                        >
                                                             {file.type} ·{" "}
                                                             {formatSizeInMb(file.size)}
                                                         </div>
@@ -222,7 +266,10 @@ export default function LocalModelSearchDialog({
                     </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4">
+                <div
+                    tag="model-search-footer"
+                    className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-4"
+                >
                     <button
                         type="button"
                         onClick={onClose}

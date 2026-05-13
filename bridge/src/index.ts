@@ -346,6 +346,18 @@ interface Message {
 }
 
 const U32_MAX = 4294967295;
+const BRIDGE_RPC_EVENT_NAME = "rpc:message";
+
+/**
+ * Defines the communication handler for sending and receiving messages.
+ * The handler must implement a `send` method for sending messages and
+ * an `on` method for registering a callback to handle incoming messages.
+ */
+type BridgeHandler = {
+    send: (method: string, message: any) => void;
+    on: (method: string, callback: (message: any) => void) => void;
+    off: (method: string) => void;
+};
 
 /**
  * Implements a generic RPC service that can be used to send requests and handle
@@ -355,23 +367,13 @@ const U32_MAX = 4294967295;
  */
 export class BridgeService {
     private counter = 0;
+    private handler: BridgeHandler;
     private listeners: { [key: string]: (message: Message) => void } = {};
 
-    static RPC_METHOD = "rpc:message";
+    constructor(handler: BridgeHandler) {
+        this.handler = handler;
 
-    constructor(
-        /**
-         * Defines the communication handler for sending and receiving messages.
-         * The handler must implement a `send` method for sending messages and
-         * an `on` method for registering a callback to handle incoming messages.
-         */
-        private readonly handler: {
-            send: (method: string, message: any) => void;
-            on: (method: string, callback: (message: any) => void) => void;
-            off: (method: string) => void;
-        },
-    ) {
-        handler.on(BridgeService.RPC_METHOD, (message) => {
+        handler.on(BRIDGE_RPC_EVENT_NAME, (message) => {
             const listener = this.listeners[message.method];
             if (listener) {
                 listener(message);
@@ -407,7 +409,7 @@ export class BridgeService {
             this.counter = 0;
         }
 
-        this.handler.send(BridgeService.RPC_METHOD, {
+        this.handler.send(BRIDGE_RPC_EVENT_NAME, {
             method,
             id,
             type: MessageType.Request,
@@ -448,7 +450,7 @@ export class BridgeService {
      */
     handle<T extends keyof Api>(method: T, callback: (params: Api[T][0]) => Promise<Api[T][1]>) {
         this.listeners[method] = async (message: Message) => {
-            this.handler.send(BridgeService.RPC_METHOD, {
+            this.handler.send(BRIDGE_RPC_EVENT_NAME, {
                 id: message.id,
                 method: `${method}-relay-${message.id}`,
                 ...(await callback(message.params)

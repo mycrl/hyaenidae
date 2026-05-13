@@ -39,7 +39,10 @@ export default function NavigationBar() {
     }, [currentUrl, isEditingUrl]);
 
     return (
-        <div className="h-12 border-b border-slate-200 bg-white px-2 flex items-center gap-1">
+        <div
+            tag="navigation-bar"
+            className="h-12 border-b border-slate-200 bg-white px-2 flex items-center gap-1"
+        >
             <NavIconButton title={t("nav.back")} onClick={goBack} disabled={!canGoBack}>
                 <ArrowLeftIcon className="w-4 h-4" />
             </NavIconButton>
@@ -63,7 +66,10 @@ export default function NavigationBar() {
                 <HomeIcon className="w-4 h-4" />
             </NavIconButton>
 
-            <div className="flex-1 mx-2 px-3 h-9 rounded-xl border border-slate-200 bg-slate-100 focus-within:bg-white focus-within:border-blue-500 transition-colors flex items-center gap-2">
+            <div
+                tag="nav-location-shell"
+                className="flex-1 mx-2 px-3 h-9 rounded-xl border border-slate-200 bg-slate-100 focus-within:bg-white focus-within:border-blue-500 transition-colors flex items-center gap-2"
+            >
                 <LockClosedIcon className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
                 <input
                     type="text"

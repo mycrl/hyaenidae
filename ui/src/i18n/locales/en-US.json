@@ -12,7 +12,8 @@
     },
     "common": {
         "errorTitle": "Error",
-        "dismiss": "Dismiss"
+        "dismiss": "Dismiss",
+        "now": "Just now"
     },
     "nav": {
         "back": "Back",
@@ -69,7 +70,9 @@
         "title": "Settings",
         "subtitle": "Manage API providers, local models, and room for more application settings later.",
         "loading": "Loading settings...",
+        "loadFailed": "Failed to load settings.",
         "saving": "Saving...",
+        "saveFailed": "Failed to save settings.",
         "save": "Save settings",
         "reset": "Reset",
         "none": "None",
@@ -141,8 +144,5 @@
                 "description": "Search, download, delete, and start a local runner."
             }
         }
-    },
-    "common": {
-        "now": "Now"
     }
 }

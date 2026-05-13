@@ -12,4 +12,10 @@ declare global {
     };
 }
 
+declare module "react" {
+    interface HTMLAttributes<T> {
+        tag?: string;
+    }
+}
+
 export {};

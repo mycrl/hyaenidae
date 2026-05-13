@@ -61,6 +61,7 @@ export default function AgentPanelResizeHandle({
 
     return (
         <div
+            tag="agent-panel-resize-handle"
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize agent panel"

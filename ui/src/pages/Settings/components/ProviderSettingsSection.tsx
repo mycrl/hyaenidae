@@ -45,7 +45,10 @@ export default function ProviderSettingsSection({
             title={t("settings.sections.providers.title")}
             description={t("settings.sections.providers.description")}
         >
-            <div className="flex items-center justify-between gap-4">
+            <div
+                tag="provider-settings-toolbar"
+                className="flex items-center justify-between gap-4"
+            >
                 <p className="text-[13px] leading-5 text-slate-600">
                     {t("settings.providersHint")}
                 </p>
@@ -64,22 +67,35 @@ export default function ProviderSettingsSection({
                 <LocalRunnerProviderCard provider={localRunnerProvider} />
 
                 {editableProviders.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-[13px] text-slate-500">
+                    <div
+                        tag="provider-settings-empty"
+                        className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-[13px] text-slate-500"
+                    >
                         {t("settings.noProviders")}
                     </div>
                 ) : null}
 
                 {editableProviders.map((provider, index) => (
                     <div
+                        tag="provider-settings-item"
                         key={provider.id}
                         className="rounded-xl border border-slate-200 bg-slate-50 p-3"
                     >
-                        <div className="mb-3 flex items-center justify-between gap-3">
-                            <div>
-                                <div className="text-[13px] font-medium text-slate-900">
+                        <div
+                            tag="provider-settings-item-header"
+                            className="mb-3 flex items-center justify-between gap-3"
+                        >
+                            <div tag="provider-settings-item-title-group">
+                                <div
+                                    tag="provider-settings-item-title"
+                                    className="text-[13px] font-medium text-slate-900"
+                                >
                                     {provider.name || `${t("settings.providerLabel")} ${index + 1}`}
                                 </div>
-                                <div className="text-[11px] text-slate-500">
+                                <div
+                                    tag="provider-settings-item-description"
+                                    className="text-[11px] text-slate-500"
+                                >
                                     {provider.type === "custom"
                                         ? provider.baseUrl ||
                                           t("settings.providerBaseURLPlaceholder")
@@ -97,7 +113,7 @@ export default function ProviderSettingsSection({
                             </button>
                         </div>
 
-                        <div className="grid gap-3 md:grid-cols-2">
+                        <div tag="provider-settings-fields" className="grid gap-3 md:grid-cols-2">
                             <FieldLabel label={t("settings.providerName")}>
                                 <input
                                     value={provider.name}
@@ -166,23 +182,38 @@ function LocalRunnerProviderCard({ provider }: { provider: ApiProviderSettings }
     const { t } = useTranslation();
 
     return (
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                    <div className="text-[13px] font-medium text-slate-900">
+        <div
+            tag="local-runner-provider-card"
+            className="rounded-xl border border-blue-200 bg-blue-50 p-3"
+        >
+            <div
+                tag="local-runner-provider-card-header"
+                className="mb-3 flex items-center justify-between gap-3"
+            >
+                <div tag="local-runner-provider-card-title-group">
+                    <div
+                        tag="local-runner-provider-card-title"
+                        className="text-[13px] font-medium text-slate-900"
+                    >
                         {provider.name || t("settings.localRunnerProvider.title")}
                     </div>
-                    <div className="text-[11px] text-slate-500">
+                    <div
+                        tag="local-runner-provider-card-description"
+                        className="text-[11px] text-slate-500"
+                    >
                         {t("settings.localRunnerProvider.description")}
                     </div>
                 </div>
 
-                <div className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                <div
+                    tag="local-runner-provider-card-badge"
+                    className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-blue-700"
+                >
                     {t(`settings.providerTypes.${provider.type}`)}
                 </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-1">
+            <div tag="local-runner-provider-card-fields" className="grid gap-3 md:grid-cols-1">
                 <FieldLabel label={t("settings.providerName")}>
                     <input
                         value={provider.name}

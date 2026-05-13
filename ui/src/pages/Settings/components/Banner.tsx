@@ -9,6 +9,7 @@ export default function Banner({
 }) {
     return (
         <div
+            tag="settings-banner"
             className={[
                 "mb-3 rounded-lg border px-3 py-2 text-[13px]",
                 tone === "danger"

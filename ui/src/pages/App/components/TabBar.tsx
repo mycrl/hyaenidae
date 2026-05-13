@@ -23,15 +23,22 @@ export default function TabBar() {
     const isAgentPanelOpen = useShellStore((state) => state.isAgentPanelOpen);
     const isWindowMaximized = useShellStore((state) => state.isWindowMaximized);
     const toggleAgentPanel = useShellStore((state) => state.toggleAgentPanel);
+    const fallbackTabTitle = t("tabs.newTab");
 
     return (
-        <div className="h-12 border-b border-slate-200 bg-white flex items-end justify-between">
-            <div className="tabs-strip h-full min-w-0 flex-1 overflow-x-auto px-2 flex items-end">
+        <div
+            tag="tab-bar"
+            className="h-12 border-b border-slate-200 bg-white flex items-end justify-between"
+        >
+            <div
+                tag="tab-strip"
+                className="tabs-strip h-full min-w-0 flex-1 overflow-x-auto px-2 flex items-end"
+            >
                 {tabs.map((tab, index) => (
                     <button
                         key={`${tab.id}-${index}`}
                         onClick={() => focusTabRpc(tab.id)}
-                        title={tab.title}
+                        title={tab.title?.trim() || fallbackTabTitle}
                         className={[
                             "h-9 min-w-[140px] max-w-[260px] flex-shrink-0",
                             "px-3 rounded-t-xl border border-b-0 mr-1",
@@ -42,7 +49,9 @@ export default function TabBar() {
                         ].join(" ")}
                     >
                         <GlobeAltIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        <span className="flex-1 truncate text-left">{tab.title}</span>
+                        <span className="flex-1 truncate text-left">
+                            {tab.title?.trim() || fallbackTabTitle}
+                        </span>
                         <span
                             role="button"
                             aria-label={t("tabs.closeTab")}
@@ -69,12 +78,13 @@ export default function TabBar() {
                 </button>
 
                 <div
+                    tag="tab-drag-spacer"
                     className="flex-1 h-full"
                     style={{ WebkitAppRegion: "drag" } as CSSProperties}
                 />
             </div>
 
-            <div className="h-full flex items-center flex-shrink-0 gap-3 pl-2">
+            <div tag="tab-controls" className="h-full flex items-center flex-shrink-0 gap-3 pl-2">
                 <button
                     type="button"
                     onClick={toggleAgentPanel}
@@ -102,9 +112,9 @@ export default function TabBar() {
                     <Cog6ToothIcon className="w-4 h-4 mx-auto" />
                 </button>
 
-                <div className="h-6 w-px bg-slate-200" />
+                <div tag="tab-window-divider" className="h-6 w-px bg-slate-200" />
 
-                <div className="h-full flex items-center flex-shrink-0">
+                <div tag="tab-window-controls" className="h-full flex items-center flex-shrink-0">
                     <button
                         onClick={minimizeWindow}
                         title={t("window.minimize")}

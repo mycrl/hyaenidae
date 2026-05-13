@@ -5,8 +5,8 @@ import type {
     ModelProvider,
 } from "@hyaenidae/bridge";
 import { create } from "zustand";
-import i18n from "../i18n";
-import { normalizeSettings, type ApiProviderSettings } from "./settings";
+import { GLOBAL_ERROR_CODE, showGlobalAgentError } from "./notify";
+import { type ApiProviderSettings, type AppSettings } from "./settings";
 
 export interface AgentProviderItem {
     id: string;
@@ -18,7 +18,7 @@ export interface AgentProviderItem {
 
 export interface AgentSessionItem {
     id: number;
-    name: string;
+    name?: string;
 }
 
 export interface AgentMessage {
@@ -40,7 +40,7 @@ export interface AgentActivity {
 }
 
 interface AgentConversation {
-    title: string;
+    title?: string;
     messages: AgentMessage[];
     activeResponseId: number | null;
     isResponding: boolean;
@@ -50,20 +50,24 @@ interface AgentStoreState {
     sessions: AgentSessionItem[];
     providers: AgentProviderItem[];
     selectedProviderId: string | null;
-    selectedModel: string;
+    selectedModel: string | null;
     models: string[];
     conversations: Record<number, AgentConversation>;
     activeSessionId: number | null;
     initialized: boolean;
     isLoadingSessions: boolean;
-    error: string | null;
     initializeRpc: () => Promise<void>;
     refreshProviders: () => Promise<void>;
     selectProvider: (id: string) => Promise<void>;
     setSelectedModel: (model: string) => void;
     createSession: (name?: string) => Promise<number | null>;
     selectSession: (id: number) => void;
-    sendMessage: (input: { message: string; provider: string; model: string }) => Promise<void>;
+    sendMessage: (input: {
+        message: string;
+        provider: string;
+        model: string;
+        locale: string;
+    }) => Promise<void>;
     stopActiveResponse: () => Promise<void>;
 }
 
@@ -86,7 +90,7 @@ const buildChatTitle = (text: string) => {
 const ensureConversation = (
     conversations: Record<number, AgentConversation>,
     sessionId: number,
-    fallbackTitle: string,
+    fallbackTitle?: string,
 ) => {
     if (conversations[sessionId]) {
         return conversations[sessionId];
@@ -100,34 +104,6 @@ const ensureConversation = (
     };
 };
 
-const normalizeSession = (session: { id: number; name?: string }): AgentSessionItem => ({
-    id: session.id,
-    name: session.name?.trim() || i18n.t("chat.newConversation"),
-});
-
-const normalizeProviderBaseUrl = (baseUrl?: string) => baseUrl?.trim() ?? "";
-
-const isProviderConfigured = (provider: ApiProviderSettings) => {
-    if (provider.type === "local-runner") {
-        return Boolean(normalizeProviderBaseUrl(provider.baseUrl));
-    }
-
-    if (provider.type === "custom") {
-        return Boolean(normalizeProviderBaseUrl(provider.baseUrl));
-    }
-
-    return true;
-};
-
-const buildAgentProviders = (settingsProviders: ApiProviderSettings[]): AgentProviderItem[] =>
-    settingsProviders.filter(isProviderConfigured).map((provider, index) => ({
-        id: provider.id,
-        name: provider.name || provider.id || `Provider ${index + 1}`,
-        type: provider.type,
-        baseUrl: provider.baseUrl,
-        apiKey: provider.apiKey,
-    }));
-
 const TOOL_UNFRIENDLY_MODEL_PATTERN =
     /embed|embedding|rerank|moderation|whisper|tts|stt|transcribe|vision-preview|omni-moderation/i;
 
@@ -136,9 +112,6 @@ const filterAgentModels = (models: string[]) => {
 
     return filteredModels.length > 0 ? filteredModels : models;
 };
-
-const pickSelectedModel = (models: string[], currentModel: string) =>
-    models.includes(currentModel) ? currentModel : "";
 
 const toModelProvider = (provider: AgentProviderItem, model: string): ModelProvider => {
     switch (provider.type) {
@@ -152,7 +125,7 @@ const toModelProvider = (provider: AgentProviderItem, model: string): ModelProvi
         case "local-runner":
             return {
                 type: "custom",
-                baseUrl: normalizeProviderBaseUrl(provider.baseUrl),
+                baseUrl: provider.baseUrl.trim(),
                 model,
                 apiKey: provider.apiKey || undefined,
             };
@@ -170,19 +143,18 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
     sessions: [],
     providers: [],
     selectedProviderId: null,
-    selectedModel: "",
+    selectedModel: null,
     models: [],
     conversations: {},
     activeSessionId: null,
     initialized: false,
     isLoadingSessions: false,
-    error: null,
     initializeRpc: async () => {
         if (get().initialized) {
             return;
         }
 
-        set({ initialized: true, isLoadingSessions: true, error: null });
+        set({ initialized: true, isLoadingSessions: true });
 
         hyaenidae.bridge.on("shell:settings-changed", async () => {
             await get().refreshProviders();
@@ -192,9 +164,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
             "agent:chat-response",
             ({ sessionId, id, message }: AgentStreamItem) => {
                 set((state) => {
-                    const sessionName =
-                        state.sessions.find((item) => item.id === sessionId)?.name ??
-                        i18n.t("chat.newConversation");
+                    const sessionName = state.sessions.find((item) => item.id === sessionId)?.name;
                     const conversation = ensureConversation(
                         state.conversations,
                         sessionId,
@@ -226,7 +196,6 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                           ];
 
                     return {
-                        error: null,
                         conversations: {
                             ...state.conversations,
                             [sessionId]: {
@@ -245,9 +214,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
             "agent:chat-activity",
             ({ sessionId, id, ...activity }: AgentActivityItem) => {
                 set((state) => {
-                    const sessionName =
-                        state.sessions.find((item) => item.id === sessionId)?.name ??
-                        i18n.t("chat.newConversation");
+                    const sessionName = state.sessions.find((item) => item.id === sessionId)?.name;
                     const conversation = ensureConversation(
                         state.conversations,
                         sessionId,
@@ -293,7 +260,6 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                           ];
 
                     return {
-                        error: null,
                         conversations: {
                             ...state.conversations,
                             [sessionId]: {
@@ -310,15 +276,14 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
 
         hyaenidae.bridge.on("agent:chat-response-done", ({ sessionId, id, error }: AgentResult) => {
             set((state) => {
-                const sessionName =
-                    state.sessions.find((item) => item.id === sessionId)?.name ??
-                    i18n.t("chat.newConversation");
+                const sessionName = state.sessions.find((item) => item.id === sessionId)?.name;
 
                 const conversation = ensureConversation(
                     state.conversations,
                     sessionId,
                     sessionName,
                 );
+
                 const hasAssistantMessage = conversation.messages.some(
                     (item) => item.id === id && item.role === "assistant",
                 );
@@ -347,7 +312,6 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                       ];
 
                 return {
-                    error: error ?? state.error,
                     conversations: {
                         ...state.conversations,
                         [sessionId]: {
@@ -366,8 +330,8 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
 
         try {
             await get().refreshProviders();
-            const result = await hyaenidae.bridge.request("agent:session-list");
-            const sessions = (result.sessions ?? []).map(normalizeSession);
+
+            const { sessions } = await hyaenidae.bridge.request("agent:session-list");
 
             set((state) => ({
                 sessions,
@@ -387,48 +351,76 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                 ),
                 activeSessionId: state.activeSessionId ?? sessions[0]?.id ?? null,
                 isLoadingSessions: false,
-                error: null,
             }));
 
             if (sessions.length === 0) {
-                await get().createSession(i18n.t("chat.newConversation"));
+                await get().createSession();
             }
         } catch (error) {
+            showGlobalAgentError(
+                error instanceof Error
+                    ? {
+                          code: GLOBAL_ERROR_CODE.LOAD_SESSIONS_FAILED,
+                          message: error.message,
+                      }
+                    : {
+                          code: GLOBAL_ERROR_CODE.LOAD_SESSIONS_FAILED,
+                          message: null,
+                      },
+            );
+
             set({
                 isLoadingSessions: false,
-                error: error instanceof Error ? error.message : i18n.t("chat.failedToLoadSessions"),
             });
         }
     },
     refreshProviders: async () => {
         try {
-            const settingsResult = await hyaenidae.bridge.request("shell:settings-get");
-            const settings = normalizeSettings(settingsResult.settings);
-            const providers = buildAgentProviders(settings.providers);
-            const selectedProviderId = providers.some(
+            const { settings } = (await hyaenidae.bridge.request("shell:settings-get")) as {
+                settings: AppSettings;
+            };
+
+            const selectedProviderId = settings.providers.some(
                 (provider) => provider.id === get().selectedProviderId,
             )
                 ? get().selectedProviderId
-                : (providers[0]?.id ?? null);
+                : (settings.providers[0]?.id ?? null);
 
             set({
-                providers,
+                providers: settings.providers,
                 selectedProviderId,
-                error: providers.length === 0 ? i18n.t("chat.noProvidersConfigured") : null,
             });
+
+            if (settings.providers.length === 0) {
+                showGlobalAgentError({
+                    code: GLOBAL_ERROR_CODE.NO_PROVIDERS_CONFIGURED,
+                    message: null,
+                });
+            }
 
             if (selectedProviderId !== null) {
                 await get().selectProvider(selectedProviderId);
             } else {
-                set({ models: [], selectedModel: "" });
+                set({ models: [], selectedModel: null });
             }
         } catch (error) {
+            showGlobalAgentError(
+                error instanceof Error
+                    ? {
+                          code: GLOBAL_ERROR_CODE.LOAD_MODELS_FAILED,
+                          message: error.message,
+                      }
+                    : {
+                          code: GLOBAL_ERROR_CODE.LOAD_MODELS_FAILED,
+                          message: null,
+                      },
+            );
+
             set({
                 providers: [],
                 selectedProviderId: null,
                 models: [],
-                selectedModel: "",
-                error: error instanceof Error ? error.message : i18n.t("chat.failedToLoadModels"),
+                selectedModel: null,
             });
         }
     },
@@ -436,31 +428,57 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         const provider = get().providers.find((item) => item.id === id);
 
         if (!provider) {
+            showGlobalAgentError({
+                code: GLOBAL_ERROR_CODE.NO_PROVIDERS_CONFIGURED,
+                message: null,
+            });
+
             set({
                 selectedProviderId: null,
                 models: [],
-                selectedModel: "",
-                error: i18n.t("chat.noProvidersConfigured"),
+                selectedModel: null,
             });
+
             return;
         }
 
-        set({ selectedProviderId: id, error: null });
+        set({ selectedProviderId: id });
 
         try {
-            const result = await hyaenidae.bridge.request(
-                "agent:provider-get-models",
-                toModelProvider(provider, ""),
+            const models = filterAgentModels(
+                (
+                    await hyaenidae.bridge.request(
+                        "agent:provider-get-models",
+                        toModelProvider(provider, ""),
+                    )
+                ).models ?? [],
             );
-            const models = filterAgentModels(result.models ?? []);
-            const selectedModel = pickSelectedModel(models, get().selectedModel);
 
-            set({ models, selectedModel });
+            const selectedModel = get().selectedModel;
+
+            set({
+                models,
+                selectedModel: selectedModel
+                    ? models.includes(selectedModel)
+                        ? selectedModel
+                        : null
+                    : null,
+            });
         } catch (error) {
+            showGlobalAgentError(
+                error instanceof Error
+                    ? {
+                          code: GLOBAL_ERROR_CODE.LOAD_MODELS_FAILED,
+                          message: error.message,
+                      }
+                    : {
+                          code: GLOBAL_ERROR_CODE.LOAD_MODELS_FAILED,
+                          message: null,
+                      },
+            );
             set({
                 models: [],
-                selectedModel: "",
-                error: error instanceof Error ? error.message : i18n.t("chat.failedToLoadModels"),
+                selectedModel: null,
             });
         }
     },
@@ -469,55 +487,66 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
     },
     createSession: async (name) => {
         try {
-            const sessionName = name?.trim() || i18n.t("chat.newConversation");
-            const result = await hyaenidae.bridge.request("agent:session-create", {
-                name: sessionName,
+            const { id } = await hyaenidae.bridge.request("agent:session-create", {
+                name,
             });
 
             set((state) => ({
-                sessions: [...state.sessions, { id: result.id, name: sessionName }],
+                sessions: [...state.sessions, { id, name }],
                 conversations: {
                     ...state.conversations,
-                    [result.id]: ensureConversation(state.conversations, result.id, sessionName),
+                    [id]: ensureConversation(state.conversations, id, name),
                 },
-                activeSessionId: result.id,
-                error: null,
+                activeSessionId: id,
             }));
 
-            return result.id;
+            return id;
         } catch (error) {
-            set({
-                error:
-                    error instanceof Error ? error.message : i18n.t("chat.failedToCreateSession"),
-            });
+            showGlobalAgentError(
+                error instanceof Error
+                    ? {
+                          code: GLOBAL_ERROR_CODE.CREATE_SESSION_FAILED,
+                          message: error.message,
+                      }
+                    : {
+                          code: GLOBAL_ERROR_CODE.CREATE_SESSION_FAILED,
+                          message: null,
+                      },
+            );
 
             return null;
         }
     },
     selectSession: (id) => {
-        set({ activeSessionId: id, error: null });
+        set({ activeSessionId: id });
     },
-    sendMessage: async ({ message, provider, model }) => {
+    sendMessage: async ({ message, provider, model, locale }) => {
         const trimmed = message.trim();
         if (!trimmed) {
             return;
         }
 
         if (!model.trim()) {
-            set({ error: i18n.t("chat.modelRequired") });
+            showGlobalAgentError({
+                code: GLOBAL_ERROR_CODE.MODEL_REQUIRED,
+                message: null,
+            });
             return;
         }
 
         const providerConfig = get().providers.find((item) => item.id === provider);
         if (!providerConfig) {
-            set({ error: i18n.t("chat.noProvidersConfigured") });
+            showGlobalAgentError({
+                code: GLOBAL_ERROR_CODE.NO_PROVIDERS_CONFIGURED,
+                message: null,
+            });
             return;
         }
 
         let sessionId = get().activeSessionId;
 
         if (sessionId === null) {
-            sessionId = await get().createSession(i18n.t("chat.newConversation"));
+            sessionId = await get().createSession();
         }
 
         if (sessionId === null) {
@@ -525,18 +554,13 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
         }
 
         const session = get().sessions.find((item) => item.id === sessionId);
-        const conversation = ensureConversation(
-            get().conversations,
-            sessionId,
-            session?.name ?? i18n.t("chat.newConversation"),
-        );
+        const conversation = ensureConversation(get().conversations, sessionId, session?.name);
 
         const hasUserMessage = conversation.messages.some((item) => item.role === "user");
         const nextTitle = hasUserMessage ? conversation.title : buildChatTitle(trimmed);
         const userMessageId = Date.now();
 
         set((state) => ({
-            error: null,
             sessions: state.sessions.map((item) =>
                 item.id === sessionId ? { ...item, name: nextTitle } : item,
             ),
@@ -565,7 +589,7 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                 session: sessionId,
                 modelProvider: toModelProvider(providerConfig, model),
                 message: trimmed,
-                locale: i18n.language,
+                locale,
             });
 
             set((state) => {
@@ -604,8 +628,18 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                 };
             });
         } catch (error) {
-            const messageText =
-                error instanceof Error ? error.message : i18n.t("chat.failedToSend");
+            const errorState =
+                error instanceof Error
+                    ? {
+                          code: GLOBAL_ERROR_CODE.SEND_MESSAGE_FAILED,
+                          message: error.message,
+                      }
+                    : {
+                          code: GLOBAL_ERROR_CODE.SEND_MESSAGE_FAILED,
+                          message: null,
+                      };
+
+            showGlobalAgentError(errorState);
 
             set((state) => {
                 const updatedConversation = ensureConversation(
@@ -615,24 +649,13 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                 );
 
                 return {
-                    error: messageText,
                     conversations: {
                         ...state.conversations,
                         [sessionId]: {
                             ...updatedConversation,
                             activeResponseId: null,
                             isResponding: false,
-                            messages: [
-                                ...updatedConversation.messages,
-                                {
-                                    id: Date.now() + 1,
-                                    role: "assistant",
-                                    content: messageText,
-                                    timestamp: getTimestamp(),
-                                    status: "error",
-                                    error: messageText,
-                                },
-                            ],
+                            messages: updatedConversation.messages,
                         },
                     },
                 };
@@ -655,9 +678,17 @@ export const useAgentStore = create<AgentStoreState>((set, get) => ({
                 id: conversation.activeResponseId,
             });
         } catch (error) {
-            set({
-                error: error instanceof Error ? error.message : i18n.t("chat.failedToStop"),
-            });
+            showGlobalAgentError(
+                error instanceof Error
+                    ? {
+                          code: GLOBAL_ERROR_CODE.STOP_RESPONSE_FAILED,
+                          message: error.message,
+                      }
+                    : {
+                          code: GLOBAL_ERROR_CODE.STOP_RESPONSE_FAILED,
+                          message: null,
+                      },
+            );
         }
     },
 }));
