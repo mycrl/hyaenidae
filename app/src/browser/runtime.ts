@@ -499,16 +499,12 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
 
     async snapshotDom(tabId?: number): Promise<BrowserDomSnapshot> {
         const view = this.requireTab(tabId);
-        const [document, accessibility] = await Promise.all([
-            this.domReader.read(view),
-            this.accessibilityReader.read(view.webContents),
-        ]);
+        const accessibility = await this.accessibilityReader.read(view.webContents);
 
         return {
             tabId: view.webContents.id,
             url: sanitizeUrl(view.webContents.getURL()),
-            title: sanitizeString(view.webContents.getTitle() || document?.title || ""),
-            ...(document === undefined ? {} : { document: sanitizeDomSnapshot(document) }),
+            title: sanitizeString(view.webContents.getTitle()),
             ...(accessibility === undefined
                 ? {}
                 : { accessibility: sanitizeAccessibilityNode(accessibility) }),
