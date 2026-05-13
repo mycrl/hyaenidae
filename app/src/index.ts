@@ -5,7 +5,6 @@ import { Browser } from "./browser";
 import { CONFIG, initConfig } from "./config";
 import { SettingsManager } from "./settings";
 import { registerLogger } from "./logger";
-import { LocalModelsManager } from "./model-runner/models";
 import { ModelRunnerCounter } from "./model-runner";
 
 registerLogger();
@@ -161,7 +160,6 @@ browser.shell.bridge.handle("agent:chat-ask", async (options) => {
     let isReady = false;
 
     browser.shell.bridge.handle("shell:ready", async () => {
-        // create an initial tab on startup
         if (!isReady) {
             isReady = true;
 

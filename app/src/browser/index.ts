@@ -6,8 +6,55 @@ import { SettingsManager } from "../settings";
 import { LocalModelsManager, RemoteModelsManager } from "../model-runner/models";
 import { ModelRunnerCounter } from "../model-runner";
 
-export function isApplicationRegisteredUrl(url: string) {
+/**
+ * Smart URL parser that mimics browser address bar behavior with the
+ * following rules:
+ * 1. If the input contains spaces, treat it as a search query and use the
+ *    default search engine.
+ * 2. If the input already starts with a protocol (such as http://, https://,
+ *    or ftp://), treat it as a URL.
+ * 3. If the input matches common website patterns (such as example.com or
+ *    www.example.com), automatically prepend https://.
+ * 4. Treat all other inputs as search queries and use the default search
+ *    engine.
+ */
+function smartParseURL(input: string, searchEngine = "https://www.google.com/search?q=") {
+    const trimmedInput = input.trim();
+
+    // 1. Treat inputs containing spaces as search queries.
+    if (trimmedInput.includes(" ")) {
+        return searchEngine + encodeURIComponent(trimmedInput);
+    }
+
+    // 2. Check whether the input already includes a protocol.
+    if (/^[a-z0-9]+:\/\//i.test(trimmedInput)) {
+        return trimmedInput;
+    }
+
+    // 3. Detect common website-style hostnames.
+    // Pattern: starts with letters or digits, contains dots, and ends with
+    // a top-level domain of at least two characters (for example .com or .cn).
+    const urlPattern = /^[a-z0-9-]+(\.[a-z0-9-]+)+([/?#].*)?$/i;
+
+    if (urlPattern.test(trimmedInput)) {
+        // Prepend https:// when the protocol is omitted.
+        return `https://${trimmedInput}`;
+    }
+
+    // 4. Fall back to the default search engine.
+    return searchEngine + encodeURIComponent(trimmedInput);
+}
+
+function isApplicationRegisteredUrl(url: string) {
     return url == CONFIG.shellUrl || url == CONFIG.settingsUrl;
+}
+
+async function loadUrl(webContents: Electron.WebContents, uri: string) {
+    const url = isApplicationRegisteredUrl(uri) || uri == "about:blank" ? uri : smartParseURL(uri);
+
+    console.info("Loading URL:", url);
+
+    await webContents.loadURL(url);
 }
 
 /**
@@ -64,7 +111,7 @@ export class Browser extends EventEmitter {
 
         // Create the window frame content view
         {
-            this.shell.webContents.loadURL(CONFIG.shellUrl);
+            loadUrl(this.shell.webContents, CONFIG.shellUrl);
             this.baseWindow.contentView.addChildView(this.shell);
             this.syncBounds();
 
@@ -121,8 +168,6 @@ export class Browser extends EventEmitter {
     async create(url: string = "about:blank") {
         const isHyaenidaeUrl = isApplicationRegisteredUrl(url);
 
-        console.info("Creating new tab with URL:", url);
-
         const tab = new View({
             webPreferences: isHyaenidaeUrl
                 ? {
@@ -144,7 +189,7 @@ export class Browser extends EventEmitter {
 
         this.tabs.push(tab);
         this.syncBounds();
-        tab.webContents.loadURL(url);
+        await loadUrl(tab.webContents, url);
 
         {
             tab.webContents.on("page-title-updated", async (_, title) => {
@@ -353,7 +398,12 @@ export class Browser extends EventEmitter {
      * Navigates the tab with the given ID to the specified URL.
      */
     async load(id: number, url: string) {
-        await this.tabs.find((t) => t.webContents.id === id)?.webContents.loadURL(url);
+        const tab = this.tabs.find((t) => t.webContents.id === id);
+        if (!tab) {
+            return;
+        }
+
+        await loadUrl(tab.webContents, url);
     }
 
     /**
