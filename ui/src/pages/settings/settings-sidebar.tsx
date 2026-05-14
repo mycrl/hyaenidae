@@ -1,3 +1,5 @@
+import "../../styles/pages.settings.settings-sidebar.css";
+
 export interface SettingsSection {
     id: string;
     title: string;
@@ -18,31 +20,34 @@ export default function SettingsSidebar({
     onSectionChange: (sectionId: string) => void;
 }) {
     return (
-        <aside tag="settings-sidebar" className="border-r border-slate-200 bg-white p-3">
-            <div tag="settings-sidebar-header" className="mb-3">
-                <h1 className="text-base font-semibold text-slate-900">{title}</h1>
-                <p className="mt-1 text-xs leading-5 text-slate-500">{subtitle}</p>
+        <aside tag="settings-sidebar" className="settings-sidebar-root">
+            <div tag="settings-sidebar-header" className="settings-sidebar-header">
+                <h1 className="settings-sidebar-title">{title}</h1>
+                <p className="settings-sidebar-subtitle">{subtitle}</p>
             </div>
 
-            <div tag="settings-sidebar-list" className="space-y-1.5">
+            <div tag="settings-sidebar-list" className="settings-sidebar-list">
                 {sections.map((section) => (
                     <button
                         key={section.id}
                         type="button"
                         onClick={() => onSectionChange(section.id)}
                         className={[
-                            "w-full rounded-lg border px-2.5 py-2 text-left transition-colors",
+                            "settings-sidebar-item",
                             activeSection === section.id
-                                ? "border-blue-200 bg-blue-50 text-blue-700"
-                                : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-white",
+                                ? "settings-sidebar-item-active"
+                                : "settings-sidebar-item-inactive",
                         ].join(" ")}
                     >
-                        <div tag="settings-sidebar-item-title" className="text-sm font-medium">
+                        <div
+                            tag="settings-sidebar-item-title"
+                            className="settings-sidebar-item-title"
+                        >
                             {section.title}
                         </div>
                         <div
                             tag="settings-sidebar-item-description"
-                            className="mt-0.5 text-xs leading-4.5 text-slate-500"
+                            className="settings-sidebar-item-description"
                         >
                             {section.description}
                         </div>

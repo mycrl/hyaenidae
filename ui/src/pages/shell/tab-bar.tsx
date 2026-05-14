@@ -1,3 +1,5 @@
+import "../../styles/pages.shell.tab-bar.css";
+
 import {
     Cog6ToothIcon,
     GlobeAltIcon,
@@ -7,7 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { useShellStore } from "../../../state/shell";
+import { useShellStore } from "../../services/shell";
 
 export default function TabBar() {
     const { t } = useTranslation();
@@ -36,33 +38,23 @@ export default function TabBar() {
     };
 
     return (
-        <div
-            tag="tab-bar"
-            className="h-12 border-b border-slate-200 bg-white flex items-end justify-between"
-        >
-            <div
-                tag="tab-strip"
-                className="tabs-strip h-full min-w-0 flex-1 overflow-x-auto px-2 flex items-end"
-            >
+        <div tag="tab-bar" className="tab-bar-root">
+            <div tag="tab-strip" className="tab-bar-strip">
                 {tabs.map((tab, index) => (
                     <button
                         key={`${tab.id}-${index}`}
                         onClick={() => focusTabRpc(tab.id)}
                         title={tab.title?.trim() || fallbackTabTitle}
                         className={[
-                            "h-9 min-w-[140px] max-w-[260px] flex-shrink-0",
-                            "px-3 rounded-t-xl border border-b-0 mr-1",
-                            "flex items-center gap-2 text-xs transition-colors",
-                            activeTabId === tab.id
-                                ? "bg-white border-slate-300 text-slate-800"
-                                : "bg-transparent border-transparent text-slate-600 hover:bg-transparent",
+                            "tab-bar-tab",
+                            activeTabId === tab.id ? "tab-bar-tab-active" : "tab-bar-tab-inactive",
                         ].join(" ")}
                         onContextMenu={(e) => {
                             showContextMenu(e, tab.id);
                         }}
                     >
-                        <GlobeAltIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                        <span className="flex-1 truncate text-left">
+                        <GlobeAltIcon className="tab-bar-tab-icon" />
+                        <span className="tab-bar-tab-title">
                             {tab.title?.trim() || fallbackTabTitle}
                         </span>
                         <span
@@ -73,9 +65,9 @@ export default function TabBar() {
 
                                 closeTabRpc(tab.id);
                             }}
-                            className="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/70"
+                            className="tab-bar-tab-close"
                         >
-                            <XMarkIcon className="w-3.5 h-3.5" />
+                            <XMarkIcon className="tab-bar-tab-close-icon" />
                         </span>
                     </button>
                 ))}
@@ -86,9 +78,9 @@ export default function TabBar() {
                     }}
                     title={t("tabs.addTab")}
                     aria-label={t("tabs.addTab")}
-                    className="h-8 w-8 mb-1 ml-1 flex-shrink-0 rounded-lg border border-transparent text-slate-600 hover:border-slate-300 hover:bg-white transition-colors"
+                    className="tab-bar-add-button"
                 >
-                    <PlusIcon className="w-4 h-4 mx-auto" />
+                    <PlusIcon className="tab-bar-add-icon" />
                 </button>
 
                 <div
@@ -98,22 +90,21 @@ export default function TabBar() {
                 />
             </div>
 
-            <div tag="tab-controls" className="h-full flex items-center flex-shrink-0 gap-3 pl-2">
+            <div tag="tab-controls" className="tab-bar-controls">
                 <button
                     type="button"
                     onClick={toggleAgentPanel}
                     title={isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")}
                     aria-label={isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")}
                     className={[
-                        "h-8 px-2.5 rounded-lg border transition-colors",
-                        "flex items-center gap-1.5 text-xs font-medium",
+                        "tab-bar-agent-toggle",
                         isAgentPanelOpen
-                            ? "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                            ? "tab-bar-agent-toggle-open"
+                            : "tab-bar-agent-toggle-closed",
                     ].join(" ")}
                 >
-                    <SparklesIcon className="w-4 h-4" />
-                    <span className="leading-none">AI</span>
+                    <SparklesIcon className="tab-bar-agent-toggle-icon" />
+                    <span className="tab-bar-agent-toggle-label">AI</span>
                 </button>
 
                 <button
@@ -121,18 +112,18 @@ export default function TabBar() {
                     onClick={() => createTab(__APP_CONFIG__.settingsUrl)}
                     title={t("settings.open")}
                     aria-label={t("settings.open")}
-                    className="h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition-colors"
+                    className="tab-bar-settings-button"
                 >
-                    <Cog6ToothIcon className="w-4 h-4 mx-auto" />
+                    <Cog6ToothIcon className="tab-bar-settings-icon" />
                 </button>
 
-                <div tag="tab-window-divider" className="h-6 w-px bg-slate-200" />
+                <div tag="tab-window-divider" className="tab-bar-divider" />
 
-                <div tag="tab-window-controls" className="h-full flex items-center flex-shrink-0">
+                <div tag="tab-window-controls" className="tab-bar-window-controls">
                     <button
                         onClick={minimizeWindow}
                         title={t("window.minimize")}
-                        className="w-11 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200/70 transition-colors"
+                        className="tab-bar-window-button"
                     >
                         <WinMinimizeIcon />
                     </button>
@@ -140,7 +131,7 @@ export default function TabBar() {
                     <button
                         onClick={isWindowMaximized ? restoreWindow : maximizeWindow}
                         title={isWindowMaximized ? t("window.restore") : t("window.maximize")}
-                        className="w-11 h-full flex items-center justify-center text-slate-600 hover:bg-slate-200/70 transition-colors"
+                        className="tab-bar-window-button"
                     >
                         {isWindowMaximized ? <WinRestoreIcon /> : <WinMaximizeIcon />}
                     </button>
@@ -148,9 +139,9 @@ export default function TabBar() {
                     <button
                         onClick={quitWindow}
                         title={t("window.close")}
-                        className="w-11 h-full flex items-center justify-center text-slate-600 hover:bg-red-600 hover:text-white transition-colors"
+                        className="tab-bar-window-button tab-bar-window-button-close"
                     >
-                        <XMarkIcon className="w-3.5 h-3.5" />
+                        <XMarkIcon className="tab-bar-window-close-icon" />
                     </button>
                 </div>
             </div>

@@ -1,3 +1,5 @@
+import "../../styles/pages.shell.navigation-bar.css";
+
 import {
     ArrowLeftIcon,
     ArrowPathIcon,
@@ -8,7 +10,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useShellStore } from "../../../state/shell";
+import { useShellStore } from "../../services/shell";
 
 export default function NavigationBar() {
     const { t } = useTranslation();
@@ -39,10 +41,7 @@ export default function NavigationBar() {
     }, [currentUrl, isEditingUrl]);
 
     return (
-        <div
-            tag="navigation-bar"
-            className="h-12 border-b border-slate-200 bg-white px-2 flex items-center gap-1"
-        >
+        <div tag="navigation-bar" className="navigation-bar-root">
             <NavIconButton title={t("nav.back")} onClick={goBack} disabled={!canGoBack}>
                 <ArrowLeftIcon className="w-4 h-4" />
             </NavIconButton>
@@ -66,11 +65,8 @@ export default function NavigationBar() {
                 <HomeIcon className="w-4 h-4" />
             </NavIconButton>
 
-            <div
-                tag="nav-location-shell"
-                className="flex-1 mx-2 px-3 h-9 rounded-xl border border-slate-200 bg-slate-100 focus-within:bg-white focus-within:border-blue-500 transition-colors flex items-center gap-2"
-            >
-                <LockClosedIcon className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+            <div tag="nav-location-shell" className="navigation-bar-location-shell">
+                <LockClosedIcon className="navigation-bar-location-icon" />
                 <input
                     type="text"
                     value={urlInput}
@@ -85,7 +81,7 @@ export default function NavigationBar() {
                     }}
                     placeholder={t("nav.placeholder")}
                     spellCheck={false}
-                    className="flex-1 min-w-0 bg-transparent outline-none text-sm text-slate-800 placeholder-slate-400"
+                    className="navigation-bar-location-input"
                 />
             </div>
         </div>
@@ -110,10 +106,10 @@ function NavIconButton({
             onClick={onClick}
             disabled={disabled}
             className={[
-                "w-8 h-8 flex items-center justify-center rounded-lg transition-colors flex-shrink-0",
+                "navigation-bar-icon-button",
                 disabled
-                    ? "text-slate-300 cursor-default"
-                    : "text-slate-600 hover:bg-slate-100 active:bg-slate-200",
+                    ? "navigation-bar-icon-button-disabled"
+                    : "navigation-bar-icon-button-enabled",
             ].join(" ")}
         >
             {children}

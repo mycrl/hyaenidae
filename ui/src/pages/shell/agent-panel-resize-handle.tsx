@@ -1,3 +1,5 @@
+import "../../styles/pages.shell.agent-panel-resize-handle.css";
+
 import { useEffect, useRef, useState } from "react";
 
 interface AgentPanelResizeHandleProps {
@@ -73,7 +75,7 @@ export default function AgentPanelResizeHandle({
                 };
                 setIsDragging(true);
             }}
-            className="w-1 cursor-col-resize bg-slate-200/80 hover:bg-blue-400 transition-colors"
+            className="agent-panel-resize-handle"
         />
     );
 }

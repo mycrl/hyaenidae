@@ -1,0 +1,25 @@
+@reference "tailwindcss";
+
+.app-shell {
+    @apply h-screen select-none bg-slate-50;
+}
+
+.app-frame {
+    @apply h-full w-full overflow-hidden border border-slate-200 bg-white text-slate-800;
+}
+
+.app-body {
+    @apply flex h-[calc(100%-3rem)] min-h-0;
+}
+
+.app-main {
+    @apply flex min-w-0 flex-1 flex-col;
+}
+
+.app-canvas {
+    @apply min-h-0 flex-1 bg-white;
+}
+
+.app-agent-panel {
+    @apply h-full overflow-hidden border-l border-slate-200 bg-white;
+}

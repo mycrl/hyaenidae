@@ -1,11 +1,13 @@
+import "../../styles/pages.shell.css";
+
 import { useCallback, useEffect, useRef, useState } from "react";
-import AgentPanel from "./components/AgentPanel";
-import AgentPanelResizeHandle from "./components/AgentPanelResizeHandle";
-import NavigationBar from "./components/NavigationBar";
-import TabBar from "./components/TabBar";
-import { useAgentStore } from "../../state/agent";
-import { useSettingsStore } from "../../state/settings";
-import { useShellStore } from "../../state/shell";
+import AgentPanel from "./agent-panel";
+import AgentPanelResizeHandle from "./agent-panel-resize-handle";
+import NavigationBar from "./navigation-bar";
+import TabBar from "./tab-bar";
+import { useAgentStore } from "../../services/agent";
+import { useSettingsStore } from "../../services/settings";
+import { useShellStore } from "../../services/shell";
 
 const AGENT_PANEL_MIN_WIDTH = 320;
 const AGENT_PANEL_DEFAULT_WIDTH = 450;
@@ -14,7 +16,7 @@ const AGENT_PANEL_RESIZER_WIDTH = 4;
 const DEFAULT_TAB_BAR_HEIGHT = 47;
 const DEFAULT_NAVIGATION_BAR_HEIGHT = 48;
 
-export default function App() {
+export default function Shell() {
     const initializeRpc = useShellStore((state) => state.initializeRpc);
     const initializeAgentRpc = useAgentStore((state) => state.initializeRpc);
     const initializeSettingsRpc = useSettingsStore((state) => state.initializeRpc);
@@ -70,22 +72,19 @@ export default function App() {
     }, [agentPanelWidth, emitLayoutChanged]);
 
     return (
-        <div tag="app-shell" className="h-screen select-none bg-slate-50">
-            <div
-                tag="app-frame"
-                className="h-full w-full overflow-hidden border border-slate-200 bg-white text-slate-800"
-            >
+        <div tag="app-shell" className="app-shell">
+            <div tag="app-frame" className="app-frame">
                 <div tag="app-tabbar" ref={tabBarRef}>
                     <TabBar />
                 </div>
 
-                <div tag="app-body" className="h-[calc(100%-3rem)] min-h-0 flex">
-                    <div tag="app-main" className="flex-1 min-w-0 flex flex-col">
+                <div tag="app-body" className="app-body">
+                    <div tag="app-main" className="app-main">
                         <div tag="app-navigation" ref={navigationBarRef}>
                             <NavigationBar />
                         </div>
 
-                        <div tag="app-canvas" className="flex-1 min-h-0 bg-white" />
+                        <div tag="app-canvas" className="app-canvas" />
                     </div>
 
                     {isAgentPanelOpen && (
@@ -100,7 +99,7 @@ export default function App() {
                             <div
                                 tag="app-agent-panel"
                                 style={{ width: `${agentPanelWidth}px` }}
-                                className="border-l border-slate-200 h-full overflow-hidden bg-white"
+                                className="app-agent-panel"
                             >
                                 <AgentPanel />
                             </div>

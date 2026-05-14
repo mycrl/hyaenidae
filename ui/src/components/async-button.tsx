@@ -1,3 +1,5 @@
+import "../styles/async-button.css";
+
 import {
     cloneElement,
     isValidElement,
@@ -18,12 +20,7 @@ function LoadingSpinner({ className }: { className?: string }) {
     return (
         <span
             aria-hidden="true"
-            className={[
-                "inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-r-transparent",
-                className,
-            ]
-                .filter(Boolean)
-                .join(" ")}
+            className={["async-button-spinner", className].filter(Boolean).join(" ")}
         />
     );
 }
@@ -80,7 +77,7 @@ export default function AsyncButton({
             className={className}
         >
             {isBusy ? (
-                <span className="inline-flex items-center gap-1.5">
+                <span className="async-button-loading-content">
                     <LoadingSpinner className={spinnerClassName} />
                     <span>
                         {isValidElement(content) ? cloneElement(content as ReactElement) : content}

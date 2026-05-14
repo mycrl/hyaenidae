@@ -1,0 +1,9 @@
+@reference "tailwindcss";
+
+.async-button-spinner {
+    @apply inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-r-transparent;
+}
+
+.async-button-loading-content {
+    @apply inline-flex items-center gap-1.5;
+}

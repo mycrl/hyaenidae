@@ -1,10 +1,12 @@
+import "../../styles/pages.settings.css";
+
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import AsyncButton from "../../components/AsyncButton.tsx";
-import Banner from "./components/Banner";
-import LocalModelsSection from "./components/LocalModelsSection";
-import ProviderSettingsSection from "./components/ProviderSettingsSection";
-import SettingsSidebar, { type SettingsSection } from "./components/SettingsSidebar";
+import AsyncButton from "../../components/async-button";
+import Banner from "./banner";
+import LocalModelsSection from "./local-models-section";
+import ProviderSettingsSection from "./provider-settings-section";
+import SettingsSidebar, { type SettingsSection } from "./settings-sidebar";
 import {
     DEFAULT_SETTINGS,
     SETTINGS_ERROR_CODE,
@@ -12,7 +14,7 @@ import {
     useSettingsStore,
     type AppSettings,
     type SettingsErrorCode,
-} from "../../state/settings";
+} from "../../services/settings";
 
 type SectionId = "providers" | "local-models";
 
@@ -67,8 +69,8 @@ export default function SettingsPage() {
     );
 
     return (
-        <div className="h-screen min-h-screen overflow-hidden bg-slate-50">
-            <div className="grid h-full min-h-0 grid-cols-[220px_minmax(0,1fr)]">
+        <div className="settings-page-root">
+            <div className="settings-page-layout">
                 <SettingsSidebar
                     title={t("settings.title")}
                     subtitle={t("settings.subtitle")}
@@ -77,7 +79,7 @@ export default function SettingsPage() {
                     onSectionChange={(sectionId) => setActiveSection(sectionId as SectionId)}
                 />
 
-                <section className="min-w-0 overflow-y-auto p-4">
+                <section className="settings-page-content">
                     {isLoading ? <Banner tone="neutral">{t("settings.loading")}</Banner> : null}
                     {errorText ? <Banner tone="danger">{errorText}</Banner> : null}
 
@@ -112,11 +114,11 @@ export default function SettingsPage() {
                         />
                     ) : null}
 
-                    <div className="mt-4 flex items-center justify-end gap-2">
+                    <div className="settings-page-actions">
                         <button
                             type="button"
                             onClick={() => setDraft(cloneSettings(settings))}
-                            className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 transition-colors hover:bg-slate-50"
+                            className="settings-page-reset-button"
                         >
                             {t("settings.reset")}
                         </button>
@@ -125,7 +127,7 @@ export default function SettingsPage() {
                             onClick={() => save(draft)}
                             loading={isSaving}
                             loadingContent={t("settings.saving")}
-                            className="h-9 rounded-lg bg-blue-600 px-3 text-[13px] text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                            className="settings-page-save-button"
                         >
                             {t("settings.save")}
                         </AsyncButton>

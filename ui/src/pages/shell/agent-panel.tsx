@@ -1,3 +1,5 @@
+import "../../styles/pages.shell.agent-panel.css";
+
 import {
     PaperAirplaneIcon,
     PlusIcon,
@@ -8,9 +10,9 @@ import {
 import MarkdownIt from "markdown-it";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import AsyncButton from "../../../components/AsyncButton";
-import { formatAgentActivity } from "../agent-activity.ts";
-import { useAgentStore } from "../../../state/agent.ts";
+import AsyncButton from "../../components/async-button.tsx";
+import { formatAgentActivity } from "../../services/agent-activity.ts";
+import { useAgentStore } from "../../services/agent.ts";
 
 const markdown = new MarkdownIt({
     html: false,
@@ -98,57 +100,42 @@ export default function AgentPanel() {
     };
 
     return (
-        <aside
-            tag="agent-panel-shell"
-            className="relative h-full w-full flex flex-col bg-white text-slate-800"
-        >
-            <header
-                tag="agent-panel-header"
-                className="h-12 border-b border-slate-200 px-3 flex items-center justify-between bg-white"
-            >
-                <span tag="agent-panel-title" className="text-xs truncate">
+        <aside tag="agent-panel-shell" className="agent-panel-shell">
+            <header tag="agent-panel-header" className="agent-panel-header">
+                <span tag="agent-panel-title" className="agent-panel-title">
                     {chatTitle}
                 </span>
 
-                <div tag="agent-panel-actions" className="flex items-center gap-2">
+                <div tag="agent-panel-actions" className="agent-panel-actions">
                     <AsyncButton
                         onClick={() => createNewConversation()}
-                        className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                        className="agent-panel-action-button"
                     >
-                        <PlusIcon className="w-3.5 h-3.5" />
+                        <PlusIcon className="agent-panel-action-icon" />
                         <span>{t("chat.add")}</span>
                     </AsyncButton>
 
                     <button
                         type="button"
                         onClick={() => setIsHistoryOpen((value) => !value)}
-                        className="h-8 px-2.5 rounded-lg border border-slate-200 text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+                        className="agent-panel-action-button"
                     >
-                        <QueueListIcon className="w-3.5 h-3.5" />
+                        <QueueListIcon className="agent-panel-action-icon" />
                         <span>{t("chat.history")}</span>
                     </button>
                 </div>
             </header>
 
             {isHistoryOpen && (
-                <div
-                    tag="agent-history-popover"
-                    className="absolute right-3 top-14 z-10 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
-                >
-                    <div
-                        tag="agent-history-label"
-                        className="mb-2 px-2 text-[11px] uppercase tracking-[0.16em] text-slate-400"
-                    >
+                <div tag="agent-history-popover" className="agent-history-popover">
+                    <div tag="agent-history-label" className="agent-history-label">
                         {t("chat.history")}
                     </div>
 
                     {sessions.length === 0 ? (
-                        <p className="px-2 py-3 text-xs text-slate-500">{t("chat.emptyHistory")}</p>
+                        <p className="agent-history-empty">{t("chat.emptyHistory")}</p>
                     ) : (
-                        <div
-                            tag="agent-history-list"
-                            className="max-h-72 overflow-y-auto space-y-1"
-                        >
+                        <div tag="agent-history-list" className="agent-history-list">
                             {sessions.map((session) => (
                                 <button
                                     key={session.id}
@@ -158,10 +145,10 @@ export default function AgentPanel() {
                                         setIsHistoryOpen(false);
                                     }}
                                     className={[
-                                        "w-full rounded-lg px-2.5 py-2 text-left text-xs transition-colors",
+                                        "agent-history-item",
                                         session.id === activeSessionId
-                                            ? "bg-slate-900 text-white"
-                                            : "text-slate-700 hover:bg-slate-50",
+                                            ? "agent-history-item-active"
+                                            : "agent-history-item-inactive",
                                     ].join(" ")}
                                 >
                                     {conversations[session.id]?.title?.trim() ||
@@ -174,32 +161,20 @@ export default function AgentPanel() {
                 </div>
             )}
 
-            <div
-                tag="agent-message-stream"
-                className="flex-1 min-h-0 overflow-y-auto bg-slate-50 px-3 py-3 space-y-3"
-            >
+            <div tag="agent-message-stream" className="agent-message-stream">
                 {isLoadingSessions && (
-                    <div
-                        tag="agent-stream-banner"
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500"
-                    >
+                    <div tag="agent-stream-banner" className="agent-stream-banner">
                         {t("chat.loadingSessions")}
                     </div>
                 )}
 
                 {messages.length === 0 ? (
-                    <div
-                        tag="agent-empty-state"
-                        className="h-full min-h-[160px] flex items-center justify-center"
-                    >
-                        <div tag="agent-empty-card" className="max-w-[360px] text-center px-6">
-                            <div
-                                tag="agent-empty-icon"
-                                className="mx-auto mb-4 h-11 w-11 rounded-2xl bg-blue-50/70 text-blue-600 flex items-center justify-center"
-                            >
-                                <SparklesIcon className="w-5 h-5" />
+                    <div tag="agent-empty-state" className="agent-empty-state">
+                        <div tag="agent-empty-card" className="agent-empty-card">
+                            <div tag="agent-empty-icon" className="agent-empty-icon">
+                                <SparklesIcon className="agent-empty-icon-svg" />
                             </div>
-                            <p className="text-sm text-slate-600 leading-7">{t("chat.greeting")}</p>
+                            <p className="agent-empty-greeting">{t("chat.greeting")}</p>
                         </div>
                     </div>
                 ) : (
@@ -223,21 +198,21 @@ export default function AgentPanel() {
                             <div
                                 key={message.id}
                                 className={[
-                                    "relative max-w-[90%] overflow-hidden rounded-2xl px-3 py-2.5 text-xs leading-6 shadow-sm",
+                                    "agent-message",
                                     message.role === "user"
-                                        ? "ml-auto bg-blue-600 text-white"
+                                        ? "agent-message-user"
                                         : message.status === "error"
-                                          ? "mr-auto border border-red-200 bg-red-50 text-red-700"
-                                          : "mr-auto border border-slate-200 bg-white text-slate-800",
+                                          ? "agent-message-error"
+                                          : "agent-message-assistant",
                                 ].join(" ")}
                             >
                                 {shouldShowActivityPanel ? (
-                                    <div className="mb-2">
+                                    <div className="agent-message-activities">
                                         {!isStreamingAssistant && hasActivities ? (
                                             <button
                                                 type="button"
                                                 onClick={() => toggleActivities(message.id)}
-                                                className="mb-2 inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                                                className="agent-activity-toggle"
                                             >
                                                 {isActivityExpanded
                                                     ? t("chat.hideActivity")
@@ -246,10 +221,10 @@ export default function AgentPanel() {
                                         ) : null}
 
                                         {isActivityExpanded ? (
-                                            <div className="space-y-1.5 rounded-xl border border-slate-100 bg-slate-50 px-2.5 py-2">
+                                            <div className="agent-activity-panel">
                                                 {isStreamingAssistant ? (
-                                                    <div className="rounded-lg border border-sky-100 bg-white px-2.5 py-2 text-[11px] leading-5 text-slate-600">
-                                                        <div className="mb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400">
+                                                    <div className="agent-streaming-activity">
+                                                        <div className="agent-streaming-activity-label">
                                                             {t("chat.activity")}
                                                         </div>
                                                         {message.content ? (
@@ -260,7 +235,7 @@ export default function AgentPanel() {
                                                                 )}
                                                             />
                                                         ) : (
-                                                            <p className="text-slate-400">
+                                                            <p className="agent-streaming-activity-placeholder">
                                                                 {t("chat.thinking")}
                                                             </p>
                                                         )}
@@ -275,24 +250,24 @@ export default function AgentPanel() {
                                                     return (
                                                         <div
                                                             key={activity.key}
-                                                            className="text-[11px] leading-5 text-slate-500"
+                                                            className="agent-activity-item"
                                                         >
-                                                            <div className="flex items-center gap-2">
+                                                            <div className="agent-activity-item-header">
                                                                 <span
                                                                     className={[
-                                                                        "inline-block h-1.5 w-1.5 rounded-full",
+                                                                        "agent-activity-status-dot",
                                                                         activity.status ===
                                                                         "running"
-                                                                            ? "bg-amber-400"
-                                                                            : "bg-emerald-500",
+                                                                            ? "agent-activity-status-dot-running"
+                                                                            : "agent-activity-status-dot-completed",
                                                                     ].join(" ")}
                                                                 />
-                                                                <span className="text-slate-600">
+                                                                <span className="agent-activity-title">
                                                                     {formatted.title}
                                                                 </span>
                                                             </div>
                                                             {formatted.detail ? (
-                                                                <p className="mt-0.5 pl-3.5 text-slate-400 break-all">
+                                                                <p className="agent-activity-detail">
                                                                     {formatted.detail}
                                                                 </p>
                                                             ) : null}
@@ -321,12 +296,12 @@ export default function AgentPanel() {
                                 ) : null}
                                 <p
                                     className={[
-                                        "mt-1 text-[11px]",
+                                        "agent-message-timestamp",
                                         message.role === "user"
-                                            ? "text-blue-100"
+                                            ? "agent-message-timestamp-user"
                                             : message.status === "error"
-                                              ? "text-red-400"
-                                              : "text-slate-400",
+                                              ? "agent-message-timestamp-error"
+                                              : "agent-message-timestamp-default",
                                     ].join(" ")}
                                 >
                                     {message.timestamp}
@@ -341,7 +316,7 @@ export default function AgentPanel() {
                 <div ref={messagesEndRef} />
             </div>
 
-            <div tag="agent-composer" className="border-t border-slate-200 bg-white p-3 text-xs">
+            <div tag="agent-composer" className="agent-composer">
                 <textarea
                     rows={5}
                     value={inputValue}
@@ -354,17 +329,17 @@ export default function AgentPanel() {
                         }
                     }}
                     placeholder={t("chat.prompt")}
-                    className="w-full resize-none rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-500 focus:bg-white"
+                    className="agent-composer-textarea"
                 />
 
-                <div tag="agent-composer-controls" className="mt-2 flex items-center gap-2">
+                <div tag="agent-composer-controls" className="agent-composer-controls">
                     <select
                         value={selectedProviderId ?? ""}
                         onChange={(e) => {
                             void selectProvider(e.target.value);
                         }}
                         aria-label={t("chat.provider")}
-                        className="h-8 max-w-[160px] rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-700 outline-none"
+                        className="agent-composer-select agent-composer-provider-select"
                     >
                         {providers.length === 0 ? (
                             <option value="">{t("chat.noProviders")}</option>
@@ -381,7 +356,7 @@ export default function AgentPanel() {
                         value={selectedModel ?? ""}
                         onChange={(e) => setSelectedModel(e.target.value)}
                         aria-label={t("chat.model")}
-                        className="h-8 max-w-[180px] rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-700 outline-none"
+                        className="agent-composer-select agent-composer-model-select"
                     >
                         <option value="">{t("chat.selectModel")}</option>
                         {models.map((model) => (
@@ -403,14 +378,14 @@ export default function AgentPanel() {
                             void sendMessage();
                         }}
                         disabled={isLoadingSessions || providers.length === 0 || !selectedModel}
-                        className="ml-auto h-8 px-3 rounded-lg bg-blue-600 text-white flex items-center gap-1.5 justify-center hover:bg-blue-700 transition-colors disabled:cursor-not-allowed disabled:bg-slate-300"
+                        className="agent-composer-submit"
                         aria-label={isResponding ? t("chat.stopResponse") : t("chat.sendMessage")}
                         title={isResponding ? t("chat.stop") : t("chat.send")}
                     >
                         {isResponding ? (
-                            <StopIcon className="w-3.5 h-3.5" />
+                            <StopIcon className="agent-composer-submit-icon" />
                         ) : (
-                            <PaperAirplaneIcon className="w-3.5 h-3.5" />
+                            <PaperAirplaneIcon className="agent-composer-submit-icon" />
                         )}
                         <span>{isResponding ? t("chat.stop") : t("chat.send")}</span>
                     </button>

@@ -1,0 +1,102 @@
+@reference "tailwindcss";
+
+.tab-bar-root {
+    @apply flex h-12 items-end justify-between border-b border-slate-200 bg-white;
+}
+
+.tab-bar-strip {
+    @apply flex h-full min-w-0 flex-1 items-end overflow-x-auto px-2;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.tab-bar-strip::-webkit-scrollbar {
+    display: none;
+}
+
+.tab-bar-tab {
+    @apply mr-1 flex h-9 min-w-[140px] max-w-[260px] flex-shrink-0 items-center gap-2 rounded-t-xl border border-b-0 px-3 text-xs transition-colors;
+}
+
+.tab-bar-tab-active {
+    @apply border-slate-300 bg-white text-slate-800;
+}
+
+.tab-bar-tab-inactive {
+    @apply border-transparent bg-transparent text-slate-600 hover:bg-transparent;
+}
+
+.tab-bar-tab-icon {
+    @apply h-4 w-4 flex-shrink-0 text-slate-400;
+}
+
+.tab-bar-tab-title {
+    @apply flex-1 truncate text-left;
+}
+
+.tab-bar-tab-close {
+    @apply flex h-5 w-5 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200/70 hover:text-slate-700;
+}
+
+.tab-bar-tab-close-icon {
+    @apply h-3.5 w-3.5;
+}
+
+.tab-bar-add-button {
+    @apply mb-1 ml-1 h-8 w-8 flex-shrink-0 rounded-lg border border-transparent text-slate-600 transition-colors hover:border-slate-300 hover:bg-white;
+}
+
+.tab-bar-add-icon,
+.tab-bar-settings-icon,
+.tab-bar-agent-toggle-icon {
+    @apply h-4 w-4;
+}
+
+.tab-bar-add-icon,
+.tab-bar-settings-icon {
+    @apply mx-auto;
+}
+
+.tab-bar-controls {
+    @apply flex h-full flex-shrink-0 items-center gap-3 pl-2;
+}
+
+.tab-bar-agent-toggle {
+    @apply flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors;
+}
+
+.tab-bar-agent-toggle-open {
+    @apply border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100;
+}
+
+.tab-bar-agent-toggle-closed {
+    @apply border-slate-200 bg-white text-slate-600 hover:bg-slate-50;
+}
+
+.tab-bar-agent-toggle-label {
+    @apply leading-none;
+}
+
+.tab-bar-settings-button {
+    @apply h-8 w-8 rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50;
+}
+
+.tab-bar-divider {
+    @apply h-6 w-px bg-slate-200;
+}
+
+.tab-bar-window-controls {
+    @apply flex h-full flex-shrink-0 items-center;
+}
+
+.tab-bar-window-button {
+    @apply flex h-full w-11 items-center justify-center text-slate-600 transition-colors hover:bg-slate-200/70;
+}
+
+.tab-bar-window-button-close {
+    @apply hover:bg-red-600 hover:text-white;
+}
+
+.tab-bar-window-close-icon {
+    @apply h-3.5 w-3.5;
+}

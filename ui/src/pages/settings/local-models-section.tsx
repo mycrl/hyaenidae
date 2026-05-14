@@ -1,3 +1,5 @@
+import "../../styles/pages.settings.local-models-section.css";
+
 import {
     ArrowPathIcon,
     MagnifyingGlassIcon,
@@ -7,17 +9,17 @@ import {
 import type { ModelFileInfo, StartRunnerOptions } from "@hyaenidae/bridge";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import AsyncButton from "../../../components/AsyncButton.tsx";
-import { clearGlobalError, showGlobalError } from "../../../state/notify.ts";
+import AsyncButton from "../../components/async-button";
+import { clearGlobalError, showGlobalError } from "../../services/notify.ts";
 import {
     useSettingsStore,
     type ApiProviderSettings,
     type AppSettings,
     type LocalRunnerSettings,
-} from "../../../state/settings";
-import FieldLabel from "./FieldLabel";
-import LocalModelSearchDialog from "./LocalModelSearchDialog";
-import SettingsCard from "./SettingsCard";
+} from "../../services/settings.ts";
+import FieldLabel from "./field-label";
+import LocalModelSearchDialog from "./local-model-search-dialog";
+import SettingsCard from "./settings-card";
 
 export default function LocalModelsSection({
     localRunner,
@@ -325,44 +327,38 @@ export default function LocalModelsSection({
     };
 
     return (
-        <div tag="local-models-section" className="space-y-4">
+        <div tag="local-models-section" className="local-models-section-root">
             <SettingsCard
                 title={t("settings.localModels.runnerTitle")}
                 description={t("settings.localModels.runnerDescription")}
             >
-                <div
-                    tag="local-models-runner-row"
-                    className="flex items-center justify-between gap-3"
-                >
-                    <div tag="local-models-runner-status" className="text-[13px] text-slate-600">
+                <div tag="local-models-runner-row" className="local-models-runner-row">
+                    <div tag="local-models-runner-status" className="local-models-runner-status">
                         {isRunnerRunning
                             ? t("settings.localModels.runnerRunning")
                             : t("settings.localModels.runnerStopped")}
                     </div>
 
-                    <div tag="local-models-runner-actions" className="flex items-center gap-2">
+                    <div tag="local-models-runner-actions" className="local-models-runner-actions">
                         <AsyncButton
                             onClick={() => refreshRunnerState()}
-                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                            className="local-models-runner-refresh-button"
                         >
-                            <ArrowPathIcon className="h-3.5 w-3.5" />
+                            <ArrowPathIcon className="local-models-action-icon" />
                             <span>{t("settings.localModels.refresh")}</span>
                         </AsyncButton>
 
                         <AsyncButton
                             onClick={() => stopRunner()}
                             disabled={!isRunnerRunning || runnerLoading}
-                            className="h-8 rounded-lg border border-red-200 bg-red-50 px-3 text-[13px] text-red-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                            className="local-models-runner-stop-button"
                         >
                             {t("settings.localModels.stopRunner")}
                         </AsyncButton>
                     </div>
                 </div>
 
-                <div
-                    tag="local-models-runner-form"
-                    className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
-                >
+                <div tag="local-models-runner-form" className="local-models-runner-form">
                     <FieldLabel label={t("settings.localModels.runnerLabel")}>
                         <select
                             value={selectedRunnerId}
@@ -376,7 +372,7 @@ export default function LocalModelsSection({
                                     mmprojFile: selectedMmprojFile,
                                 });
                             }}
-                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+                            className="local-models-select"
                         >
                             <option value="">{t("settings.localModels.selectRunner")}</option>
                             {runnerIds.map((runnerId) => (
@@ -402,7 +398,7 @@ export default function LocalModelsSection({
                                     mmprojFile: "",
                                 });
                             }}
-                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+                            className="local-models-select"
                         >
                             <option value="">{t("settings.localModels.selectModel")}</option>
                             {localModels.map((model) => (
@@ -426,7 +422,7 @@ export default function LocalModelsSection({
                                     mmprojFile: selectedMmprojFile,
                                 });
                             }}
-                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+                            className="local-models-select"
                         >
                             <option value="">{t("settings.localModels.selectModelFile")}</option>
                             {modelFiles.map((file) => (
@@ -450,7 +446,7 @@ export default function LocalModelsSection({
                                     mmprojFile,
                                 });
                             }}
-                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+                            className="local-models-select"
                         >
                             <option value="">{t("settings.localModels.selectMmproj")}</option>
                             {mmprojFiles.map((file) => (
@@ -463,10 +459,7 @@ export default function LocalModelsSection({
                 </div>
 
                 {!isRunnerRunning ? (
-                    <div
-                        tag="local-models-runner-submit"
-                        className="flex items-center justify-end gap-2"
-                    >
+                    <div tag="local-models-runner-submit" className="local-models-runner-submit">
                         <AsyncButton
                             onClick={() => startRunner()}
                             disabled={
@@ -475,9 +468,9 @@ export default function LocalModelsSection({
                                 !selectedModelFile ||
                                 runnerLoading
                             }
-                            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-[13px] text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                            className="local-models-runner-start-button"
                         >
-                            <PlayIcon className="h-3.5 w-3.5" />
+                            <PlayIcon className="local-models-action-icon" />
                             <span>{t("settings.localModels.startRunner")}</span>
                         </AsyncButton>
                     </div>
@@ -490,22 +483,22 @@ export default function LocalModelsSection({
             >
                 <div
                     tag="local-models-installed-toolbar"
-                    className="flex items-center justify-between gap-3"
+                    className="local-models-installed-toolbar"
                 >
                     <button
                         type="button"
                         onClick={() => setIsSearchDialogOpen(true)}
                         disabled={installedLoading}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-blue-600 px-3 text-[13px] text-white transition-colors hover:bg-blue-700"
+                        className="local-models-open-search-button"
                     >
-                        <MagnifyingGlassIcon className="h-3.5 w-3.5" />
+                        <MagnifyingGlassIcon className="local-models-action-icon" />
                         <span>{t("settings.localModels.openSearch")}</span>
                     </button>
 
                     <AsyncButton
                         onClick={() => refreshInstalledModels()}
                         disabled={installedLoading}
-                        className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-[13px] text-slate-700 transition-colors hover:bg-slate-50"
+                        className="local-models-refresh-button"
                     >
                         {t("settings.localModels.refreshLocal")}
                     </AsyncButton>
@@ -514,29 +507,25 @@ export default function LocalModelsSection({
                 {installedLoading ? (
                     <div
                         tag="local-models-installed-loading"
-                        className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-600"
+                        className="local-models-installed-loading"
                     >
                         {t("settings.loading")}
                     </div>
                 ) : null}
 
-                <div tag="local-models-installed-list" className="space-y-2">
+                <div tag="local-models-installed-list" className="local-models-installed-list">
                     {localModels.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-slate-200 bg-white px-3 py-4 text-[13px] text-slate-500">
+                        <div className="local-models-empty">
                             {t("settings.localModels.noInstalled")}
                         </div>
                     ) : null}
 
                     {localModels.map((model) => (
-                        <div
-                            tag="local-models-item"
-                            key={model}
-                            className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
-                        >
-                            <div tag="local-models-item-body" className="min-w-0">
+                        <div tag="local-models-item" key={model} className="local-models-item">
+                            <div tag="local-models-item-body" className="local-models-item-body">
                                 <div
                                     tag="local-models-item-title"
-                                    className="truncate text-[13px] font-medium text-slate-900"
+                                    className="local-models-item-title"
                                 >
                                     {model}
                                 </div>
@@ -545,9 +534,9 @@ export default function LocalModelsSection({
                             <AsyncButton
                                 onClick={() => deleteModel(model)}
                                 disabled={installedLoading}
-                                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 text-[13px] text-red-700"
+                                className="local-models-delete-button"
                             >
-                                <TrashIcon className="h-3.5 w-3.5" />
+                                <TrashIcon className="local-models-action-icon" />
                                 <span>{t("settings.localModels.delete")}</span>
                             </AsyncButton>
                         </div>

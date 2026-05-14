@@ -1,0 +1,197 @@
+@reference "tailwindcss";
+
+.agent-panel-shell {
+    @apply relative flex h-full w-full flex-col bg-white text-slate-800;
+}
+
+.agent-panel-header {
+    @apply flex h-12 items-center justify-between border-b border-slate-200 bg-white px-3;
+}
+
+.agent-panel-title {
+    @apply truncate text-xs;
+}
+
+.agent-panel-actions {
+    @apply flex items-center gap-2;
+}
+
+.agent-panel-action-button {
+    @apply flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400;
+}
+
+.agent-panel-action-icon {
+    @apply h-3.5 w-3.5;
+}
+
+.agent-history-popover {
+    @apply absolute right-3 top-14 z-10 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg;
+}
+
+.agent-history-label {
+    @apply mb-2 px-2 text-[11px] uppercase tracking-[0.16em] text-slate-400;
+}
+
+.agent-history-empty {
+    @apply px-2 py-3 text-xs text-slate-500;
+}
+
+.agent-history-list {
+    @apply max-h-72 space-y-1 overflow-y-auto;
+}
+
+.agent-history-item {
+    @apply w-full rounded-lg px-2.5 py-2 text-left text-xs transition-colors;
+}
+
+.agent-history-item-active {
+    @apply bg-slate-900 text-white;
+}
+
+.agent-history-item-inactive {
+    @apply text-slate-700 hover:bg-slate-50;
+}
+
+.agent-message-stream {
+    @apply min-h-0 flex-1 space-y-3 overflow-y-auto bg-slate-50 px-3 py-3;
+}
+
+.agent-stream-banner {
+    @apply rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500;
+}
+
+.agent-empty-state {
+    @apply flex h-full min-h-[160px] items-center justify-center;
+}
+
+.agent-empty-card {
+    @apply max-w-[360px] px-6 text-center;
+}
+
+.agent-empty-icon {
+    @apply mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-50/70 text-blue-600;
+}
+
+.agent-empty-icon-svg {
+    @apply h-5 w-5;
+}
+
+.agent-empty-greeting {
+    @apply text-sm leading-7 text-slate-600;
+}
+
+.agent-message {
+    @apply relative max-w-[90%] overflow-hidden rounded-2xl px-3 py-2.5 text-xs leading-6 shadow-sm;
+}
+
+.agent-message-user {
+    @apply ml-auto bg-blue-600 text-white;
+}
+
+.agent-message-error {
+    @apply mr-auto border border-red-200 bg-red-50 text-red-700;
+}
+
+.agent-message-assistant {
+    @apply mr-auto border border-slate-200 bg-white text-slate-800;
+}
+
+.agent-message-activities {
+    @apply mb-2;
+}
+
+.agent-activity-toggle {
+    @apply mb-2 inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700;
+}
+
+.agent-activity-panel {
+    @apply space-y-1.5 rounded-xl border border-slate-100 bg-slate-50 px-2.5 py-2;
+}
+
+.agent-streaming-activity {
+    @apply rounded-lg border border-sky-100 bg-white px-2.5 py-2 text-[11px] leading-5 text-slate-600;
+}
+
+.agent-streaming-activity-label {
+    @apply mb-1 text-[10px] uppercase tracking-[0.14em] text-slate-400;
+}
+
+.agent-streaming-activity-placeholder {
+    @apply text-slate-400;
+}
+
+.agent-activity-item {
+    @apply text-[11px] leading-5 text-slate-500;
+}
+
+.agent-activity-item-header {
+    @apply flex items-center gap-2;
+}
+
+.agent-activity-status-dot {
+    @apply inline-block h-1.5 w-1.5 rounded-full;
+}
+
+.agent-activity-status-dot-running {
+    @apply bg-amber-400;
+}
+
+.agent-activity-status-dot-completed {
+    @apply bg-emerald-500;
+}
+
+.agent-activity-title {
+    @apply text-slate-600;
+}
+
+.agent-activity-detail {
+    @apply mt-0.5 break-all pl-3.5 text-slate-400;
+}
+
+.agent-message-timestamp {
+    @apply mt-1 text-[11px];
+}
+
+.agent-message-timestamp-user {
+    @apply text-blue-100;
+}
+
+.agent-message-timestamp-error {
+    @apply text-red-400;
+}
+
+.agent-message-timestamp-default {
+    @apply text-slate-400;
+}
+
+.agent-composer {
+    @apply border-t border-slate-200 bg-white p-3 text-xs;
+}
+
+.agent-composer-textarea {
+    @apply w-full resize-none rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs outline-none focus:border-blue-500 focus:bg-white;
+}
+
+.agent-composer-controls {
+    @apply mt-2 flex items-center gap-2;
+}
+
+.agent-composer-select {
+    @apply h-8 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-slate-700 outline-none;
+}
+
+.agent-composer-provider-select {
+    @apply max-w-[160px];
+}
+
+.agent-composer-model-select {
+    @apply max-w-[180px];
+}
+
+.agent-composer-submit {
+    @apply ml-auto flex h-8 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300;
+}
+
+.agent-composer-submit-icon {
+    @apply h-3.5 w-3.5;
+}

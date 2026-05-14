@@ -1,3 +1,5 @@
+import "../../styles/pages.settings.provider-settings-section.css";
+
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useTranslation } from "react-i18next";
 import {
@@ -5,9 +7,9 @@ import {
     createProviderSettings,
     type ApiProviderSettings,
     type ApiProviderType,
-} from "../../../state/settings";
-import FieldLabel from "./FieldLabel";
-import SettingsCard from "./SettingsCard";
+} from "../../services/settings";
+import FieldLabel from "./field-label";
+import SettingsCard from "./settings-card";
 
 const providerTypeOptions: ApiProviderType[] = ["openai", "google", "custom"];
 
@@ -45,32 +47,24 @@ export default function ProviderSettingsSection({
             title={t("settings.sections.providers.title")}
             description={t("settings.sections.providers.description")}
         >
-            <div
-                tag="provider-settings-toolbar"
-                className="flex items-center justify-between gap-4"
-            >
-                <p className="text-[13px] leading-5 text-slate-600">
-                    {t("settings.providersHint")}
-                </p>
+            <div tag="provider-settings-toolbar" className="provider-settings-toolbar">
+                <p className="provider-settings-hint">{t("settings.providersHint")}</p>
 
                 <button
                     type="button"
                     onClick={addProvider}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-50"
+                    className="provider-settings-add-button"
                 >
-                    <PlusIcon className="h-3.5 w-3.5" />
+                    <PlusIcon className="provider-settings-add-icon" />
                     <span>{t("settings.addProvider")}</span>
                 </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="provider-settings-list">
                 <LocalRunnerProviderCard provider={localRunnerProvider} />
 
                 {editableProviders.length === 0 ? (
-                    <div
-                        tag="provider-settings-empty"
-                        className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-[13px] text-slate-500"
-                    >
+                    <div tag="provider-settings-empty" className="provider-settings-empty">
                         {t("settings.noProviders")}
                     </div>
                 ) : null}
@@ -79,22 +73,22 @@ export default function ProviderSettingsSection({
                     <div
                         tag="provider-settings-item"
                         key={provider.id}
-                        className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                        className="provider-settings-item"
                     >
                         <div
                             tag="provider-settings-item-header"
-                            className="mb-3 flex items-center justify-between gap-3"
+                            className="provider-settings-item-header"
                         >
                             <div tag="provider-settings-item-title-group">
                                 <div
                                     tag="provider-settings-item-title"
-                                    className="text-[13px] font-medium text-slate-900"
+                                    className="provider-settings-item-title"
                                 >
                                     {provider.name || `${t("settings.providerLabel")} ${index + 1}`}
                                 </div>
                                 <div
                                     tag="provider-settings-item-description"
-                                    className="text-[11px] text-slate-500"
+                                    className="provider-settings-item-description"
                                 >
                                     {provider.type === "custom"
                                         ? provider.baseUrl ||
@@ -106,21 +100,21 @@ export default function ProviderSettingsSection({
                             <button
                                 type="button"
                                 onClick={() => removeProvider(provider.id)}
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600"
+                                className="provider-settings-remove-button"
                                 aria-label={t("settings.removeProvider")}
                             >
-                                <TrashIcon className="h-3.5 w-3.5" />
+                                <TrashIcon className="provider-settings-remove-icon" />
                             </button>
                         </div>
 
-                        <div tag="provider-settings-fields" className="grid gap-3 md:grid-cols-2">
+                        <div tag="provider-settings-fields" className="provider-settings-fields">
                             <FieldLabel label={t("settings.providerName")}>
                                 <input
                                     value={provider.name}
                                     onChange={(event) =>
                                         updateProvider(provider.id, { name: event.target.value })
                                     }
-                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+                                    className="provider-settings-control"
                                 />
                             </FieldLabel>
 
@@ -134,7 +128,7 @@ export default function ProviderSettingsSection({
                                             baseUrl: nextType === "custom" ? provider.baseUrl : "",
                                         });
                                     }}
-                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+                                    className="provider-settings-control"
                                 >
                                     {providerTypeOptions.map((type) => (
                                         <option key={type} value={type}>
@@ -154,7 +148,7 @@ export default function ProviderSettingsSection({
                                             })
                                         }
                                         placeholder={t("settings.providerBaseURLPlaceholder")}
-                                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+                                        className="provider-settings-control"
                                     />
                                 </FieldLabel>
                             ) : null}
@@ -167,7 +161,7 @@ export default function ProviderSettingsSection({
                                             apiKey: event.target.value,
                                         })
                                     }
-                                    className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500"
+                                    className="provider-settings-control"
                                 />
                             </FieldLabel>
                         </div>
@@ -182,24 +176,21 @@ function LocalRunnerProviderCard({ provider }: { provider: ApiProviderSettings }
     const { t } = useTranslation();
 
     return (
-        <div
-            tag="local-runner-provider-card"
-            className="rounded-xl border border-blue-200 bg-blue-50 p-3"
-        >
+        <div tag="local-runner-provider-card" className="local-runner-provider-card">
             <div
                 tag="local-runner-provider-card-header"
-                className="mb-3 flex items-center justify-between gap-3"
+                className="local-runner-provider-card-header"
             >
                 <div tag="local-runner-provider-card-title-group">
                     <div
                         tag="local-runner-provider-card-title"
-                        className="text-[13px] font-medium text-slate-900"
+                        className="local-runner-provider-card-title"
                     >
                         {provider.name || t("settings.localRunnerProvider.title")}
                     </div>
                     <div
                         tag="local-runner-provider-card-description"
-                        className="text-[11px] text-slate-500"
+                        className="local-runner-provider-card-description"
                     >
                         {t("settings.localRunnerProvider.description")}
                     </div>
@@ -207,18 +198,21 @@ function LocalRunnerProviderCard({ provider }: { provider: ApiProviderSettings }
 
                 <div
                     tag="local-runner-provider-card-badge"
-                    className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-blue-700"
+                    className="local-runner-provider-card-badge"
                 >
                     {t(`settings.providerTypes.${provider.type}`)}
                 </div>
             </div>
 
-            <div tag="local-runner-provider-card-fields" className="grid gap-3 md:grid-cols-1">
+            <div
+                tag="local-runner-provider-card-fields"
+                className="local-runner-provider-card-fields"
+            >
                 <FieldLabel label={t("settings.providerName")}>
                     <input
                         value={provider.name}
                         readOnly
-                        className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none"
+                        className="provider-settings-control-readonly"
                     />
                 </FieldLabel>
             </div>

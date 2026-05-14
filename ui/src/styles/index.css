@@ -10,16 +10,6 @@ body {
     margin: 0;
 }
 
-/* Hide scrollbar in tab strip while keeping scroll functionality */
-.tabs-strip::-webkit-scrollbar {
-    display: none;
-}
-
-.tabs-strip {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
 .agent-markdown {
     word-break: break-word;
 }
