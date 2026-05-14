@@ -69,7 +69,25 @@ export interface StartRunnerOptions {
     runner: string;
 }
 
+export interface ShowContextMenuOptions {
+    x: number;
+    y: number;
+    tabId: number;
+}
+
+export interface AddToChatOptions {
+    tabId: number;
+    selected?: {
+        content: string;
+        type: "text" | "image" | "link";
+    };
+}
+
 export interface Api {
+    /**
+     * ============== Shell and Tab Management =============
+     */
+
     /**
      * Navigates forward to the next history entry in the specified tab
      */
@@ -196,6 +214,16 @@ export interface Api {
     "shell:quit": [void, void];
 
     /**
+     * Triggers when the context menu should be shown
+     */
+    "shell:show-context-menu": [ShowContextMenuOptions, void];
+
+    /**
+     * Adds the currently selected content (text, image, or link) to the chat input
+     */
+    "shell:add-to-chat": [AddToChatOptions, void];
+
+    /**
      * Reads the application settings.
      */
     "shell:settings-get": [void, { settings: unknown }];
@@ -209,6 +237,10 @@ export interface Api {
      * Triggers when the application settings are changed.
      */
     "shell:settings-changed": [void, void];
+
+    /**
+     * ============== Model Management =============
+     */
 
     /**
      * Search for models on the Hugging Face hub using a query string.
@@ -272,6 +304,10 @@ export interface Api {
      * Stop the currently running local runner (if any).
      */
     "model:stop-runner": [void, void];
+
+    /**
+     * ============== Agent Management =============
+     */
 
     /**
      * Retrieves a list of available models for a given provider ID.

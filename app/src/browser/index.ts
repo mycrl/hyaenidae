@@ -1,10 +1,16 @@
-import { BaseWindow, WebContentsView } from "electron";
+import {
+    BaseWindow,
+    WebContents,
+    WebContentsView,
+    WebContentsViewConstructorOptions,
+} from "electron";
 import EventEmitter from "node:events";
 import { Layout, Bridge } from "@hyaenidae/bridge";
 import { CONFIG } from "../config";
 import { SettingsManager } from "../settings";
 import { LocalModelsManager, RemoteModelsManager } from "../model-runner/models";
 import { ModelRunnerCounter } from "../model-runner";
+import { registerContextMenu } from "./context-menu";
 
 /**
  * Smart URL parser that mimics browser address bar behavior with the
@@ -49,7 +55,7 @@ function isApplicationRegisteredUrl(url: string) {
     return url == CONFIG.shellUrl || url == CONFIG.settingsUrl;
 }
 
-async function loadUrl(webContents: Electron.WebContents, uri: string) {
+async function loadUrl(webContents: WebContents, uri: string) {
     const url = isApplicationRegisteredUrl(uri) || uri == "about:blank" ? uri : smartParseURL(uri);
 
     console.info("Loading URL:", url);
@@ -60,10 +66,10 @@ async function loadUrl(webContents: Electron.WebContents, uri: string) {
 /**
  * Extended WebContentsView with a built-in RPC channel.
  */
-export class View extends WebContentsView {
+export class Tab extends WebContentsView {
     public readonly bridge = new Bridge(this.webContents);
 
-    constructor(options: Electron.WebContentsViewConstructorOptions) {
+    constructor(options: WebContentsViewConstructorOptions) {
         super(options);
     }
 
@@ -80,8 +86,8 @@ export class Browser extends EventEmitter {
 
     public baseWindow: BaseWindow;
     public currentId: number | null = null;
-    public tabs: View[] = [];
-    public shell: View;
+    public tabs: Tab[] = [];
+    public shell: Tab;
 
     constructor(
         private readonly settingsManager: SettingsManager,
@@ -100,7 +106,7 @@ export class Browser extends EventEmitter {
 
         console.info("Browser view initialized");
 
-        this.shell = new View({
+        this.shell = new Tab({
             webPreferences: {
                 preload: CONFIG.preloadScriptPath,
                 contextIsolation: true,
@@ -112,8 +118,14 @@ export class Browser extends EventEmitter {
         // Create the window frame content view
         {
             loadUrl(this.shell.webContents, CONFIG.shellUrl);
-            this.baseWindow.contentView.addChildView(this.shell);
             this.syncBounds();
+            this.baseWindow.contentView.addChildView(this.shell);
+
+            registerContextMenu({
+                tab: this.shell,
+                browser: this,
+                isShell: true,
+            });
 
             if (CONFIG.openDevTools) {
                 this.shell.webContents.openDevTools({
@@ -168,7 +180,7 @@ export class Browser extends EventEmitter {
     async create(url: string = "about:blank") {
         const isHyaenidaeUrl = isApplicationRegisteredUrl(url);
 
-        const tab = new View({
+        const tab = new Tab({
             webPreferences: isHyaenidaeUrl
                 ? {
                       preload: CONFIG.preloadScriptPath,
@@ -189,7 +201,11 @@ export class Browser extends EventEmitter {
 
         this.tabs.push(tab);
         this.syncBounds();
-        await loadUrl(tab.webContents, url);
+
+        registerContextMenu({
+            browser: this,
+            tab,
+        });
 
         {
             tab.webContents.on("page-title-updated", async (_, title) => {
@@ -331,6 +347,8 @@ export class Browser extends EventEmitter {
 
         // Focus the new tab after creation to bring it to the front
         await this.focus(id);
+
+        await loadUrl(tab.webContents, url);
 
         return id;
     }

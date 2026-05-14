@@ -25,6 +25,16 @@ export default function TabBar() {
     const toggleAgentPanel = useShellStore((state) => state.toggleAgentPanel);
     const fallbackTabTitle = t("tabs.newTab");
 
+    const showContextMenu = (event: React.MouseEvent, tabId: number) => {
+        event.preventDefault();
+
+        hyaenidae.bridge.send("shell:show-context-menu", {
+            x: event.clientX,
+            y: event.clientY,
+            tabId,
+        });
+    };
+
     return (
         <div
             tag="tab-bar"
@@ -47,6 +57,9 @@ export default function TabBar() {
                                 ? "bg-white border-slate-300 text-slate-800"
                                 : "bg-transparent border-transparent text-slate-600 hover:bg-transparent",
                         ].join(" ")}
+                        onContextMenu={(e) => {
+                            showContextMenu(e, tab.id);
+                        }}
                     >
                         <GlobeAltIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
                         <span className="flex-1 truncate text-left">
@@ -57,6 +70,7 @@ export default function TabBar() {
                             aria-label={t("tabs.closeTab")}
                             onClick={(e) => {
                                 e.stopPropagation();
+
                                 closeTabRpc(tab.id);
                             }}
                             className="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/70"

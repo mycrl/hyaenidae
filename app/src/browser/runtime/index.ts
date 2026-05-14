@@ -9,10 +9,10 @@ import type {
     BrowserImageSnapshot,
 } from "@hyaenidae/core";
 import type { WebContents } from "electron";
-import { Browser, View } from "./";
+import { Browser, View } from "..";
+import { AccessibilityTreeReader } from "./accessibility";
+import { VisionGrounder } from "./vision";
 
-const MAX_ELEMENTS = 250;
-const MAX_TEXT_SAMPLE = 4000;
 const REDACTED_TEXT = "[redacted sensitive value]";
 
 const SENSITIVE_FIELD_HINT_PATTERN =
@@ -23,13 +23,6 @@ const SENSITIVE_QUERY_PARAM_PATTERN =
 
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const BASIC_AUTH_URL_PATTERN = /(https?:\/\/)([^/@\s]+)@/gi;
-
-const normalize = (value: string) => value.toLowerCase().replace(/\s+/g, " ").trim();
-
-const tokenize = (value: string) =>
-    normalize(value)
-        .split(/[^a-z0-9\u4e00-\u9fa5]+/i)
-        .filter((token) => token.length >= 2);
 
 const looksSensitiveHint = (value?: string) =>
     typeof value === "string" && SENSITIVE_FIELD_HINT_PATTERN.test(value);
@@ -125,201 +118,6 @@ const sanitizeAccessibilityNode = (
               }),
     };
 };
-
-const sanitizeDomSnapshot = (
-    snapshot: NonNullable<BrowserDomSnapshot["document"]>,
-): NonNullable<BrowserDomSnapshot["document"]> => ({
-    title: sanitizeString(snapshot.title),
-    url: sanitizeUrl(snapshot.url),
-    textSample: sanitizeVisibleText(snapshot.textSample),
-    elements: snapshot.elements.map((element) => {
-        const isSensitiveElement = looksSensitiveHint(
-            [
-                element.tag,
-                element.role,
-                element.selector,
-                element.text,
-                element.ariaLabel,
-                element.placeholder,
-            ]
-                .filter(Boolean)
-                .join(" "),
-        );
-
-        return {
-            ...element,
-            ...(element.text === undefined ? {} : { text: sanitizeString(element.text) }),
-            ...(element.ariaLabel === undefined
-                ? {}
-                : { ariaLabel: sanitizeString(element.ariaLabel) }),
-            ...(element.value === undefined
-                ? {}
-                : {
-                      value: isSensitiveElement ? REDACTED_TEXT : sanitizeString(element.value),
-                  }),
-            ...(element.href === undefined ? {} : { href: sanitizeUrl(element.href) }),
-            ...(element.placeholder === undefined
-                ? {}
-                : { placeholder: sanitizeString(element.placeholder) }),
-        };
-    }),
-});
-
-class WebContentsDebugger {
-    constructor(private readonly webContents: WebContents) {}
-
-    async sendCommand(method: string, commandParams?: Record<string, unknown>) {
-        const shouldDetach = !this.webContents.debugger.isAttached();
-
-        if (shouldDetach) {
-            this.webContents.debugger.attach("1.3");
-        }
-
-        try {
-            return await this.webContents.debugger.sendCommand(method, commandParams);
-        } finally {
-            if (shouldDetach && this.webContents.debugger.isAttached()) {
-                this.webContents.debugger.detach();
-            }
-        }
-    }
-}
-
-// Reads Chromium's accessibility tree so the agent can reason about semantics, not only raw DOM.
-class AccessibilityTreeReader {
-    async read(webContents: WebContents): Promise<BrowserElementNode | undefined> {
-        const debuggerSession = new WebContentsDebugger(webContents);
-
-        try {
-            const response = await debuggerSession.sendCommand("Accessibility.getFullAXTree");
-            const nodes = Array.isArray(response.nodes)
-                ? (response.nodes as Array<Record<string, unknown>>)
-                : [];
-            const byId = new Map<string, BrowserElementNode>();
-            const childIds = new Set<string>();
-
-            for (const rawNode of nodes) {
-                const nodeId = typeof rawNode.nodeId === "string" ? rawNode.nodeId : undefined;
-                if (!nodeId) {
-                    continue;
-                }
-
-                const name = this.readAxValue(rawNode.name);
-                const description = this.readAxValue(rawNode.description);
-                const value = this.readAxValue(rawNode.value);
-                const node: BrowserElementNode = {
-                    role: this.readAxValue(rawNode.role) ?? "unknown",
-                    children: [],
-                    ...(name === undefined ? {} : { name }),
-                    ...(description === undefined ? {} : { description }),
-                    ...(value === undefined ? {} : { value }),
-                };
-
-                byId.set(nodeId, node);
-            }
-
-            for (const rawNode of nodes) {
-                const nodeId = typeof rawNode.nodeId === "string" ? rawNode.nodeId : undefined;
-                const node = nodeId ? byId.get(nodeId) : undefined;
-                const rawChildren = Array.isArray(rawNode.childIds)
-                    ? (rawNode.childIds as unknown[])
-                    : [];
-
-                if (!node) {
-                    continue;
-                }
-
-                for (const rawChildId of rawChildren) {
-                    if (typeof rawChildId !== "string") {
-                        continue;
-                    }
-
-                    const child = byId.get(rawChildId);
-                    if (!child) {
-                        continue;
-                    }
-
-                    node.children ??= [];
-                    node.children.push(child);
-                    childIds.add(rawChildId);
-                }
-            }
-
-            const rootEntry = [...byId.entries()].find(([nodeId]) => !childIds.has(nodeId));
-            return rootEntry?.[1];
-        } catch {
-            return undefined;
-        }
-    }
-
-    private readAxValue(input: unknown) {
-        if (typeof input !== "object" || input === null) {
-            return undefined;
-        }
-
-        const value = (input as { value?: unknown }).value;
-        return typeof value === "string" ? value : undefined;
-    }
-}
-
-// Grounds a visual description back onto DOM candidates so follow-up actions can stay deterministic.
-class VisionGrounder {
-    ground(snapshot: BrowserDomSnapshot, description: string): BrowserGroundingTarget[] {
-        const tokens = tokenize(description);
-        const candidates = snapshot.document?.elements ?? [];
-
-        return candidates
-            .map((element) => {
-                const haystack = normalize(
-                    [
-                        element.tag,
-                        element.role,
-                        element.text,
-                        element.ariaLabel,
-                        element.value,
-                        element.href,
-                        element.placeholder,
-                    ]
-                        .filter(Boolean)
-                        .join(" "),
-                );
-                const score = tokens.reduce(
-                    (total, token) => total + (haystack.includes(token) ? 1 : 0),
-                    0,
-                );
-
-                return {
-                    element,
-                    score,
-                };
-            })
-            .filter((candidate) => candidate.score > 0 && candidate.element.selector)
-            .sort((left, right) => right.score - left.score)
-            .slice(0, 5)
-            .map((candidate) => ({
-                point: {
-                    x: candidate.element.bounds.x + candidate.element.bounds.width / 2,
-                    y: candidate.element.bounds.y + candidate.element.bounds.height / 2,
-                },
-                tabId: snapshot.tabId,
-                selector: candidate.element.selector,
-                reason: `Matched ${candidate.score} description token(s) against DOM/AX text.`,
-                confidence:
-                    candidate.score >= Math.max(2, Math.ceil(tokens.length * 0.6))
-                        ? "high"
-                        : candidate.score >= 2
-                          ? "medium"
-                          : "low",
-                ...(candidate.element.role === undefined ? {} : { role: candidate.element.role }),
-                ...((candidate.element.text ?? candidate.element.ariaLabel) === undefined
-                    ? {}
-                    : {
-                          text: candidate.element.text ?? candidate.element.ariaLabel,
-                      }),
-                ...(candidate.element.href === undefined ? {} : { url: candidate.element.href }),
-            }));
-    }
-}
 
 export class ElectronBrowserRuntime implements BrowserRuntime {
     private readonly accessibilityReader = new AccessibilityTreeReader();
