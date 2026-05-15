@@ -6,13 +6,22 @@ import {
     QueueListIcon,
     SparklesIcon,
     StopIcon,
+    XMarkIcon,
 } from "@heroicons/react/24/outline";
 import MarkdownIt from "markdown-it";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AsyncButton from "../../components/async-button.tsx";
-import { formatAgentActivity } from "../../services/agent-activity.ts";
-import { useAgentStore } from "../../services/agent.ts";
+import {
+    AGENT_ERROR_CODE,
+    type ComposerInsertionItem,
+    type AgentErrorCode,
+    type AgentErrorState,
+    type AgentMessage,
+    type AgentSessionItem,
+} from "../../services/agent.state";
+import { useAgentStore } from "../../services/agent.state";
+import { formatAgentActivity } from "./agent-activity";
 
 const markdown = new MarkdownIt({
     html: false,
@@ -20,19 +29,93 @@ const markdown = new MarkdownIt({
     breaks: true,
 });
 
+const renderMarkdown = (content: string) => ({
+    __html: markdown.render(content),
+});
+
+const toggleExpandedId = (ids: number[], id: number) =>
+    ids.includes(id) ? ids.filter((currentId) => currentId !== id) : [...ids, id];
+
+const getAgentErrorTranslationKey = (code: AgentErrorCode | null | undefined) =>
+    code ? AGENT_ERROR_TRANSLATION_KEYS[code] : null;
+
+const getAgentErrorTitle = (message: AgentMessage, t: ReturnType<typeof useTranslation>["t"]) => {
+    if (message.errorCode) {
+        return t(getAgentErrorTranslationKey(message.errorCode) ?? "common.errorTitle");
+    }
+
+    return t("common.errorTitle");
+};
+
+const getAgentErrorDetail = (message: AgentMessage) => message.error || message.content || "";
+
+const getAssistantContent = (message: AgentMessage, t: ReturnType<typeof useTranslation>["t"]) => {
+    if (message.role !== "assistant") {
+        return message.content;
+    }
+
+    if (message.status === "streaming" || message.status === "error") {
+        return "";
+    }
+
+    return (
+        message.content ||
+        (message.errorCode
+            ? t(getAgentErrorTranslationKey(message.errorCode) ?? "common.errorTitle")
+            : "") ||
+        message.error ||
+        ""
+    );
+};
+
+const getMessageClassName = (message: AgentMessage) =>
+    [
+        "agent-message",
+        message.role === "user"
+            ? "agent-message-user"
+            : message.status === "error"
+              ? "agent-message-error"
+              : "agent-message-assistant",
+    ].join(" ");
+
+const getTimestampClassName = (message: AgentMessage) =>
+    [
+        "agent-message-timestamp",
+        message.role === "user"
+            ? "agent-message-timestamp-user"
+            : message.status === "error"
+              ? "agent-message-timestamp-error"
+              : "agent-message-timestamp-default",
+    ].join(" ");
+
+const AGENT_ERROR_TRANSLATION_KEYS: Record<NonNullable<AgentErrorState["code"]>, string> = {
+    [AGENT_ERROR_CODE.FAILED_TO_LOAD_SESSIONS]: "chat.failedToLoadSessions",
+    [AGENT_ERROR_CODE.FAILED_TO_CREATE_SESSION]: "chat.failedToCreateSession",
+    [AGENT_ERROR_CODE.FAILED_TO_LOAD_MODELS]: "chat.failedToLoadModels",
+    [AGENT_ERROR_CODE.FAILED_TO_SEND]: "chat.failedToSend",
+    [AGENT_ERROR_CODE.FAILED_TO_STOP]: "chat.failedToStop",
+};
+
 export default function AgentPanel() {
     const { t, i18n } = useTranslation();
     const [inputValue, setInputValue] = useState("");
+    const [composerContextItems, setComposerContextItems] = useState<ComposerInsertionItem[]>([]);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [expandedActivityMessageIds, setExpandedActivityMessageIds] = useState<number[]>([]);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
+    const composerRef = useRef<HTMLTextAreaElement | null>(null);
     const sessions = useAgentStore((state) => state.sessions);
     const conversations = useAgentStore((state) => state.conversations);
+    const initialized = useAgentStore((state) => state.initialized);
     const activeSessionId = useAgentStore((state) => state.activeSessionId);
     const isLoadingSessions = useAgentStore((state) => state.isLoadingSessions);
     const createSession = useAgentStore((state) => state.createSession);
+    const ensureActiveSession = useAgentStore((state) => state.ensureActiveSession);
     const selectSession = useAgentStore((state) => state.selectSession);
+    const composerInsertion = useAgentStore((state) => state.composerInsertion);
+    const clearComposerInsertion = useAgentStore((state) => state.clearComposerInsertion);
+    const error = useAgentStore((state) => state.error);
+    const clearError = useAgentStore((state) => state.clearError);
     const sendAgentMessage = useAgentStore((state) => state.sendMessage);
     const stopActiveResponse = useAgentStore((state) => state.stopActiveResponse);
     const providers = useAgentStore((state) => state.providers);
@@ -64,40 +147,92 @@ export default function AgentPanel() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
+    useEffect(() => {
+        if (!initialized || isLoadingSessions) {
+            return;
+        }
+
+        if (sessions.length > 0 && activeSessionId !== null) {
+            return;
+        }
+
+        void ensureActiveSession();
+    }, [activeSessionId, ensureActiveSession, initialized, isLoadingSessions, sessions.length]);
+
+    useEffect(() => {
+        if (!composerInsertion) {
+            return;
+        }
+
+        setComposerContextItems((current) => {
+            if (current.some((item) => item.dedupeKey === composerInsertion.dedupeKey)) {
+                return current;
+            }
+
+            return [...current, composerInsertion];
+        });
+        clearComposerInsertion();
+
+        requestAnimationFrame(() => {
+            composerRef.current?.focus();
+            const length = composerRef.current?.value.length ?? 0;
+            composerRef.current?.setSelectionRange(length, length);
+        });
+    }, [clearComposerInsertion, composerInsertion]);
+
     const createNewConversation = async () => {
         const id = await createSession();
         if (id !== null) {
             setInputValue("");
+            setComposerContextItems([]);
             setIsHistoryOpen(false);
         }
     };
 
+    const removeComposerContextItem = (id: number) => {
+        setComposerContextItems((current) => current.filter((item) => item.id !== id));
+    };
+
     const sendMessage = async () => {
         const trimmed = inputValue.trim();
-        if (!trimmed || isResponding || selectedProviderId === null || !selectedModel) {
+        const contexts = composerContextItems.map((item) => item.context);
+
+        if (
+            (!trimmed && contexts.length === 0) ||
+            isResponding ||
+            selectedProviderId === null ||
+            !selectedModel
+        ) {
             return;
         }
 
         setInputValue("");
+        setComposerContextItems([]);
         await sendAgentMessage({
             message: trimmed,
             provider: selectedProviderId,
             model: selectedModel,
             locale: i18n.resolvedLanguage ?? i18n.language,
+            ...(contexts.length > 0 ? { contexts } : {}),
         });
     };
 
-    const renderAssistantMarkdown = (content: string) => ({
-        __html: markdown.render(content),
-    });
-
     const toggleActivities = (messageId: number) => {
-        setExpandedActivityMessageIds((current) =>
-            current.includes(messageId)
-                ? current.filter((id) => id !== messageId)
-                : [...current, messageId],
-        );
+        setExpandedActivityMessageIds((current) => toggleExpandedId(current, messageId));
     };
+
+    const submitComposer = () => {
+        if (isResponding) {
+            stopActiveResponse();
+
+            return;
+        }
+
+        sendMessage();
+    };
+
+    const isComposerDisabled = isLoadingSessions || providers.length === 0 || !selectedModel;
+    const agentErrorTitle = error?.code ? t(AGENT_ERROR_TRANSLATION_KEYS[error.code]) : null;
 
     return (
         <aside tag="agent-panel-shell" className="agent-panel-shell">
@@ -109,10 +244,10 @@ export default function AgentPanel() {
                 <div tag="agent-panel-actions" className="agent-panel-actions">
                     <AsyncButton
                         onClick={() => createNewConversation()}
+                        icon={<PlusIcon className="agent-panel-action-icon" />}
                         className="agent-panel-action-button"
                     >
-                        <PlusIcon className="agent-panel-action-icon" />
-                        <span>{t("chat.add")}</span>
+                        {t("chat.add")}
                     </AsyncButton>
 
                     <button
@@ -132,36 +267,43 @@ export default function AgentPanel() {
                         {t("chat.history")}
                     </div>
 
-                    {sessions.length === 0 ? (
-                        <p className="agent-history-empty">{t("chat.emptyHistory")}</p>
-                    ) : (
-                        <div tag="agent-history-list" className="agent-history-list">
-                            {sessions.map((session) => (
-                                <button
-                                    key={session.id}
-                                    type="button"
-                                    onClick={() => {
-                                        selectSession(session.id);
-                                        setIsHistoryOpen(false);
-                                    }}
-                                    className={[
-                                        "agent-history-item",
-                                        session.id === activeSessionId
-                                            ? "agent-history-item-active"
-                                            : "agent-history-item-inactive",
-                                    ].join(" ")}
-                                >
-                                    {conversations[session.id]?.title?.trim() ||
-                                        session.name?.trim() ||
-                                        fallbackConversationTitle}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <SessionHistory
+                        sessions={sessions}
+                        conversations={conversations}
+                        activeSessionId={activeSessionId}
+                        fallbackConversationTitle={fallbackConversationTitle}
+                        onSelectSession={(sessionId) => {
+                            selectSession(sessionId);
+                            setIsHistoryOpen(false);
+                        }}
+                        emptyText={t("chat.emptyHistory")}
+                    />
                 </div>
             )}
 
             <div tag="agent-message-stream" className="agent-message-stream">
+                {error ? (
+                    <div className="agent-error-banner" role="alert">
+                        <div className="agent-error-copy">
+                            <div className="agent-error-title">
+                                {agentErrorTitle ?? t("common.errorTitle")}
+                            </div>
+                            {error.message ? (
+                                <div className="agent-error-message">{error.message}</div>
+                            ) : null}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={clearError}
+                            aria-label={t("common.dismiss")}
+                            className="agent-error-dismiss"
+                        >
+                            <XMarkIcon className="agent-error-dismiss-icon" />
+                        </button>
+                    </div>
+                ) : null}
+
                 {isLoadingSessions && (
                     <div tag="agent-stream-banner" className="agent-stream-banner">
                         {t("chat.loadingSessions")}
@@ -178,146 +320,40 @@ export default function AgentPanel() {
                         </div>
                     </div>
                 ) : (
-                    messages.map((message) => {
-                        const hasActivities = Boolean(message.activities?.length);
-                        const isStreamingAssistant =
-                            message.role === "assistant" && message.status === "streaming";
-                        const isActivityExpanded =
-                            isStreamingAssistant || expandedActivityMessageIds.includes(message.id);
-                        const shouldShowActivityPanel =
-                            message.role === "assistant" && (hasActivities || isStreamingAssistant);
-                        const assistantErrorText = message.error || "";
-                        const assistantContent =
-                            message.role === "assistant"
-                                ? message.status === "streaming"
-                                    ? ""
-                                    : message.content || assistantErrorText
-                                : message.content;
-
-                        return (
-                            <div
-                                key={message.id}
-                                className={[
-                                    "agent-message",
-                                    message.role === "user"
-                                        ? "agent-message-user"
-                                        : message.status === "error"
-                                          ? "agent-message-error"
-                                          : "agent-message-assistant",
-                                ].join(" ")}
-                            >
-                                {shouldShowActivityPanel ? (
-                                    <div className="agent-message-activities">
-                                        {!isStreamingAssistant && hasActivities ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => toggleActivities(message.id)}
-                                                className="agent-activity-toggle"
-                                            >
-                                                {isActivityExpanded
-                                                    ? t("chat.hideActivity")
-                                                    : t("chat.showActivity")}
-                                            </button>
-                                        ) : null}
-
-                                        {isActivityExpanded ? (
-                                            <div className="agent-activity-panel">
-                                                {isStreamingAssistant ? (
-                                                    <div className="agent-streaming-activity">
-                                                        <div className="agent-streaming-activity-label">
-                                                            {t("chat.activity")}
-                                                        </div>
-                                                        {message.content ? (
-                                                            <div
-                                                                className="agent-markdown agent-markdown-activity"
-                                                                dangerouslySetInnerHTML={renderAssistantMarkdown(
-                                                                    message.content,
-                                                                )}
-                                                            />
-                                                        ) : (
-                                                            <p className="agent-streaming-activity-placeholder">
-                                                                {t("chat.thinking")}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                ) : null}
-                                                {message.activities?.map((activity) => {
-                                                    const formatted = formatAgentActivity(
-                                                        activity,
-                                                        t,
-                                                    );
-
-                                                    return (
-                                                        <div
-                                                            key={activity.key}
-                                                            className="agent-activity-item"
-                                                        >
-                                                            <div className="agent-activity-item-header">
-                                                                <span
-                                                                    className={[
-                                                                        "agent-activity-status-dot",
-                                                                        activity.status ===
-                                                                        "running"
-                                                                            ? "agent-activity-status-dot-running"
-                                                                            : "agent-activity-status-dot-completed",
-                                                                    ].join(" ")}
-                                                                />
-                                                                <span className="agent-activity-title">
-                                                                    {formatted.title}
-                                                                </span>
-                                                            </div>
-                                                            {formatted.detail ? (
-                                                                <p className="agent-activity-detail">
-                                                                    {formatted.detail}
-                                                                </p>
-                                                            ) : null}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                ) : null}
-
-                                {message.role === "assistant" && assistantContent ? (
-                                    <div
-                                        className="agent-markdown"
-                                        dangerouslySetInnerHTML={renderAssistantMarkdown(
-                                            assistantContent,
-                                        )}
-                                    />
-                                ) : message.role === "user" ? (
-                                    <div
-                                        className="agent-markdown"
-                                        dangerouslySetInnerHTML={renderAssistantMarkdown(
-                                            message.content,
-                                        )}
-                                    />
-                                ) : null}
-                                <p
-                                    className={[
-                                        "agent-message-timestamp",
-                                        message.role === "user"
-                                            ? "agent-message-timestamp-user"
-                                            : message.status === "error"
-                                              ? "agent-message-timestamp-error"
-                                              : "agent-message-timestamp-default",
-                                    ].join(" ")}
-                                >
-                                    {message.timestamp}
-                                </p>
-                                {isStreamingAssistant ? (
-                                    <div className="task-progress-bar" aria-hidden="true" />
-                                ) : null}
-                            </div>
-                        );
-                    })
+                    messages.map((message) => (
+                        <MessageItem
+                            key={message.id}
+                            message={message}
+                            isActivityExpanded={expandedActivityMessageIds.includes(message.id)}
+                            onToggleActivities={() => toggleActivities(message.id)}
+                        />
+                    ))
                 )}
                 <div ref={messagesEndRef} />
             </div>
 
             <div tag="agent-composer" className="agent-composer">
+                {composerContextItems.length > 0 ? (
+                    <div className="agent-composer-context-list">
+                        {composerContextItems.map((item) => (
+                            <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => removeComposerContextItem(item.id)}
+                                className="agent-composer-context-chip"
+                                title={item.label}
+                            >
+                                <span className="agent-composer-context-chip-label">
+                                    {item.label}
+                                </span>
+                                <XMarkIcon className="agent-composer-context-chip-icon" />
+                            </button>
+                        ))}
+                    </div>
+                ) : null}
+
                 <textarea
+                    ref={composerRef}
                     rows={5}
                     value={inputValue}
                     disabled={isLoadingSessions}
@@ -336,7 +372,7 @@ export default function AgentPanel() {
                     <select
                         value={selectedProviderId ?? ""}
                         onChange={(e) => {
-                            void selectProvider(e.target.value);
+                            selectProvider(e.target.value);
                         }}
                         aria-label={t("chat.provider")}
                         className="agent-composer-select agent-composer-provider-select"
@@ -368,16 +404,8 @@ export default function AgentPanel() {
 
                     <button
                         type="button"
-                        onClick={() => {
-                            if (isResponding) {
-                                void stopActiveResponse();
-
-                                return;
-                            }
-
-                            void sendMessage();
-                        }}
-                        disabled={isLoadingSessions || providers.length === 0 || !selectedModel}
+                        onClick={submitComposer}
+                        disabled={isComposerDisabled}
                         className="agent-composer-submit"
                         aria-label={isResponding ? t("chat.stopResponse") : t("chat.sendMessage")}
                         title={isResponding ? t("chat.stop") : t("chat.send")}
@@ -392,5 +420,186 @@ export default function AgentPanel() {
                 </div>
             </div>
         </aside>
+    );
+}
+
+function SessionHistory({
+    sessions,
+    conversations,
+    activeSessionId,
+    fallbackConversationTitle,
+    onSelectSession,
+    emptyText,
+}: {
+    sessions: AgentSessionItem[];
+    conversations: Record<number, { title?: string }>;
+    activeSessionId: number | null;
+    fallbackConversationTitle: string;
+    onSelectSession: (sessionId: number) => void;
+    emptyText: string;
+}) {
+    if (sessions.length === 0) {
+        return <p className="agent-history-empty">{emptyText}</p>;
+    }
+
+    return (
+        <div tag="agent-history-list" className="agent-history-list">
+            {sessions.map((session) => (
+                <button
+                    key={session.id}
+                    type="button"
+                    onClick={() => onSelectSession(session.id)}
+                    className={[
+                        "agent-history-item",
+                        session.id === activeSessionId
+                            ? "agent-history-item-active"
+                            : "agent-history-item-inactive",
+                    ].join(" ")}
+                >
+                    {conversations[session.id]?.title?.trim() ||
+                        session.name?.trim() ||
+                        fallbackConversationTitle}
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function MessageItem({
+    message,
+    isActivityExpanded,
+    onToggleActivities,
+}: {
+    message: AgentMessage;
+    isActivityExpanded: boolean;
+    onToggleActivities: () => void;
+}) {
+    const { t } = useTranslation();
+    const hasActivities = Boolean(message.activities?.length);
+    const isStreamingAssistant = message.role === "assistant" && message.status === "streaming";
+    const isErrorAssistant = message.role === "assistant" && message.status === "error";
+    const shouldShowActivityPanel =
+        message.role === "assistant" && (hasActivities || isStreamingAssistant);
+    const isPanelExpanded = isStreamingAssistant || isActivityExpanded;
+    const messageContent = getAssistantContent(message, t);
+    const errorDetail = isErrorAssistant ? getAgentErrorDetail(message) : "";
+    const shouldRenderMessageBody =
+        isErrorAssistant || message.role === "user" || Boolean(messageContent);
+
+    return (
+        <div className={getMessageClassName(message)}>
+            {shouldShowActivityPanel ? (
+                <ActivityPanel
+                    message={message}
+                    isStreamingAssistant={isStreamingAssistant}
+                    hasActivities={hasActivities}
+                    isExpanded={isPanelExpanded}
+                    onToggle={onToggleActivities}
+                    showActivityLabel={t("chat.showActivity")}
+                    hideActivityLabel={t("chat.hideActivity")}
+                    activityLabel={t("chat.activity")}
+                    thinkingLabel={t("chat.thinking")}
+                />
+            ) : null}
+
+            {isErrorAssistant ? (
+                <div className="agent-message-error-content">
+                    <div className="agent-message-error-title">
+                        {getAgentErrorTitle(message, t)}
+                    </div>
+                    {errorDetail ? (
+                        <pre className="agent-message-error-detail">{errorDetail}</pre>
+                    ) : null}
+                </div>
+            ) : shouldRenderMessageBody ? (
+                <div
+                    className="agent-markdown"
+                    dangerouslySetInnerHTML={renderMarkdown(
+                        message.role === "assistant" ? messageContent : message.content,
+                    )}
+                />
+            ) : null}
+
+            <p className={getTimestampClassName(message)}>{message.timestamp}</p>
+
+            {isStreamingAssistant ? <div className="task-progress-bar" aria-hidden="true" /> : null}
+        </div>
+    );
+}
+
+function ActivityPanel({
+    message,
+    isStreamingAssistant,
+    hasActivities,
+    isExpanded,
+    onToggle,
+    showActivityLabel,
+    hideActivityLabel,
+    activityLabel,
+    thinkingLabel,
+}: {
+    message: AgentMessage;
+    isStreamingAssistant: boolean;
+    hasActivities: boolean;
+    isExpanded: boolean;
+    onToggle: () => void;
+    showActivityLabel: string;
+    hideActivityLabel: string;
+    activityLabel: string;
+    thinkingLabel: string;
+}) {
+    const { t } = useTranslation();
+
+    return (
+        <div className="agent-message-activities">
+            {!isStreamingAssistant && hasActivities ? (
+                <button type="button" onClick={onToggle} className="agent-activity-toggle">
+                    {isExpanded ? hideActivityLabel : showActivityLabel}
+                </button>
+            ) : null}
+
+            {isExpanded ? (
+                <div className="agent-activity-panel">
+                    {isStreamingAssistant ? (
+                        <div className="agent-streaming-activity">
+                            <div className="agent-streaming-activity-label">{activityLabel}</div>
+                            {message.content ? (
+                                <div
+                                    className="agent-markdown agent-markdown-activity"
+                                    dangerouslySetInnerHTML={renderMarkdown(message.content)}
+                                />
+                            ) : (
+                                <p className="agent-streaming-activity-placeholder">
+                                    {thinkingLabel}
+                                </p>
+                            )}
+                        </div>
+                    ) : null}
+
+                    {message.activities?.map((activity) => {
+                        const formatted = formatAgentActivity(activity, t);
+
+                        return (
+                            <div key={activity.key} className="agent-activity-item">
+                                <div className="agent-activity-item-header">
+                                    <span
+                                        className={[
+                                            "agent-activity-status-dot",
+                                            activity.status === "running"
+                                                ? "agent-activity-status-dot-running"
+                                                : "agent-activity-status-dot-completed",
+                                        ].join(" ")}
+                                    />
+                                    <span className="agent-activity-title">{formatted.title}</span>
+                                </div>
+                                {formatted.detail ? (
+                                    <p className="agent-activity-detail">{formatted.detail}</p>
+                                ) : null}
+                            </div>
+                        );
+                    })}
+                </div>
+            ) : null}
+        </div>
     );
 }

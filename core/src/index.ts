@@ -68,6 +68,7 @@ export interface AskOptions {
 
 export class Hyaenidae {
     private askCounter = 0;
+    private activeAskControllers = new Map<number, AbortController>();
     public sessionManager = new SessionManager();
 
     /**
@@ -78,11 +79,16 @@ export class Hyaenidae {
      * run and not expect conversation persistence to be complete yet.
      */
     ask(askOptions: AskOptions) {
+        const askId = this.askCounter++;
+        const abortController = new AbortController();
+
+        this.activeAskControllers.set(askId, abortController);
+
         return {
-            id: this.askCounter++,
+            askId,
             askTask: async () => {
                 const { options, nextTurns } = this.sessionManager.turnAskOptions(askOptions);
-                const stream = new AskResponse(
+                const response = new AskResponse(
                     streamText({
                         model: createModelWithModelProvider(options.modelProvider),
                         system: MAIN_AGENT_PROMPT.replace(/{{LOCALE}}/g, options.locale),
@@ -92,14 +98,33 @@ export class Hyaenidae {
                             options.message,
                         ),
                         tools: createTools(options),
+                        abortSignal: abortController.signal,
                         stopWhen: isLoopFinished(),
                     }),
                 );
 
-                this.sessionManager.hookupStreamEnd(options, nextTurns, stream);
+                for (const event of ["error", "end"] as const) {
+                    response.once(event, () => {
+                        this.activeAskControllers.delete(askId);
+                    });
+                }
 
-                return stream;
+                this.sessionManager.hookAskReponse(
+                    options,
+                    nextTurns,
+                    response,
+                    abortController.signal,
+                );
+
+                return response;
             },
         };
+    }
+
+    /**
+     * Cancels an ongoing ask operation.
+     */
+    cancelAsk(askId: number) {
+        this.activeAskControllers.get(askId)?.abort();
     }
 }

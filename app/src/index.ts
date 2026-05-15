@@ -26,6 +26,12 @@ browser.shell.bridge.handle("shell:settings-get", async () => {
     };
 });
 
+browser.shell.bridge.handle("shell:settings-set", async ({ settings }) => {
+    await settingsManager.restore(settings);
+
+    browser.shell.bridge.send("shell:settings-changed");
+});
+
 browser.shell.bridge.handle("shell:minimize", async () => {
     browser.baseWindow.minimize();
 });
@@ -104,56 +110,60 @@ browser.shell.bridge.handle("agent:session-remove", async ({ id }) => {
 });
 
 browser.shell.bridge.handle("agent:chat-ask", async (options) => {
-    const sessionId = options.session;
-    const { id, askTask } = coreService.ask({
+    const { askId, askTask } = coreService.ask({
         ...options,
         browserRuntime,
     });
 
+    const baseResponse = {
+        sessionId: options.session,
+        askId,
+    };
+
     askTask()
-        .then((stream) => {
-            stream.on("error", (error: Error) => {
-                browser.shell.bridge.send("agent:chat-response-done", {
-                    error: error.message,
-                    sessionId,
-                    id,
+        .then((response) => {
+            response
+                .on("error", (error: Error) => {
+                    browser.shell.bridge.send("agent:chat-response", {
+                        ...baseResponse,
+                        type: "done",
+                        error: error.message,
+                    });
+                })
+                .on("text", (message: string) => {
+                    browser.shell.bridge.send("agent:chat-response", {
+                        ...baseResponse,
+                        type: "text",
+                        message,
+                    });
+                })
+                .on("activity", (activity: AgentActivityEvent) => {
+                    browser.shell.bridge.send("agent:chat-response", {
+                        ...baseResponse,
+                        type: "activity",
+                        ...activity,
+                    });
+                })
+                .on("end", () => {
+                    browser.shell.bridge.send("agent:chat-response", {
+                        ...baseResponse,
+                        type: "done",
+                    });
                 });
-            });
-
-            stream.on("text", (message: string) => {
-                browser.shell.bridge.send("agent:chat-response", {
-                    message,
-                    sessionId,
-                    id,
-                });
-            });
-
-            stream.on("activity", (activity: AgentActivityEvent) => {
-                browser.shell.bridge.send("agent:chat-activity", {
-                    id,
-                    sessionId,
-                    ...activity,
-                });
-            });
-
-            stream.on("end", () => {
-                browser.shell.bridge.send("agent:chat-response-done", {
-                    sessionId,
-                    id,
-                });
-            });
-
-            stream.start();
         })
-        .catch((error: Error) => {
-            browser.shell.bridge.send("agent:chat-response-done", {
+        .catch((error: any) => {
+            browser.shell.bridge.send("agent:chat-response", {
+                ...baseResponse,
+                type: "done",
                 error: error.message,
-                sessionId,
-                id,
             });
         });
 
-    return { id };
+    return { askId };
+});
+
+browser.shell.bridge.handle("agent:chat-stop", async ({ askId }) => {
+    await coreService.cancelAsk(askId);
 });
 
 {

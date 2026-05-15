@@ -21,7 +21,7 @@ export class ModelRunnerCounter {
     /**
      * The currently active Loader instance. Null means no model is running.
      */
-    private runner: { loader: Loader; options: StartRunnerOptions } | null = null;
+    private runner: Loader | null = null;
 
     /**
      * @param runnersDir Root path where runner binary directories live. Defaults
@@ -40,8 +40,8 @@ export class ModelRunnerCounter {
     /**
      * Whether a Loader instance is currently running.
      */
-    get runnerOptions() {
-        return this.runner?.options || null;
+    get isRunning() {
+        return this.runner !== null;
     }
 
     /**
@@ -60,7 +60,7 @@ export class ModelRunnerCounter {
             options.mmprojFile,
         );
 
-        const loader = await Loader.create({
+        this.runner = await Loader.create({
             apiKey: CONFIG.defaultLocalApiKey,
             binaryDir: path.join(CONFIG.resourcesDir, `./runners/${options.runner}`),
             model: {
@@ -70,13 +70,11 @@ export class ModelRunnerCounter {
         });
 
         console.info(
-            `Started loader for model ${options.model} using runner ${options.runner}, listening at ${loader.baseUrl}`,
+            `Started loader for model ${options.model} using runner ${options.runner}, listening at ${this.runner.baseUrl}`,
         );
 
-        this.runner = { loader, options };
-
         for (const event of ["error", "exit"] as const) {
-            loader.on(event, (param: any) => {
+            this.runner.on(event, (param: any) => {
                 console.error(`Loader ${event} event:`, param);
 
                 this.runner = null;
@@ -84,7 +82,7 @@ export class ModelRunnerCounter {
         }
 
         return {
-            baseUrl: loader.baseUrl,
+            baseUrl: this.runner.baseUrl,
             apiKey: CONFIG.defaultLocalApiKey,
         };
     }
@@ -95,7 +93,7 @@ export class ModelRunnerCounter {
      */
     async stop() {
         if (this.runner) {
-            await this.runner.loader.shutdown();
+            await this.runner.shutdown();
 
             this.runner = null;
 

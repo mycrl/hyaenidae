@@ -9,7 +9,7 @@ import {
 } from "@heroicons/react/24/outline";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
-import { useShellStore } from "../../services/shell";
+import { useShellStore } from "../../services/shell.state";
 
 export default function TabBar() {
     const { t } = useTranslation();
@@ -25,24 +25,29 @@ export default function TabBar() {
     const isAgentPanelOpen = useShellStore((state) => state.isAgentPanelOpen);
     const isWindowMaximized = useShellStore((state) => state.isWindowMaximized);
     const toggleAgentPanel = useShellStore((state) => state.toggleAgentPanel);
+    const showTabContextMenu = useShellStore((state) => state.showTabContextMenu);
     const fallbackTabTitle = t("tabs.newTab");
 
     const showContextMenu = (event: React.MouseEvent, tabId: number) => {
         event.preventDefault();
 
-        hyaenidae.bridge.send("shell:show-context-menu", {
+        showTabContextMenu({
             x: event.clientX,
             y: event.clientY,
             tabId,
         });
     };
 
+    const openSettingsTab = () => {
+        void createTab(__APP_CONFIG__.settingsUrl);
+    };
+
     return (
         <div tag="tab-bar" className="tab-bar-root">
             <div tag="tab-strip" className="tab-bar-strip">
-                {tabs.map((tab, index) => (
+                {tabs.map((tab) => (
                     <button
-                        key={`${tab.id}-${index}`}
+                        key={tab.id}
                         onClick={() => focusTabRpc(tab.id)}
                         title={tab.title?.trim() || fallbackTabTitle}
                         className={[
@@ -109,7 +114,7 @@ export default function TabBar() {
 
                 <button
                     type="button"
-                    onClick={() => createTab(__APP_CONFIG__.settingsUrl)}
+                    onClick={openSettingsTab}
                     title={t("settings.open")}
                     aria-label={t("settings.open")}
                     className="tab-bar-settings-button"

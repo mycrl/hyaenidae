@@ -1,4 +1,4 @@
-import "../../styles/pages.settings.settings-sidebar.css";
+import "../../../styles/pages.settings.settings-sidebar.css";
 
 export interface SettingsSection {
     id: string;
@@ -6,7 +6,7 @@ export interface SettingsSection {
     description: string;
 }
 
-export default function SettingsSidebar({
+export default function Sidebar({
     title,
     subtitle,
     sections,
@@ -39,16 +39,8 @@ export default function SettingsSidebar({
                                 : "settings-sidebar-item-inactive",
                         ].join(" ")}
                     >
-                        <div
-                            tag="settings-sidebar-item-title"
-                            className="settings-sidebar-item-title"
-                        >
-                            {section.title}
-                        </div>
-                        <div
-                            tag="settings-sidebar-item-description"
-                            className="settings-sidebar-item-description"
-                        >
+                        <div className="settings-sidebar-item-title">{section.title}</div>
+                        <div className="settings-sidebar-item-description">
                             {section.description}
                         </div>
                     </button>

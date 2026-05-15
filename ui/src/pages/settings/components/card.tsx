@@ -1,8 +1,8 @@
-import "../../styles/pages.settings.settings-card.css";
+import "../../../styles/pages.settings.settings-card.css";
 
 import type { ReactNode } from "react";
 
-export default function SettingsCard({
+export default function Card({
     title,
     description,
     children,

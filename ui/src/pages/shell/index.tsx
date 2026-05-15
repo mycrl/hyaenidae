@@ -5,9 +5,9 @@ import AgentPanel from "./agent-panel";
 import AgentPanelResizeHandle from "./agent-panel-resize-handle";
 import NavigationBar from "./navigation-bar";
 import TabBar from "./tab-bar";
-import { useAgentStore } from "../../services/agent";
-import { useSettingsStore } from "../../services/settings";
-import { useShellStore } from "../../services/shell";
+import { useAgentStore } from "../../services/agent.state";
+import { useSettingsStore } from "../../services/settings.state";
+import { useShellStore } from "../../services/shell.state";
 
 const AGENT_PANEL_MIN_WIDTH = 320;
 const AGENT_PANEL_DEFAULT_WIDTH = 450;
@@ -18,10 +18,12 @@ const DEFAULT_NAVIGATION_BAR_HEIGHT = 48;
 
 export default function Shell() {
     const initializeRpc = useShellStore((state) => state.initializeRpc);
-    const initializeAgentRpc = useAgentStore((state) => state.initializeRpc);
-    const initializeSettingsRpc = useSettingsStore((state) => state.initializeRpc);
     const isAgentPanelOpen = useShellStore((state) => state.isAgentPanelOpen);
     const layoutChanged = useShellStore((state) => state.layoutChanged);
+    const initializeAgentRpc = useAgentStore((state) => state.initializeRpc);
+    const refreshProviders = useAgentStore((state) => state.refreshProviders);
+    const initializeSettingsRpc = useSettingsStore((state) => state.initializeRpc);
+    const settings = useSettingsStore((state) => state.settings);
     const [agentPanelWidth, setAgentPanelWidth] = useState(AGENT_PANEL_DEFAULT_WIDTH);
     const tabBarRef = useRef<HTMLDivElement | null>(null);
     const navigationBarRef = useRef<HTMLDivElement | null>(null);
@@ -44,21 +46,22 @@ export default function Shell() {
         [isAgentPanelOpen, layoutChanged],
     );
 
+    const initializeShellRpc = async () => {
+        await initializeRpc();
+        await initializeSettingsRpc();
+        await initializeAgentRpc();
+    };
+
     useEffect(() => {
         if (rpcInitializedRef.current) {
             return;
         }
 
         rpcInitializedRef.current = true;
-        void initializeRpc()
-            .then(async () => {
-                await initializeSettingsRpc();
-                await initializeAgentRpc();
-            })
-            .finally(() => {
-                // Report one layout after shell RPC initialization.
-                emitLayoutChanged(agentPanelWidth);
-            });
+        void initializeShellRpc().finally(() => {
+            // Report one layout after shell RPC initialization.
+            emitLayoutChanged(agentPanelWidth);
+        });
     }, [
         agentPanelWidth,
         emitLayoutChanged,
@@ -70,6 +73,14 @@ export default function Shell() {
     useEffect(() => {
         emitLayoutChanged(agentPanelWidth);
     }, [agentPanelWidth, emitLayoutChanged]);
+
+    useEffect(() => {
+        if (!rpcInitializedRef.current) {
+            return;
+        }
+
+        void refreshProviders();
+    }, [refreshProviders, settings]);
 
     return (
         <div tag="app-shell" className="app-shell">

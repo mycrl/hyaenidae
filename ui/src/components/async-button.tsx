@@ -1,12 +1,10 @@
 import "../styles/async-button.css";
 
 import {
-    cloneElement,
-    isValidElement,
+    useEffect,
     useState,
     type ButtonHTMLAttributes,
     type MouseEvent,
-    type ReactElement,
     type ReactNode,
 } from "react";
 
@@ -31,20 +29,28 @@ export default function AsyncButton({
     disabled,
     loading = false,
     loadingContent,
+    icon,
     onClick,
+    onLoadingChange,
     spinnerClassName,
     ...props
 }: Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> & {
     onClick?: AsyncClickHandler;
     loading?: boolean;
     loadingContent?: ReactNode;
+    icon?: ReactNode;
+    onLoadingChange?: (loading: boolean) => void;
     spinnerClassName?: string;
 }) {
-    const [isPending, setIsPending] = useState(false);
-    const isBusy = loading || isPending;
+    const [internalLoading, setInternalLoading] = useState(false);
+    const isLoading = loading || internalLoading;
+
+    useEffect(() => {
+        onLoadingChange?.(isLoading);
+    }, [isLoading, onLoadingChange]);
 
     const handleClick = async (event: MouseEvent<HTMLButtonElement>) => {
-        if (!onClick || disabled || isBusy) {
+        if (!onClick || disabled || isLoading) {
             return;
         }
 
@@ -54,16 +60,18 @@ export default function AsyncButton({
             return;
         }
 
-        setIsPending(true);
+        setInternalLoading(true);
 
         try {
             await result;
         } finally {
-            setIsPending(false);
+            setInternalLoading(false);
         }
     };
 
-    const content = isBusy && loadingContent ? loadingContent : children;
+    const content = isLoading && loadingContent ? loadingContent : children;
+    const leadingVisual = isLoading ? <LoadingSpinner className={spinnerClassName} /> : icon;
+    const shouldRenderLeadingVisual = leadingVisual !== undefined && leadingVisual !== null;
 
     return (
         <button
@@ -72,20 +80,18 @@ export default function AsyncButton({
             onClick={(event) => {
                 void handleClick(event);
             }}
-            disabled={disabled || isBusy}
-            aria-busy={isBusy}
+            disabled={disabled || isLoading}
+            aria-busy={isLoading}
             className={className}
         >
-            {isBusy ? (
-                <span className="async-button-loading-content">
-                    <LoadingSpinner className={spinnerClassName} />
-                    <span>
-                        {isValidElement(content) ? cloneElement(content as ReactElement) : content}
+            <span className="async-button-content">
+                {shouldRenderLeadingVisual ? (
+                    <span aria-hidden="true" className="async-button-leading-visual">
+                        {leadingVisual}
                     </span>
-                </span>
-            ) : (
-                content
-            )}
+                ) : null}
+                <span className="async-button-label">{content}</span>
+            </span>
         </button>
     );
 }

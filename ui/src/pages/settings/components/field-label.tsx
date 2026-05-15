@@ -1,4 +1,4 @@
-import "../../styles/pages.settings.field-label.css";
+import "../../../styles/pages.settings.field-label.css";
 
 import type { ReactNode } from "react";
 

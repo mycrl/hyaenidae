@@ -269,41 +269,24 @@ export class Browser extends EventEmitter {
             });
 
             tab.bridge.on("model:download", (options) => {
-                const targetPath = options.files[0]?.path;
-
-                if (!targetPath) {
-                    tab.bridge.send("model:download-fail", {
-                        name: options.name,
-                        path: "",
-                        error: "No file selected for download.",
-                    });
-                    return;
-                }
-
-                RemoteModelsManager.download(options, (progress) => {
+                RemoteModelsManager.download(options, ({ path, progress }) => {
                     tab.bridge.send("model:download-progress", {
                         name: options.name,
-                        path: targetPath,
+                        path,
                         progress,
                     });
-                })
-                    .then(() => {
-                        tab.bridge.send("model:download-progress", {
-                            name: options.name,
-                            path: targetPath,
-                            progress: 1,
-                        });
-                    })
-                    .catch((error) => {
-                        tab.bridge.send("model:download-fail", {
-                            name: options.name,
-                            path: targetPath,
-                            error:
-                                error instanceof Error
-                                    ? error.message
-                                    : "Failed to download model.",
-                        });
+                }).catch((error) => {
+                    const path =
+                        error instanceof Error && "path" in error && typeof error.path === "string"
+                            ? error.path
+                            : "";
+
+                    tab.bridge.send("model:download-fail", {
+                        name: options.name,
+                        path,
+                        error: error instanceof Error ? error.message : "Failed to download model.",
                     });
+                });
             });
 
             tab.bridge.handle("model:get-local-models", async () => {
@@ -330,7 +313,7 @@ export class Browser extends EventEmitter {
 
             tab.bridge.handle("model:get-runner-status", async () => {
                 return {
-                    options: this.modelRunnerCounter.runnerOptions,
+                    running: this.modelRunnerCounter.isRunning,
                 };
             });
 

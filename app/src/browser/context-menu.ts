@@ -193,7 +193,7 @@ export function registerContextMenu({
                         options.selectionText !== "" ||
                         options.mediaType === "image",
                     click: () => {
-                        tab.bridge.send("shell:add-to-chat", {
+                        browser.shell.bridge.send("shell:add-to-chat", {
                             tabId: tab.webContents.id,
                             selected:
                                 options.mediaType === "image"

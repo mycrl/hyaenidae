@@ -1,9 +1,16 @@
 import { generateText } from "ai";
 import { AskOptions } from ".";
 import { createModelWithModelProvider, trimTurns } from "./helper";
-import { AgentConversationContext, AgentConversationTurn, AskResponse } from "./response";
+import {
+    AgentConversationContext,
+    AgentConversationTurn,
+    AskResponse,
+    AskResponseResultEvent,
+    createAskReponseResult,
+} from "./response";
 
 const MAX_COMPRESSION_SOURCE_TURNS = 10;
+const MAX_SESSION_TITLE_LENGTH = 20;
 
 const CONTEXT_COMPRESSION_PROMPT = `
 You compress browser-agent session context for the next turn.
@@ -26,6 +33,7 @@ Do not include:
 Do not drop critical facts such as product requirements, quantities, URLs that matter, selected items, login state, explicit user approvals, or blockers.
 
 Return plain text using exactly these sections:
+Title:
 Goal:
 Constraints:
 Progress:
@@ -45,6 +53,11 @@ export interface SessionCompressionOptions extends AskOptions {
     turns: AgentConversationTurn[];
 }
 
+interface SessionCompressionResult {
+    title: string | null;
+    summary: string;
+}
+
 /**
  * Produces compact resumable context for long-running sessions.
  *
@@ -53,6 +66,29 @@ export interface SessionCompressionOptions extends AskOptions {
  * prompts.
  */
 export class SessionCompressor {
+    private static normalizeTitle(value: string) {
+        return value
+            .replace(/\s+/g, " ")
+            .replace(
+                /^["'“”‘’【】\[\](){}<>\-:：;,，。.!！？]+|["'“”‘’【】\[\](){}<>\-:：;,，。.!！？]+$/g,
+                "",
+            )
+            .trim()
+            .slice(0, MAX_SESSION_TITLE_LENGTH);
+    }
+
+    private static parseCompressionResult(text: string): SessionCompressionResult {
+        const normalized = text.trim();
+        const titleMatch = normalized.match(/(^|\n)Title:\s*([^\n]*)/i);
+        const title = titleMatch?.[2] ? this.normalizeTitle(titleMatch[2]) : null;
+        const summary = normalized.replace(/(^|\n)Title:\s*([^\n]*)\n?/i, "$1").trim();
+
+        return {
+            title: title && title.length > 0 ? title : null,
+            summary,
+        };
+    }
+
     /**
      * Compresses the latest useful slice of the conversation.
      *
@@ -68,6 +104,7 @@ export class SessionCompressor {
             system: CONTEXT_COMPRESSION_PROMPT,
             prompt: [
                 `Write the compressed context in ${options.locale} unless the user explicitly asked for another language.`,
+                `Also generate a short session title no longer than ${MAX_SESSION_TITLE_LENGTH} characters.`,
                 options.previousSummary
                     ? `Previous compressed context:\n${options.previousSummary}`
                     : "Previous compressed context: none",
@@ -78,7 +115,7 @@ export class SessionCompressor {
             ].join("\n\n"),
         });
 
-        return response.text.trim();
+        return this.parseCompressionResult(response.text);
     }
 }
 
@@ -185,55 +222,96 @@ export class SessionManager {
      * first updated with the fresh resumable identifiers so a failed summary pass
      * does not block continuing the conversation.
      */
-    hookupStreamEnd(options: AskOptions, nextTurns: AgentConversationTurn[], stream: AskResponse) {
-        stream.on("end", () => {
-            const latestConversation = stream.getConversationContext();
-            const activeSession = this.get(options.session);
-            if (!activeSession) {
+    hookAskReponse(
+        options: AskOptions,
+        nextTurns: AgentConversationTurn[],
+        response: AskResponse,
+        abortSignal: AbortSignal,
+    ) {
+        response.start().catch((error) => {
+            response.emit("error", error instanceof Error ? error : new Error(String(error)));
+        });
+
+        response.once("response-end", async () => {
+            if (abortSignal.aborted) {
+                response.finish();
+
                 return;
             }
 
-            const assistantOutput = stream.getOutputText();
-            const completedTurns =
-                assistantOutput.length > 0
-                    ? [
-                          ...nextTurns,
-                          {
-                              role: "assistant" as const,
-                              content: assistantOutput,
-                          },
-                      ]
-                    : nextTurns;
+            try {
+                const latestConversation = response.getConversationContext();
+                const activeSession = this.get(options.session);
+                if (!activeSession) {
+                    return;
+                }
 
-            activeSession.conversation = {
-                ...latestConversation,
-                ...(activeSession.conversation.summary === undefined
-                    ? {}
-                    : { summary: activeSession.conversation.summary }),
-                turns: trimTurns(completedTurns),
-            };
+                const assistantOutput = response.getOutputText();
+                const completedTurns =
+                    assistantOutput.length > 0
+                        ? [
+                              ...nextTurns,
+                              {
+                                  role: "assistant" as const,
+                                  content: assistantOutput,
+                              },
+                          ]
+                        : nextTurns;
 
-            SessionCompressor.compress({
-                ...options,
-                ...(activeSession.conversation.summary === undefined
-                    ? {}
-                    : { previousSummary: activeSession.conversation.summary }),
-                turns: completedTurns,
-            })
-                .then((summary) => {
-                    if (summary.trim().length === 0) {
-                        return;
-                    }
+                activeSession.conversation = {
+                    ...latestConversation,
+                    ...(activeSession.conversation.summary === undefined
+                        ? {}
+                        : { summary: activeSession.conversation.summary }),
+                    turns: trimTurns(completedTurns),
+                };
 
+                response.emit(
+                    "activity",
+                    createAskReponseResult(AskResponseResultEvent.SESSION_COMPRESSION_RUNNING),
+                );
+
+                const { summary, title } = await SessionCompressor.compress({
+                    ...options,
+                    ...(activeSession.conversation.summary === undefined
+                        ? {}
+                        : { previousSummary: activeSession.conversation.summary }),
+                    turns: completedTurns,
+                });
+
+                if (summary.trim().length > 0) {
                     activeSession.conversation = {
                         ...activeSession.conversation,
                         summary,
                         turns: trimTurns(completedTurns),
                     };
-                })
-                .catch((error: any) => {
-                    console.error("Error during conversation compression:", error);
-                });
+                }
+
+                response.emit(
+                    "activity",
+                    createAskReponseResult(AskResponseResultEvent.SESSION_COMPRESSION_COMPLETED),
+                );
+
+                if (title && activeSession.name !== title) {
+                    activeSession.name = title;
+
+                    response.emit(
+                        "activity",
+                        createAskReponseResult(AskResponseResultEvent.SESSION_RENAMED_COMPLETED, {
+                            title,
+                        }),
+                    );
+                }
+            } catch (error: any) {
+                response.emit(
+                    "activity",
+                    createAskReponseResult(AskResponseResultEvent.SESSION_COMPRESSION_COMPLETED, {
+                        error: error instanceof Error ? error.message : String(error),
+                    }),
+                );
+            } finally {
+                response.finish();
+            }
         });
     }
 }

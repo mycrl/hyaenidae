@@ -25,13 +25,13 @@ export interface AgentAskOptions {
 
 export interface AgentStreamItem {
     sessionId: number;
-    id: number;
+    askId: number;
     message: string;
 }
 
 export interface AgentActivityItem {
     sessionId: number;
-    id: number;
+    askId: number;
     key: string;
     kind: "reasoning" | "tool" | "status";
     status: "running" | "completed";
@@ -41,9 +41,14 @@ export interface AgentActivityItem {
 
 export interface AgentResult {
     sessionId: number;
-    id: number;
+    askId: number;
     error?: string;
 }
+
+export type AgentResponseEvent =
+    | ({ type: "text" } & AgentStreamItem)
+    | ({ type: "activity" } & AgentActivityItem)
+    | ({ type: "done" } & AgentResult);
 
 export interface ModelInfo {
     id: string;
@@ -80,6 +85,19 @@ export interface AddToChatOptions {
     selected?: {
         content: string;
         type: "text" | "image" | "link";
+    };
+}
+
+export interface BrowserContextPayload {
+    source: "browser";
+    tab: {
+        id: number;
+        title: string | null;
+        url: string | null;
+    };
+    selection?: {
+        type: "text" | "image" | "link";
+        content: string;
     };
 }
 
@@ -293,7 +311,7 @@ export interface Api {
     /**
      * Query whether a local runner (loader) is currently running.
      */
-    "model:get-runner-status": [void, { options: StartRunnerOptions | null }];
+    "model:get-runner-status": [void, { running: boolean }];
 
     /**
      * Start a runner for the specified local model and return connection info.
@@ -332,28 +350,18 @@ export interface Api {
     /**
      * Sends a message to an agent or chat model.
      */
-    "agent:chat-ask": [AgentAskOptions, { id: number }];
+    "agent:chat-ask": [AgentAskOptions, { askId: number }];
 
     /**
-     * Triggers when a response is received from an agent or chat model.
+     * Streams all response-side updates for an agent/chat turn.
      */
-    "agent:chat-response": [AgentStreamItem, void];
-
-    /**
-     * Triggers when the agent emits a non-final activity update such as thinking or tool calls.
-     */
-    "agent:chat-activity": [AgentActivityItem, void];
-
-    /**
-     * Triggers when a response stream from an agent or chat model is completed.
-     */
-    "agent:chat-response-done": [AgentResult, void];
+    "agent:chat-response": [AgentResponseEvent, void];
 
     /**
      * Stops an ongoing conversation with an agent or chat model, providing the
      * unique ID of the conversation to stop.
      */
-    "agent:chat-stop": [AgentSession & { id: number }, void];
+    "agent:chat-stop": [{ askId: number }, void];
 }
 
 /**

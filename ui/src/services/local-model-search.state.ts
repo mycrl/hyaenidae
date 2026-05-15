@@ -1,5 +1,12 @@
 import type { ModelFileInfo, ModelInfo } from "@hyaenidae/bridge";
 import { create } from "zustand";
+import {
+    downloadModelFile,
+    getModelFiles,
+    onModelDownloadFail,
+    onModelDownloadProgress,
+    searchModels,
+} from "./model";
 
 export type LocalModelSearchResult = ModelInfo & {
     files: ModelFileInfo[];
@@ -21,7 +28,7 @@ export interface LocalModelSearchErrorState {
 
 export type LocalModelSearchErrorCode = NonNullable<LocalModelSearchErrorState["code"]>;
 
-interface LocalModelSearchStoreState {
+interface LocalModelSearchState {
     initialized: boolean;
     query: string;
     searchLoading: boolean;
@@ -39,7 +46,7 @@ const completedDownloads = new Set<string>();
 
 const getDownloadKey = (modelName: string, filePath: string) => `${modelName}:${filePath}`;
 
-export const useLocalModelSearchStore = create<LocalModelSearchStoreState>((set, get) => ({
+export const useLocalModelSearchStore = create<LocalModelSearchState>((set, get) => ({
     initialized: false,
     query: "",
     searchLoading: false,
@@ -52,7 +59,7 @@ export const useLocalModelSearchStore = create<LocalModelSearchStoreState>((set,
             return;
         }
 
-        hyaenidae.bridge.on("model:download-progress", ({ name, path, progress }) => {
+        onModelDownloadProgress(({ name, path, progress }) => {
             const key = getDownloadKey(name, path);
 
             set((current) => ({
@@ -81,7 +88,7 @@ export const useLocalModelSearchStore = create<LocalModelSearchStoreState>((set,
             }
         });
 
-        hyaenidae.bridge.on("model:download-fail", ({ name, path, error }) => {
+        onModelDownloadFail(({ name, path, error }) => {
             const key = getDownloadKey(name, path);
             completedDownloads.delete(key);
 
@@ -108,19 +115,12 @@ export const useLocalModelSearchStore = create<LocalModelSearchStoreState>((set,
 
         set({ searchLoading: true, error: null });
         try {
-            const result = await hyaenidae.bridge.request("model:search", {
-                query: trimmed,
-                limit: 10,
-            });
-            const models = Array.isArray(result.models) ? result.models : [];
+            const models = await searchModels(trimmed, 10);
             const enriched = await Promise.all(
-                models.map(async (model: ModelInfo) => {
-                    const filesResult = await hyaenidae.bridge.request("model:get-files", {
-                        model: model.name,
-                    });
-                    const files = Array.isArray(filesResult.files) ? filesResult.files : [];
-                    return { ...model, files } satisfies LocalModelSearchResult;
-                }),
+                models.map(async (model) => ({
+                    ...model,
+                    files: await getModelFiles(model.name),
+                })),
             );
 
             set({ results: enriched, searchLoading: false, error: null });
@@ -153,9 +153,6 @@ export const useLocalModelSearchStore = create<LocalModelSearchStoreState>((set,
             },
         }));
 
-        hyaenidae.bridge.send("model:download", {
-            name: model.name,
-            files: [file],
-        });
+        downloadModelFile(model.name, file);
     },
 }));

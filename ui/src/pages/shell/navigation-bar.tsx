@@ -10,14 +10,13 @@ import {
 } from "@heroicons/react/24/outline";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { useShellStore } from "../../services/shell";
+import { useShellStore } from "../../services/shell.state";
 
 export default function NavigationBar() {
     const { t } = useTranslation();
     const activeTab = useShellStore(
         (state) => state.tabs.find((tab) => tab.id === state.activeTabId) ?? null,
     );
-
     const goBack = useShellStore((state) => state.goBack);
     const goForward = useShellStore((state) => state.goForward);
     const refreshOrStop = useShellStore((state) => state.refreshOrStop);
@@ -39,6 +38,11 @@ export default function NavigationBar() {
 
         setUrlInput(currentUrl);
     }, [currentUrl, isEditingUrl]);
+
+    const submitUrl = () => {
+        void navigateTo(urlInput);
+        setIsEditingUrl(false);
+    };
 
     return (
         <div tag="navigation-bar" className="navigation-bar-root">
@@ -75,8 +79,7 @@ export default function NavigationBar() {
                     onBlur={() => setIsEditingUrl(false)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter") {
-                            navigateTo(urlInput);
-                            setIsEditingUrl(false);
+                            submitUrl();
                         }
                     }}
                     placeholder={t("nav.placeholder")}

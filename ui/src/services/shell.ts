@@ -1,5 +1,4 @@
-import { create } from "zustand";
-import type { Layout } from "@hyaenidae/bridge";
+import type { AddToChatOptions, Api, Layout } from "@hyaenidae/bridge";
 
 export interface Tab {
     id: number;
@@ -10,243 +9,165 @@ export interface Tab {
     canGoForward: boolean;
 }
 
-interface ShellStoreState {
-    // Source-of-truth for all browser tabs in renderer process.
-    tabs: Tab[];
-    // ID of the currently focused tab. Null means no active tab available.
-    activeTabId: number | null;
-    // Guards against duplicate RPC event subscription in React StrictMode.
-    rpcInitialized: boolean;
-    // Controls whether the right-side agent panel is expanded in layout.
-    isAgentPanelOpen: boolean;
-    // Tracks whether the application window is currently maximized.
-    isWindowMaximized: boolean;
-    addTab: (tab: Tab) => void;
-    focusTab: (id: number) => void;
-    removeTab: (id: number) => void;
-    setTabLoading: (id: number, isLoading: boolean) => void;
-    setTabUrl: (id: number, url?: string) => void;
-    setTabTitle: (id: number, title?: string) => void;
-    setTabNavState: (id: number, canGoBack: boolean, canGoForward: boolean) => void;
-    refreshTabNavState: (id: number) => Promise<void>;
-    initializeRpc: () => Promise<void>;
-    createTab: (url?: string) => Promise<void>;
-    focusTabRpc: (id: number) => Promise<void>;
-    closeTabRpc: (id: number) => Promise<void>;
-    goBack: () => Promise<void>;
-    goForward: () => Promise<void>;
-    refreshOrStop: () => Promise<void>;
-    goHome: () => Promise<void>;
-    navigateTo: (url: string) => Promise<void>;
-    minimizeWindow: () => Promise<void>;
-    maximizeWindow: () => Promise<void>;
-    restoreWindow: () => Promise<void>;
-    quitWindow: () => Promise<void>;
-    toggleAgentPanel: () => Promise<void>;
-    layoutChanged: (layout: Layout) => Promise<void>;
-    setWindowMaximized: (maximized: boolean) => void;
+type ShellEventHandler<T> = (payload: T) => Promise<void> | void;
+
+interface ShellHandledEventMap {
+    "shell:tab-created": { id: number; url?: string };
+    "shell:tab-focused": { id: number };
+    "shell:tab-destroyed": { id: number };
+    "shell:tab-start-loading": { id: number };
+    "shell:tab-stop-loading": { id: number };
+    "shell:tab-url-updated": { id: number; url?: string };
+    "shell:tab-title-changed": { id: number; title?: string };
 }
 
-export const useShellStore = create<ShellStoreState>((set, get) => ({
-    tabs: [],
-    activeTabId: null,
-    rpcInitialized: false,
-    isAgentPanelOpen: true,
-    isWindowMaximized: false,
-    initializeRpc: async () => {
-        // Initialize once: bind shell events -> store updates.
-        if (get().rpcInitialized) {
-            return;
-        }
+interface ShellListenedEventMap {
+    "shell:add-to-chat": AddToChatOptions;
+}
 
-        set({ rpcInitialized: true });
+const handleShellRpcEvent = <
+    TEvent extends keyof ShellHandledEventMap & keyof Api,
+    TOutput = ShellHandledEventMap[TEvent],
+>(
+    event: TEvent,
+    handler: ShellEventHandler<TOutput>,
+    map?: (payload: ShellHandledEventMap[TEvent]) => TOutput,
+) => {
+    hyaenidae.bridge.handle(event, async (payload: Api[TEvent][0]) => {
+        const normalizedPayload = payload as unknown as ShellHandledEventMap[TEvent];
 
-        hyaenidae.bridge.handle("shell:tab-created", async ({ id, url }) => {
-            get().addTab({
-                id,
-                url,
-                title: undefined,
-                isLoading: false,
-                canGoBack: false,
-                canGoForward: false,
-            });
-        });
+        await handler(map ? map(normalizedPayload) : (normalizedPayload as unknown as TOutput));
 
-        hyaenidae.bridge.handle("shell:tab-focused", async ({ id }) => {
-            get().focusTab(id);
-        });
+        return undefined as Api[TEvent][1];
+    });
+};
 
-        hyaenidae.bridge.handle("shell:tab-destroyed", async ({ id }) => {
-            get().removeTab(id);
-        });
+const listenShellEvent = <
+    TEvent extends keyof ShellListenedEventMap & keyof Api,
+    TOutput = ShellListenedEventMap[TEvent],
+>(
+    event: TEvent,
+    handler: ShellEventHandler<TOutput>,
+    map?: (payload: ShellListenedEventMap[TEvent]) => TOutput,
+) => {
+    hyaenidae.bridge.on(event, async (payload: Api[TEvent][0]) => {
+        const normalizedPayload = payload as unknown as ShellListenedEventMap[TEvent];
 
-        hyaenidae.bridge.handle("shell:tab-start-loading", async ({ id }) => {
-            get().setTabLoading(id, true);
-        });
+        await handler(map ? map(normalizedPayload) : (normalizedPayload as unknown as TOutput));
+    });
+};
 
-        hyaenidae.bridge.handle("shell:tab-stop-loading", async ({ id }) => {
-            get().setTabLoading(id, false);
-        });
+export const onTabCreated = (
+    handler: (tab: { id: number; url?: string }) => Promise<void> | void,
+) => {
+    handleShellRpcEvent("shell:tab-created", handler);
+};
 
-        hyaenidae.bridge.handle("shell:tab-url-updated", async ({ id, url }) => {
-            get().setTabUrl(id, url);
-            // URL update usually means history state may have changed as well.
-            await get().refreshTabNavState(id);
-        });
+export const onTabFocused = (handler: (input: { id: number }) => Promise<void> | void) => {
+    handleShellRpcEvent("shell:tab-focused", handler);
+};
 
-        hyaenidae.bridge.handle("shell:tab-title-changed", async ({ id, title }) => {
-            get().setTabTitle(id, title);
-        });
+export const onTabDestroyed = (handler: (input: { id: number }) => Promise<void> | void) => {
+    handleShellRpcEvent("shell:tab-destroyed", handler);
+};
 
-        await hyaenidae.bridge.request("shell:ready");
-    },
-    addTab: (tab) =>
-        set((state) => {
-            // RPC may deliver duplicated create events; ignore if the tab already exists.
-            if (state.tabs.some((item) => item.id === tab.id)) {
-                return state;
-            }
+export const onTabStartLoading = (handler: (input: { id: number }) => Promise<void> | void) => {
+    handleShellRpcEvent("shell:tab-start-loading", handler);
+};
 
-            return {
-                ...state,
-                tabs: [...state.tabs, tab],
-                activeTabId: state.activeTabId ?? tab.id,
-            };
-        }),
-    focusTab: (id) => set({ activeTabId: id }),
-    removeTab: (id) =>
-        set((state) => ({
-            ...state,
-            tabs: state.tabs.filter((tab) => tab.id !== id),
-            activeTabId: state.activeTabId === id ? null : state.activeTabId,
-        })),
-    setTabLoading: (id, isLoading) =>
-        set((state) => ({
-            ...state,
-            tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, isLoading } : tab)),
-        })),
-    setTabUrl: (id, url) =>
-        set((state) => ({
-            ...state,
-            tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, url } : tab)),
-        })),
-    setTabTitle: (id, title) =>
-        set((state) => ({
-            ...state,
-            tabs: state.tabs.map((tab) => (tab.id === id ? { ...tab, title } : tab)),
-        })),
-    setTabNavState: (id, canGoBack, canGoForward) =>
-        set((state) => ({
-            ...state,
-            tabs: state.tabs.map((tab) =>
-                tab.id === id ? { ...tab, canGoBack, canGoForward } : tab,
-            ),
-        })),
-    refreshTabNavState: async (id) => {
-        // Back/forward availability is queried from shell to keep toolbar state accurate.
-        const [canGoBack, canGoForward] = await Promise.all([
-            hyaenidae.bridge.request("shell:tab-can-go-back", { id }),
-            hyaenidae.bridge.request("shell:tab-can-go-forward", { id }),
-        ]);
+export const onTabStopLoading = (handler: (input: { id: number }) => Promise<void> | void) => {
+    handleShellRpcEvent("shell:tab-stop-loading", handler);
+};
 
-        get().setTabNavState(id, canGoBack as boolean, canGoForward as boolean);
-    },
-    createTab: async (url) => {
-        if (url) {
-            await hyaenidae.bridge.request("shell:tab-new", { url });
-            return;
-        }
+export const onTabUrlUpdated = (
+    handler: (input: { id: number; url?: string }) => Promise<void> | void,
+) => {
+    handleShellRpcEvent("shell:tab-url-updated", handler, ({ id, url }) => ({ id, url }));
+};
 
-        await hyaenidae.bridge.request("shell:tab-new");
-    },
-    focusTabRpc: async (id) => {
-        await hyaenidae.bridge.request("shell:tab-focus", { id });
-    },
-    closeTabRpc: async (id) => {
-        await hyaenidae.bridge.request("shell:tab-close", { id });
-    },
-    goBack: async () => {
-        const { activeTabId } = get();
-        if (activeTabId === null) {
-            return;
-        }
+export const onTabTitleChanged = (
+    handler: (input: { id: number; title?: string }) => Promise<void> | void,
+) => {
+    handleShellRpcEvent("shell:tab-title-changed", handler, ({ id, title }) => ({ id, title }));
+};
 
-        await hyaenidae.bridge.request("shell:tab-go-back", {
-            id: activeTabId,
-        });
-    },
-    goForward: async () => {
-        const { activeTabId } = get();
-        if (activeTabId === null) {
-            return;
-        }
+export const onAddToChat = (handler: (input: AddToChatOptions) => Promise<void> | void) => {
+    listenShellEvent("shell:add-to-chat", handler);
+};
 
-        await hyaenidae.bridge.request("shell:tab-go-forward", {
-            id: activeTabId,
-        });
-    },
-    refreshOrStop: async () => {
-        const { activeTabId, tabs } = get();
-        if (activeTabId === null) {
-            return;
-        }
+export const readyShell = async () => {
+    await hyaenidae.bridge.request("shell:ready");
+};
 
-        // Browser convention: same button acts as Stop while loading, Refresh otherwise.
-        const activeTab = tabs.find((tab) => tab.id === activeTabId);
-        if (activeTab?.isLoading) {
-            await hyaenidae.bridge.request("shell:tab-stop-load", {
-                id: activeTabId,
-            });
-            return;
-        }
+export const getTabNavigationState = async (id: number) => {
+    const [canGoBack, canGoForward] = await Promise.all([
+        hyaenidae.bridge.request("shell:tab-can-go-back", { id }),
+        hyaenidae.bridge.request("shell:tab-can-go-forward", { id }),
+    ]);
 
-        await hyaenidae.bridge.request("shell:tab-reload", { id: activeTabId });
-    },
-    goHome: async () => {
-        const { activeTabId } = get();
-        if (activeTabId === null) {
-            return;
-        }
+    return {
+        canGoBack: canGoBack as boolean,
+        canGoForward: canGoForward as boolean,
+    };
+};
 
-        await hyaenidae.bridge.request("shell:tab-load", {
-            id: activeTabId,
-            url: "about:home",
-        });
-    },
-    navigateTo: async (url) => {
-        const { activeTabId } = get();
-        if (activeTabId === null) {
-            return;
-        }
+export const createTab = async (url?: string) => {
+    if (url) {
+        await hyaenidae.bridge.request("shell:tab-new", { url });
+        return;
+    }
 
-        await hyaenidae.bridge.request("shell:tab-load", {
-            id: activeTabId,
-            url,
-        });
-    },
-    minimizeWindow: async () => {
-        await hyaenidae.bridge.request("shell:minimize");
-    },
-    maximizeWindow: async () => {
-        await hyaenidae.bridge.request("shell:maximize");
-        set({ isWindowMaximized: true });
-    },
-    restoreWindow: async () => {
-        await hyaenidae.bridge.request("shell:restore");
-        set({ isWindowMaximized: false });
-    },
-    quitWindow: async () => {
-        await hyaenidae.bridge.request("shell:quit");
-    },
-    toggleAgentPanel: async () => {
-        set((state) => ({
-            isAgentPanelOpen: !state.isAgentPanelOpen,
-        }));
-    },
-    setWindowMaximized: (maximized) => {
-        set({ isWindowMaximized: maximized });
-    },
-    layoutChanged: async (layout) => {
-        hyaenidae.bridge.send("shell:layout-changed", layout);
-    },
-}));
+    await hyaenidae.bridge.request("shell:tab-new");
+};
+
+export const focusTab = async (id: number) => {
+    await hyaenidae.bridge.request("shell:tab-focus", { id });
+};
+
+export const closeTab = async (id: number) => {
+    await hyaenidae.bridge.request("shell:tab-close", { id });
+};
+
+export const goBack = async (id: number) => {
+    await hyaenidae.bridge.request("shell:tab-go-back", { id });
+};
+
+export const goForward = async (id: number) => {
+    await hyaenidae.bridge.request("shell:tab-go-forward", { id });
+};
+
+export const stopTabLoad = async (id: number) => {
+    await hyaenidae.bridge.request("shell:tab-stop-load", { id });
+};
+
+export const reloadTab = async (id: number) => {
+    await hyaenidae.bridge.request("shell:tab-reload", { id });
+};
+
+export const loadTab = async (id: number, url: string) => {
+    await hyaenidae.bridge.request("shell:tab-load", { id, url });
+};
+
+export const minimizeWindow = async () => {
+    await hyaenidae.bridge.request("shell:minimize");
+};
+
+export const maximizeWindow = async () => {
+    await hyaenidae.bridge.request("shell:maximize");
+};
+
+export const restoreWindow = async () => {
+    await hyaenidae.bridge.request("shell:restore");
+};
+
+export const quitWindow = async () => {
+    await hyaenidae.bridge.request("shell:quit");
+};
+
+export const sendLayoutChanged = (layout: Layout) => {
+    hyaenidae.bridge.send("shell:layout-changed", layout);
+};
+
+export const showContextMenu = (input: { x: number; y: number; tabId: number }) => {
+    hyaenidae.bridge.send("shell:show-context-menu", input);
+};

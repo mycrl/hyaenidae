@@ -9,7 +9,7 @@ import type {
     BrowserImageSnapshot,
 } from "@hyaenidae/core";
 import type { WebContents } from "electron";
-import { Browser, View } from "..";
+import { Browser, Tab } from "..";
 import { AccessibilityTreeReader } from "./accessibility";
 import { VisionGrounder } from "./vision";
 
@@ -130,8 +130,8 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     }
 
     async getFocusedTab(): Promise<BrowserTabSummary | null> {
-        const view = this.browser.getFocusedTab();
-        return view ? this.toSummary(view) : null;
+        const tab = this.browser.getFocusedTab();
+        return tab ? this.toSummary(tab) : null;
     }
 
     async openTab(url?: string): Promise<BrowserTabSummary> {
@@ -154,7 +154,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     }
 
     async reload(tabId: number): Promise<void> {
-        this.browser.reload(tabId);
+        await this.browser.reload(tabId);
     }
 
     async goBack(tabId: number): Promise<void> {
@@ -166,13 +166,13 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     }
 
     async snapshotDom(tabId?: number): Promise<BrowserDomSnapshot> {
-        const view = this.requireTab(tabId);
-        const accessibility = await this.accessibilityReader.read(view.webContents);
+        const tab = this.requireTab(tabId);
+        const accessibility = await this.accessibilityReader.read(tab.webContents);
 
         return {
-            tabId: view.webContents.id,
-            url: sanitizeUrl(view.webContents.getURL()),
-            title: sanitizeString(view.webContents.getTitle()),
+            tabId: tab.webContents.id,
+            url: sanitizeUrl(tab.webContents.getURL()),
+            title: sanitizeString(tab.webContents.getTitle()),
             ...(accessibility === undefined
                 ? {}
                 : { accessibility: sanitizeAccessibilityNode(accessibility) }),
@@ -180,21 +180,21 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     }
 
     async captureScreenshot(tabId?: number): Promise<BrowserImageSnapshot> {
-        const view = this.requireTab(tabId);
-        const overlayIds = await this.applySensitiveOverlays(view);
+        const tab = this.requireTab(tabId);
+        const overlayIds = await this.applySensitiveOverlays(tab);
 
         try {
-            const image = await view.webContents.capturePage();
+            const image = await tab.webContents.capturePage();
 
             return {
-                tabId: view.webContents.id,
-                mimeType: "image/png",
-                base64: image.toPNG().toString("base64"),
+                tabId: tab.webContents.id,
+                mimeType: "image/jpeg",
+                base64: image.toJPEG(80).toString("base64"),
                 width: image.getSize().width,
                 height: image.getSize().height,
             };
         } finally {
-            await this.clearSensitiveOverlays(view, overlayIds);
+            await this.clearSensitiveOverlays(tab, overlayIds);
         }
     }
 
@@ -211,7 +211,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         script: string;
         args?: unknown[];
     }): Promise<BrowserScriptResult> {
-        const view = this.requireTab(input.tabId);
+        const tab = this.requireTab(input.tabId);
         const serializedArgs = JSON.stringify(input.args ?? []);
         // Expose args as a local variable so agent-authored snippets can stay short.
         const script = `(async () => {
@@ -222,8 +222,8 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         })()`;
 
         return {
-            tabId: view.webContents.id,
-            result: sanitizeUnknown(await view.webContents.executeJavaScript(script, true)),
+            tabId: tab.webContents.id,
+            result: sanitizeUnknown(await tab.webContents.executeJavaScript(script, true)),
         };
     }
 
@@ -235,16 +235,16 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         direction?: "up" | "down";
         amount?: number;
     }): Promise<BrowserActionResult> {
-        const view = this.requireTab(input.tabId);
+        const tab = this.requireTab(input.tabId);
 
         if (input.action === "scroll") {
-            await view.webContents.executeJavaScript(
+            await tab.webContents.executeJavaScript(
                 `window.scrollBy({ top: ${input.direction === "up" ? -1 : 1} * ${input.amount ?? 600}, behavior: 'smooth' });`,
                 true,
             );
 
             return {
-                tabId: view.webContents.id,
+                tabId: tab.webContents.id,
                 action: input.action,
                 ok: true,
                 details: "Scrolled page.",
@@ -256,15 +256,15 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         }
 
         if (input.action === "click") {
-            const domClickResult = await this.tryDomClick(view, input.selector);
+            const domClickResult = await this.tryDomClick(tab, input.selector);
 
             if (!domClickResult.ok) {
-                const point = await this.resolveInteractionPoint(view, input.selector);
-                await this.dispatchClick(view.webContents, point);
+                const point = await this.resolveInteractionPoint(tab, input.selector);
+                await this.dispatchClick(tab.webContents, point);
             }
 
             return {
-                tabId: view.webContents.id,
+                tabId: tab.webContents.id,
                 action: input.action,
                 ok: true,
                 details: domClickResult.ok
@@ -273,17 +273,17 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
             };
         }
 
-        const domTypeResult = await this.tryDomType(view, input.selector, input.text ?? "");
+        const domTypeResult = await this.tryDomType(tab, input.selector, input.text ?? "");
 
         if (!domTypeResult.ok) {
-            const point = await this.resolveInteractionPoint(view, input.selector);
-            await this.dispatchClick(view.webContents, point);
-            await this.focusElementForTyping(view, input.selector);
-            await view.webContents.insertText(input.text ?? "");
+            const point = await this.resolveInteractionPoint(tab, input.selector);
+            await this.dispatchClick(tab.webContents, point);
+            await this.focusElementForTyping(tab, input.selector);
+            await tab.webContents.insertText(input.text ?? "");
         }
 
         return {
-            tabId: view.webContents.id,
+            tabId: tab.webContents.id,
             action: input.action,
             ok: true,
             details: domTypeResult.ok
@@ -299,10 +299,10 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         y: number;
         text?: string;
     }): Promise<BrowserActionResult> {
-        const view = this.requireTab(input.tabId);
+        const tab = this.requireTab(input.tabId);
 
-        view.webContents.focus();
-        view.webContents.sendInputEvent({
+        tab.webContents.focus();
+        tab.webContents.sendInputEvent({
             type: "mouseDown",
             x: Math.round(input.x),
             y: Math.round(input.y),
@@ -310,7 +310,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
             clickCount: 1,
         });
 
-        view.webContents.sendInputEvent({
+        tab.webContents.sendInputEvent({
             type: "mouseUp",
             x: Math.round(input.x),
             y: Math.round(input.y),
@@ -319,11 +319,11 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         });
 
         if (input.action === "type") {
-            await view.webContents.insertText(input.text ?? "");
+            await tab.webContents.insertText(input.text ?? "");
         }
 
         return {
-            tabId: view.webContents.id,
+            tabId: tab.webContents.id,
             action: input.action,
             ok: true,
             details:
@@ -334,30 +334,29 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     }
 
     private requireTab(tabId?: number) {
-        const view =
-            tabId === undefined ? this.browser.getFocusedTab() : this.browser.getTab(tabId);
-        if (!view) {
+        const tab = tabId === undefined ? this.browser.getFocusedTab() : this.browser.getTab(tabId);
+        if (!tab) {
             throw new Error(
                 tabId === undefined ? "No focused tab available." : `Tab not found: ${tabId}`,
             );
         }
 
-        return view;
+        return tab;
     }
 
     private getTabSummary(tabId: number) {
-        const view = this.browser.getTab(tabId);
-        if (!view) {
+        const tab = this.browser.getTab(tabId);
+        if (!tab) {
             throw new Error(`Tab not found: ${tabId}`);
         }
 
-        return this.toSummary(view);
+        return this.toSummary(tab);
     }
 
-    private async resolveInteractionPoint(view: View, selector: string) {
+    private async resolveInteractionPoint(tab: Tab, selector: string) {
         const serializedSelector = JSON.stringify(selector);
 
-        return (await view.webContents.executeJavaScript(
+        return (await tab.webContents.executeJavaScript(
             `(() => {
                 const element = document.querySelector(${serializedSelector});
                 if (!(element instanceof HTMLElement)) {
@@ -379,10 +378,10 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         )) as { x: number; y: number };
     }
 
-    private async tryDomClick(view: View, selector: string) {
+    private async tryDomClick(tab: Tab, selector: string) {
         const serializedSelector = JSON.stringify(selector);
 
-        return (await view.webContents.executeJavaScript(
+        return (await tab.webContents.executeJavaScript(
             `(() => {
                 const element = document.querySelector(${serializedSelector});
                 if (!(element instanceof HTMLElement)) {
@@ -426,11 +425,11 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         )) as { ok: boolean };
     }
 
-    private async tryDomType(view: View, selector: string, text: string) {
+    private async tryDomType(tab: Tab, selector: string, text: string) {
         const serializedSelector = JSON.stringify(selector);
         const serializedText = JSON.stringify(text);
 
-        return (await view.webContents.executeJavaScript(
+        return (await tab.webContents.executeJavaScript(
             `(() => {
                 const element = document.querySelector(${serializedSelector});
                 if (!(element instanceof HTMLElement)) {
@@ -466,10 +465,10 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         )) as { ok: boolean };
     }
 
-    private async focusElementForTyping(view: View, selector: string) {
+    private async focusElementForTyping(tab: Tab, selector: string) {
         const serializedSelector = JSON.stringify(selector);
 
-        await view.webContents.executeJavaScript(
+        await tab.webContents.executeJavaScript(
             `(() => {
                 const element = document.querySelector(${serializedSelector});
                 if (
@@ -524,8 +523,8 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         });
     }
 
-    private async applySensitiveOverlays(view: View) {
-        return (await view.webContents.executeJavaScript(
+    private async applySensitiveOverlays(tab: Tab) {
+        return (await tab.webContents.executeJavaScript(
             `(() => {
                 const redactionAttr = 'data-hyaenidae-redaction-id';
                 const redactionText = 'Sensitive field hidden';
@@ -633,14 +632,14 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         )) as string[];
     }
 
-    private async clearSensitiveOverlays(view: View, overlayIds: string[]) {
+    private async clearSensitiveOverlays(tab: Tab, overlayIds: string[]) {
         if (overlayIds.length === 0) {
             return;
         }
 
         const serializedOverlayIds = JSON.stringify(overlayIds);
 
-        await view.webContents.executeJavaScript(
+        await tab.webContents.executeJavaScript(
             `(() => {
                 const overlayIds = ${serializedOverlayIds};
                 for (const overlayId of overlayIds) {
@@ -653,13 +652,13 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         );
     }
 
-    private toSummary(view: View): BrowserTabSummary {
+    private toSummary(tab: Tab): BrowserTabSummary {
         return {
-            id: view.webContents.id,
-            title: sanitizeString(view.webContents.getTitle() || "New Tab"),
-            url: sanitizeUrl(view.webContents.getURL()),
-            isFocused: this.browser.currentId === view.webContents.id,
-            isLoading: view.webContents.isLoading(),
+            id: tab.webContents.id,
+            title: sanitizeString(tab.webContents.getTitle() || "New Tab"),
+            url: sanitizeUrl(tab.webContents.getURL()),
+            isFocused: this.browser.currentId === tab.webContents.id,
+            isLoading: tab.webContents.isLoading(),
         };
     }
 }

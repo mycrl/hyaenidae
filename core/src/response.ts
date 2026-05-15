@@ -36,6 +36,97 @@ export interface AgentConversationContext {
     turns?: AgentConversationTurn[];
 }
 
+export enum AskResponseResultEvent {
+    REASONING_RUNNING = "reasoning_running",
+    TOOL_RUNNING = "tool_running",
+    TOOL_COMPLETED = "tool_completed",
+    MESSAGE_COMPOSING_COMPLETED = "message_composing_completed",
+    SESSION_COMPRESSION_RUNNING = "session_compression_running",
+    SESSION_COMPRESSION_COMPLETED = "session_compression_completed",
+    SESSION_RENAMED_COMPLETED = "session_renamed_completed",
+}
+
+interface CreateAskReponseResultOptions {
+    step?: number;
+    status?: AgentActivityEvent["status"];
+    toolCallId?: string | undefined;
+    toolName?: string | undefined;
+    text?: string | undefined;
+    input?: unknown;
+    output?: unknown;
+    title?: string | undefined;
+    error?: string | undefined;
+}
+
+export const createAskReponseResult = (
+    event: AskResponseResultEvent,
+    options: CreateAskReponseResultOptions = {},
+): AgentActivityEvent => {
+    switch (event) {
+        case AskResponseResultEvent.REASONING_RUNNING:
+            return {
+                key: `reasoning:step:${options.step ?? 0}`,
+                kind: "reasoning",
+                status: "running",
+                name: "reasoning_started",
+                ...(options.text === undefined ? {} : { data: { text: options.text } }),
+            };
+        case AskResponseResultEvent.TOOL_RUNNING:
+            return {
+                key: `tool:${String(options.toolCallId ?? options.toolName ?? "tool")}`,
+                kind: "tool",
+                status: "running",
+                name: options.toolName ?? "tool",
+                data: {
+                    phase: "called",
+                    arguments: options.input,
+                },
+            };
+        case AskResponseResultEvent.TOOL_COMPLETED:
+            return {
+                key: `tool:${String(options.toolCallId ?? options.toolName ?? "tool")}`,
+                kind: "tool",
+                status: "completed",
+                name: options.toolName ?? "tool",
+                data: {
+                    phase: "output",
+                    output: options.output,
+                    isError: false,
+                },
+            };
+        case AskResponseResultEvent.MESSAGE_COMPOSING_COMPLETED:
+            return {
+                key: `message:step:${options.step ?? 0}`,
+                kind: "status",
+                status: "completed",
+                name: "message_composing",
+            };
+        case AskResponseResultEvent.SESSION_COMPRESSION_RUNNING:
+            return {
+                key: "session:compression",
+                kind: "status",
+                status: "running",
+                name: "session_compression",
+            };
+        case AskResponseResultEvent.SESSION_COMPRESSION_COMPLETED:
+            return {
+                key: "session:compression",
+                kind: "status",
+                status: "completed",
+                name: "session_compression",
+                ...(options.error === undefined ? {} : { data: { error: options.error } }),
+            };
+        case AskResponseResultEvent.SESSION_RENAMED_COMPLETED:
+            return {
+                key: "session:rename",
+                kind: "status",
+                status: "completed",
+                name: "session_renamed",
+                ...(options.title === undefined ? {} : { data: { title: options.title } }),
+            };
+    }
+};
+
 type HandledEvent =
     | {
           type: "start-step" | "reasoning-start" | "reasoning-delta" | "text-delta" | "finish-step";
@@ -67,6 +158,7 @@ type HandledEvent =
 export class AskResponse extends EventEmitter {
     private outputText = "";
     private currentStep = 0;
+    private ended = false;
 
     constructor(private readonly runResult: AskResponseLike) {
         super();
@@ -89,33 +181,31 @@ export class AskResponse extends EventEmitter {
                     case "start-step":
                         this.currentStep += 1;
 
-                        this.emit("activity", {
-                            key: `reasoning:step:${this.currentStep}`,
-                            kind: "reasoning",
-                            status: "running",
-                            name: "reasoning_started",
-                        });
+                        this.emit(
+                            "activity",
+                            createAskReponseResult(AskResponseResultEvent.REASONING_RUNNING, {
+                                step: this.currentStep,
+                            }),
+                        );
 
                         break;
                     case "reasoning-start":
-                        this.emit("activity", {
-                            key: `reasoning:step:${this.currentStep}`,
-                            kind: "reasoning",
-                            status: "running",
-                            name: "reasoning_started",
-                        });
+                        this.emit(
+                            "activity",
+                            createAskReponseResult(AskResponseResultEvent.REASONING_RUNNING, {
+                                step: this.currentStep,
+                            }),
+                        );
 
                         break;
                     case "reasoning-delta":
-                        this.emit("activity", {
-                            key: `reasoning:step:${this.currentStep}`,
-                            kind: "reasoning",
-                            status: "running",
-                            name: "reasoning_started",
-                            data: {
+                        this.emit(
+                            "activity",
+                            createAskReponseResult(AskResponseResultEvent.REASONING_RUNNING, {
+                                step: this.currentStep,
                                 text: event.text ?? event.textDelta ?? event.delta,
-                            },
-                        });
+                            }),
+                        );
 
                         break;
                     case "text-delta": {
@@ -130,30 +220,25 @@ export class AskResponse extends EventEmitter {
                         break;
                     }
                     case "tool-call":
-                        this.emit("activity", {
-                            key: `tool:${String(event.toolCallId ?? event.toolName ?? "tool")}`,
-                            kind: "tool",
-                            status: "running",
-                            name: event.toolName ?? "tool",
-                            data: {
-                                phase: "called",
-                                arguments: event.input,
-                            },
-                        });
+                        this.emit(
+                            "activity",
+                            createAskReponseResult(AskResponseResultEvent.TOOL_RUNNING, {
+                                toolCallId: event.toolCallId,
+                                toolName: event.toolName,
+                                input: event.input,
+                            }),
+                        );
 
                         break;
                     case "tool-result":
-                        this.emit("activity", {
-                            key: `tool:${String(event.toolCallId ?? event.toolName ?? "tool")}`,
-                            kind: "tool",
-                            status: "completed",
-                            name: event.toolName ?? "tool",
-                            data: {
-                                phase: "output",
+                        this.emit(
+                            "activity",
+                            createAskReponseResult(AskResponseResultEvent.TOOL_COMPLETED, {
+                                toolCallId: event.toolCallId,
+                                toolName: event.toolName,
                                 output: event.output,
-                                isError: false,
-                            },
-                        });
+                            }),
+                        );
 
                         break;
                     case "error":
@@ -161,21 +246,33 @@ export class AskResponse extends EventEmitter {
 
                         break;
                     case "finish-step":
-                        this.emit("activity", {
-                            key: `message:step:${this.currentStep}`,
-                            kind: "status",
-                            status: "completed",
-                            name: "message_composing",
-                        });
+                        this.emit(
+                            "activity",
+                            createAskReponseResult(
+                                AskResponseResultEvent.MESSAGE_COMPOSING_COMPLETED,
+                                {
+                                    step: this.currentStep,
+                                },
+                            ),
+                        );
 
                         break;
                 }
             }
 
-            this.emit("end");
+            this.emit("response-end");
         } catch (error) {
             this.emit("error", error);
         }
+    }
+
+    finish() {
+        if (this.ended) {
+            return;
+        }
+
+        this.ended = true;
+        this.emit("end");
     }
 
     /**

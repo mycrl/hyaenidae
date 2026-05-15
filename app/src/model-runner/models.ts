@@ -64,6 +64,11 @@ const collectAsyncIterator = async <T>(iter: AsyncIterable<T>): Promise<T[]> => 
 };
 
 export namespace RemoteModelsManager {
+    type DownloadProgress = {
+        path: string;
+        progress: number;
+    };
+
     /**
      * Search Hugging Face for downloadable GGUF models and keep the payload shape
      * aligned with the UI-facing model list.
@@ -102,7 +107,7 @@ export namespace RemoteModelsManager {
      */
     export const download = async (
         { name, files }: { name: string; files: File[] },
-        onProgress?: (progress: number) => void,
+        onProgress?: (update: DownloadProgress) => void,
     ) => {
         const [username, model] = name.split("/") as [string, string];
         if (!username || !model) {
@@ -122,44 +127,67 @@ export namespace RemoteModelsManager {
             await mkdir(modelDir, { recursive: true });
         }
 
-        const countSize = files.reduce((acc, file) => acc + file.size, 0);
-        if (countSize === 0) {
-            return;
-        }
-
-        let downloadedSize = 0;
-
         await Promise.all(
-            files.map(async ({ path: item }) => {
-                const response = await downloadFile({
-                    repo: {
-                        type: "model",
-                        name,
-                    },
-                    path: item,
-                });
-
-                if (!response) {
-                    throw new Error(`File ${item} not found in model ${name}`);
-                }
-
-                await pipeline(
-                    response.stream(),
-                    // Create a transform stream to track download progress and
-                    // report it via the onProgress callback.
-                    new Transform({
-                        transform(chunk, _, callback) {
-                            if (onProgress && countSize > 0) {
-                                downloadedSize += chunk.length;
-
-                                onProgress(downloadedSize / countSize);
-                            }
-
-                            callback(null, chunk);
+            files.map(async ({ path: item, size }) => {
+                try {
+                    const response = await downloadFile({
+                        repo: {
+                            type: "model",
+                            name,
                         },
-                    }),
-                    createWriteStream(path.join(modelDir, item)),
-                );
+                        path: item,
+                    });
+
+                    if (!response) {
+                        const error = new Error(
+                            `File ${item} not found in model ${name}`,
+                        ) as Error & {
+                            path?: string;
+                        };
+                        error.path = item;
+                        throw error;
+                    }
+
+                    let downloadedSize = 0;
+
+                    await pipeline(
+                        response.stream(),
+                        // Track progress for the current file so the UI can key
+                        // updates by the actual artifact path.
+                        new Transform({
+                            transform(chunk, _, callback) {
+                                if (onProgress && size > 0) {
+                                    downloadedSize += chunk.length;
+
+                                    onProgress({
+                                        path: item,
+                                        progress: Math.min(downloadedSize / size, 1),
+                                    });
+                                }
+
+                                callback(null, chunk);
+                            },
+                        }),
+                        createWriteStream(path.join(modelDir, item)),
+                    );
+
+                    onProgress?.({
+                        path: item,
+                        progress: 1,
+                    });
+                } catch (error) {
+                    if (error instanceof Error) {
+                        const fileError = error as Error & { path?: string };
+                        fileError.path ??= item;
+                        throw fileError;
+                    }
+
+                    const fileError = new Error("Failed to download model file.") as Error & {
+                        path?: string;
+                    };
+                    fileError.path = item;
+                    throw fileError;
+                }
             }),
         );
     };

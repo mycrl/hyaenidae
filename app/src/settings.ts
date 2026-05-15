@@ -26,11 +26,11 @@ export class SettingsManager {
             this.settings = JSON.parse(
                 safeStorage.decryptString(await readFile(CONFIG.settingsFilePath)),
             );
+
+            console.info("Loaded settings:", this.settings);
         } catch {
             console.warn("No existing settings found, starting with empty settings.");
         }
-
-        console.info("Loaded settings:", this.settings);
 
         return this.settings;
     }
