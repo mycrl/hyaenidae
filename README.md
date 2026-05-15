@@ -5,3 +5,5 @@
 <p align="center">
   An AI browser with DOM-first automation, vision fallback, tool calling, and flexible multi-provider support.
 </p>
+
+![capture](./capture.png)
