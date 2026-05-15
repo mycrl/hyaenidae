@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { Layout } from "@hyaenidae/bridge";
 import type { Tab } from "./shell";
+import { useSettingsStore } from "./settings.state";
 import {
     closeTab,
     createTab,
@@ -201,7 +202,10 @@ export const useShellStore = create<ShellState>((set, get) => ({
             return;
         }
 
-        await loadTab(activeTabId, "about:home");
+        await loadTab(
+            activeTabId,
+            useSettingsStore.getState().settings.homeUrl ?? __APP_CONFIG__.defaultTabUrl,
+        );
     },
     navigateTo: async (url) => {
         const { activeTabId } = get();

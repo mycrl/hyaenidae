@@ -1,7 +1,7 @@
 @reference "tailwindcss";
 
 .settings-banner {
-    @apply mb-3 rounded-lg border px-3 py-2 text-[13px];
+    @apply mb-3 rounded-lg border px-3 py-2 text-xs;
 }
 
 .settings-banner-neutral {

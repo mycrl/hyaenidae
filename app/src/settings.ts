@@ -1,6 +1,8 @@
 import { safeStorage } from "electron";
-import { writeFile, readFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { CONFIG } from "./config";
+import { AppSettings } from "@hyaenidae/bridge";
 
 /**
  * SettingsManager is responsible for reading and writing application settings
@@ -11,34 +13,41 @@ import { CONFIG } from "./config";
  * subdirectory of the user's data path.
  */
 export class SettingsManager {
-    private settings: any = null;
+    private settings: AppSettings | null = null;
 
     constructor() {
         console.info("SettingsManager initialized with path:", CONFIG.settingsFilePath);
     }
 
-    async load() {
+    load() {
         if (this.settings) {
             return this.settings;
         }
 
         try {
             this.settings = JSON.parse(
-                safeStorage.decryptString(await readFile(CONFIG.settingsFilePath)),
+                safeStorage.decryptString(readFileSync(CONFIG.settingsFilePath)),
             );
 
             console.info("Loaded settings:", this.settings);
         } catch {
+            this.settings = {
+                schemaVersion: 1,
+                providers: [],
+                localRunner: {},
+                defaultFontFamily: {},
+            } as unknown as AppSettings;
+
             console.warn("No existing settings found, starting with empty settings.");
         }
 
-        return this.settings;
+        return this.settings!!;
     }
 
-    async restore(settings: any) {
+    async restore(settings: Partial<AppSettings>) {
         console.info("Restoring settings:", settings);
 
-        this.settings = settings;
+        this.settings = Object.assign(this.settings as any, settings);
 
         await writeFile(
             CONFIG.settingsFilePath,

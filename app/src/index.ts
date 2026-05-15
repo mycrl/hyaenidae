@@ -27,7 +27,7 @@ browser.shell.bridge.handle("shell:settings-get", async () => {
 });
 
 browser.shell.bridge.handle("shell:settings-set", async ({ settings }) => {
-    await settingsManager.restore(settings);
+    await settingsManager.restore(settings as any);
 
     browser.shell.bridge.send("shell:settings-changed");
 });
@@ -173,9 +173,7 @@ browser.shell.bridge.handle("agent:chat-stop", async ({ askId }) => {
         if (!isReady) {
             isReady = true;
 
-            console.info("Shell is ready. Creating initial tab with URL:", CONFIG.defaultTabUrl);
-
-            await browser.create(CONFIG.defaultTabUrl);
+            await browser.create(settingsManager.load().homeUrl ?? CONFIG.defaultTabUrl);
         }
     });
 }

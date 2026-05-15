@@ -4,13 +4,15 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AsyncButton from "../../components/async-button";
-import { DEFAULT_SETTINGS, cloneSettings, type AppSettings } from "../../services/settings";
+import { DEFAULT_SETTINGS, cloneSettings } from "../../services/settings";
 import { useSettingsStore } from "../../services/settings.state";
 import LocalModelSection from "./local-model";
 import ProviderSection from "./provider";
+import BrowserSection from "./browser";
 import Sidebar, { type SettingsSection } from "./components/sidebar";
+import type { AppSettings } from "@hyaenidae/bridge";
 
-type SectionId = "providers" | "local-models";
+type SectionId = "providers" | "local-models" | "browser";
 
 const getErrorMessage = (error: unknown, fallbackMessage: string) =>
     error instanceof Error && error.message.trim() ? error.message : fallbackMessage;
@@ -64,6 +66,11 @@ export default function SettingsPage() {
                 title: t("settings.sections.localModels.title"),
                 description: t("settings.sections.localModels.description"),
             },
+            {
+                id: "browser",
+                title: t("settings.sections.browser.title"),
+                description: t("settings.sections.browser.description"),
+            },
         ],
         [t],
     );
@@ -113,6 +120,10 @@ export default function SettingsPage() {
                             onSettingsChange={applyDraftPatch}
                             onError={reportError}
                         />
+                    ) : null}
+
+                    {activeSection === "browser" ? (
+                        <BrowserSection settings={draft} onSettingsChange={applyDraftPatch} />
                     ) : null}
 
                     <div className="settings-page-actions">

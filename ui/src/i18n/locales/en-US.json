@@ -97,6 +97,40 @@
             "custom": "Custom",
             "local-runner": "Local runner"
         },
+        "browser": {
+            "homepage": {
+                "title": "Home button",
+                "description": "Choose what opens when the home button is clicked.",
+                "openNewTab": "Open a new tab",
+                "customUrl": "Enter a custom URL",
+                "customUrlPlaceholder": "https://example.com"
+            },
+            "fontSize": {
+                "title": "Font size",
+                "description": "Adjust the default text size used by browser content.",
+                "options": {
+                    "xSmall": "Very small",
+                    "small": "Small",
+                    "medium": "Medium (recommended)",
+                    "large": "Large",
+                    "xLarge": "Very large"
+                }
+            },
+            "fonts": {
+                "title": "Fonts",
+                "description": "Set default font families for different font categories.",
+                "standardFontLabel": "Standard font",
+                "serifFontLabel": "Serif font",
+                "sansSerifFontLabel": "Sans-serif font",
+                "monospaceFontLabel": "Monospace font",
+                "options": {
+                    "system": "System default",
+                    "serif": "Serif",
+                    "sansSerif": "Sans-serif",
+                    "monospace": "Monospace"
+                }
+            }
+        },
         "localRunnerProvider": {
             "title": "local-runner",
             "description": "This provider is reserved for local execution and does not expose a URL or API key in settings.",
@@ -152,6 +186,10 @@
             "localModels": {
                 "title": "Local models",
                 "description": "Search, download, delete, and start a local runner."
+            },
+            "browser": {
+                "title": "Browser",
+                "description": "Set default search engine, homepage, fonts, and more."
             }
         }
     }

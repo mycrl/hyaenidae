@@ -9,7 +9,7 @@ import {
     LOCAL_MODEL_SEARCH_ERROR_CODE,
     type LocalModelSearchErrorCode,
     useLocalModelSearchStore,
-} from "../../../services/local-model-search.state";
+} from "../../../services/model.state";
 
 const LOCAL_MODEL_SEARCH_ERROR_TRANSLATION_KEYS: Record<LocalModelSearchErrorCode, string> = {
     [LOCAL_MODEL_SEARCH_ERROR_CODE.SEARCH_FAILED]: "settings.localModels.failed",

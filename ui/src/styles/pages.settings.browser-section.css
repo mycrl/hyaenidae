@@ -1,0 +1,50 @@
+@reference "tailwindcss";
+
+.browser-settings-stack {
+    @apply space-y-4;
+}
+
+.browser-settings-group {
+    @apply rounded-xl border border-slate-200 bg-slate-50 p-4;
+}
+
+.browser-settings-group-header {
+    @apply mb-3;
+}
+
+.browser-settings-group-title {
+    @apply text-xs font-medium text-slate-900;
+}
+
+.browser-settings-group-description {
+    @apply mt-1 text-[11px] leading-[1.125rem] text-slate-500;
+}
+
+.browser-settings-homepage-options {
+    @apply grid gap-3;
+}
+
+.browser-settings-option {
+    @apply flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3;
+}
+
+.browser-settings-option-main {
+    @apply flex items-center gap-3 text-xs text-slate-700;
+}
+
+.browser-settings-checkbox {
+    @apply h-4 w-4 shrink-0 accent-blue-600;
+}
+
+.browser-settings-text-control,
+.browser-settings-select-control {
+    @apply h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs text-slate-700 outline-none transition-colors focus:border-blue-500;
+}
+
+.browser-settings-compact-field {
+    @apply max-w-xs;
+}
+
+.browser-settings-font-grid {
+    @apply grid gap-3 md:grid-cols-2;
+}

@@ -1,105 +1,7 @@
 import { ipcRenderer, type WebContents } from "electron";
+import * as Types from "./types";
 
-export interface Layout {
-    tabBarHeight: number;
-    agentPanelWidth: number;
-}
-
-export type ModelProvider = (
-    | { type: "google" }
-    | { type: "openai" }
-    | { type: "custom"; baseUrl: string }
-) & { model: string; apiKey?: string };
-
-export interface AgentSession {
-    id: number;
-    name?: string;
-}
-
-export interface AgentAskOptions {
-    modelProvider: ModelProvider;
-    session: number;
-    message: string;
-    locale: string;
-}
-
-export interface AgentStreamItem {
-    sessionId: number;
-    askId: number;
-    message: string;
-}
-
-export interface AgentActivityItem {
-    sessionId: number;
-    askId: number;
-    key: string;
-    kind: "reasoning" | "tool" | "status";
-    status: "running" | "completed";
-    name: string;
-    data?: unknown;
-}
-
-export interface AgentResult {
-    sessionId: number;
-    askId: number;
-    error?: string;
-}
-
-export type AgentResponseEvent =
-    | ({ type: "text" } & AgentStreamItem)
-    | ({ type: "activity" } & AgentActivityItem)
-    | ({ type: "done" } & AgentResult);
-
-export interface ModelInfo {
-    id: string;
-    name: string;
-    downloads: number;
-    updatedAt: string;
-    links: number;
-    task?: string;
-    author: string;
-    tags: string[];
-}
-
-export interface ModelFileInfo {
-    type: "model" | "mmproj";
-    size: number;
-    path: string;
-}
-
-export interface StartRunnerOptions {
-    model: string;
-    modelFile: string;
-    mmprojFile?: string;
-    runner: string;
-}
-
-export interface ShowContextMenuOptions {
-    x: number;
-    y: number;
-    tabId: number;
-}
-
-export interface AddToChatOptions {
-    tabId: number;
-    selected?: {
-        content: string;
-        type: "text" | "image" | "link";
-    };
-}
-
-export interface BrowserContextPayload {
-    source: "browser";
-    tab: {
-        id: number;
-        title: string | null;
-        url: string | null;
-    };
-    selection?: {
-        type: "text" | "image" | "link";
-        content: string;
-    };
-}
+export * from "./types";
 
 export interface Api {
     /**
@@ -161,7 +63,7 @@ export interface Api {
     /**
      * Toggles the visibility of the agent panel
      */
-    "shell:layout-changed": [Layout, void];
+    "shell:layout-changed": [Types.Layout, void];
 
     /**
      * Triggers when a tab's title is updated, providing the tab ID and the new
@@ -234,22 +136,22 @@ export interface Api {
     /**
      * Triggers when the context menu should be shown
      */
-    "shell:show-context-menu": [ShowContextMenuOptions, void];
+    "shell:show-context-menu": [Types.ShowContextMenuOptions, void];
 
     /**
      * Adds the currently selected content (text, image, or link) to the chat input
      */
-    "shell:add-to-chat": [AddToChatOptions, void];
+    "shell:add-to-chat": [Types.AddToChatOptions, void];
 
     /**
      * Reads the application settings.
      */
-    "shell:settings-get": [void, { settings: unknown }];
+    "shell:settings-get": [void, { settings: Types.AppSettings }];
 
     /**
      * Writes the application settings.
      */
-    "shell:settings-set": [{ settings: unknown }, void];
+    "shell:settings-set": [{ settings: Partial<Types.AppSettings> }, void];
 
     /**
      * Triggers when the application settings are changed.
@@ -263,17 +165,17 @@ export interface Api {
     /**
      * Search for models on the Hugging Face hub using a query string.
      */
-    "model:search": [{ query: string; limit?: number }, { models: ModelInfo[] }];
+    "model:search": [{ query: string; limit?: number }, { models: Types.ModelInfo[] }];
 
     /**
      * Retrieve downloadable files for a given model repository.
      */
-    "model:get-files": [{ model: string }, { files: ModelFileInfo[] }];
+    "model:get-files": [{ model: string }, { files: Types.ModelFileInfo[] }];
 
     /**
      * Download a model artifact (and optional mmproj) into the local cache.
      */
-    "model:download": [{ name: string; files: ModelFileInfo[] }, void];
+    "model:download": [{ name: string; files: Types.ModelFileInfo[] }, void];
 
     /**
      * Triggers when a model download fails, providing the name of the model and
@@ -296,7 +198,7 @@ export interface Api {
     /**
      * List downloaded GGUF files for a locally cached model repository.
      */
-    "model:get-local-model-files": [{ model: string }, { files: ModelFileInfo[] }];
+    "model:get-local-model-files": [{ model: string }, { files: Types.ModelFileInfo[] }];
 
     /**
      * Remove a locally cached model directory.
@@ -316,7 +218,7 @@ export interface Api {
     /**
      * Start a runner for the specified local model and return connection info.
      */
-    "model:start-runner": [StartRunnerOptions, { baseUrl: string; apiKey: string }];
+    "model:start-runner": [Types.StartRunnerOptions, { baseUrl: string; apiKey: string }];
 
     /**
      * Stop the currently running local runner (if any).
@@ -330,17 +232,17 @@ export interface Api {
     /**
      * Retrieves a list of available models for a given provider ID.
      */
-    "agent:provider-get-models": [ModelProvider, { models: string[] }];
+    "agent:provider-get-models": [Types.ModelProvider, { models: string[] }];
 
     /**
      * Retrieves a list of active agent sessions.
      */
-    "agent:session-list": [void, { sessions: AgentSession[] }];
+    "agent:session-list": [void, { sessions: Types.AgentSession[] }];
 
     /**
      * Creates a new agent session with an optional name.
      */
-    "agent:session-create": [{ name?: string }, AgentSession];
+    "agent:session-create": [{ name?: string }, Types.AgentSession];
 
     /**
      * Removes an existing agent session by its unique ID.
@@ -350,12 +252,12 @@ export interface Api {
     /**
      * Sends a message to an agent or chat model.
      */
-    "agent:chat-ask": [AgentAskOptions, { askId: number }];
+    "agent:chat-ask": [Types.AgentAskOptions, { askId: number }];
 
     /**
      * Streams all response-side updates for an agent/chat turn.
      */
-    "agent:chat-response": [AgentResponseEvent, void];
+    "agent:chat-response": [Types.AgentResponseEvent, void];
 
     /**
      * Stops an ongoing conversation with an agent or chat model, providing the

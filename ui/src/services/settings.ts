@@ -1,37 +1,10 @@
-export type ApiProviderType = "google" | "openai" | "custom" | "local-runner";
-
-type NullableString = string | null;
-
-export interface ApiProviderSettings {
-    id: string;
-    name: NullableString;
-    type: ApiProviderType;
-    baseUrl: NullableString;
-    apiKey: NullableString;
-}
-
-export interface LocalRunnerSettings {
-    runner: NullableString;
-    model: NullableString;
-    modelFile: NullableString;
-    mmprojFile: NullableString;
-}
-
-export interface AppSettings {
-    schemaVersion: 1;
-    providers: ApiProviderSettings[];
-    localRunner: LocalRunnerSettings;
-    defaultProviderId: NullableString;
-    defaultModelId: NullableString;
-}
-
-export const DEFAULT_SETTINGS: AppSettings = {
-    schemaVersion: 1,
-    providers: [createLocalRunnerProvider()],
-    localRunner: createLocalRunnerSettings(),
-    defaultProviderId: null,
-    defaultModelId: null,
-};
+import type {
+    ApiProviderSettings,
+    ApiProviderType,
+    AppSettings,
+    LocalRunnerSettings,
+    Optional,
+} from "@hyaenidae/bridge";
 
 export function createLocalRunnerSettings(): LocalRunnerSettings {
     return {
@@ -60,10 +33,26 @@ export const createProviderSettings = (): ApiProviderSettings => ({
     apiKey: null,
 });
 
+export const DEFAULT_SETTINGS: AppSettings = {
+    schemaVersion: 1,
+    providers: [createLocalRunnerProvider()],
+    localRunner: createLocalRunnerSettings(),
+    defaultProviderId: null,
+    defaultModelId: null,
+    defaultFontFamily: {
+        standard: null,
+        serif: null,
+        sansSerif: null,
+        monospace: null,
+    },
+    defaultFontSize: null,
+    homeUrl: null,
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null && !Array.isArray(value);
 
-const toNullableString = (value: unknown): NullableString => {
+const toNullableString = (value: unknown): Optional<string> => {
     if (typeof value !== "string") {
         return null;
     }
@@ -104,6 +93,7 @@ export const normalizeSettings = (value: unknown): AppSettings => {
     const providers = Array.isArray(record.providers)
         ? record.providers.map((provider, index) => normalizeProvider(provider, index))
         : DEFAULT_SETTINGS.providers.map((provider) => ({ ...provider }));
+    const defaultFontFamily = isRecord(record.defaultFontFamily) ? record.defaultFontFamily : {};
 
     return {
         schemaVersion: 1,
@@ -116,6 +106,14 @@ export const normalizeSettings = (value: unknown): AppSettings => {
         },
         defaultProviderId: toNullableString(record.defaultProviderId),
         defaultModelId: toNullableString(record.defaultModelId),
+        defaultFontFamily: {
+            standard: toNullableString(defaultFontFamily.standard),
+            serif: toNullableString(defaultFontFamily.serif),
+            sansSerif: toNullableString(defaultFontFamily.sansSerif),
+            monospace: toNullableString(defaultFontFamily.monospace),
+        },
+        defaultFontSize: typeof record.defaultFontSize === "number" ? record.defaultFontSize : null,
+        homeUrl: toNullableString(record.homeUrl),
     };
 };
 
@@ -125,6 +123,9 @@ export const cloneSettings = (settings: AppSettings): AppSettings => ({
     localRunner: { ...settings.localRunner },
     defaultProviderId: settings.defaultProviderId,
     defaultModelId: settings.defaultModelId,
+    defaultFontFamily: { ...settings.defaultFontFamily },
+    defaultFontSize: settings.defaultFontSize,
+    homeUrl: settings.homeUrl,
 });
 
 export const mergeSettings = (current: AppSettings, patch: Partial<AppSettings>): AppSettings => {

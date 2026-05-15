@@ -6,7 +6,7 @@ import {
     PlayIcon,
     TrashIcon,
 } from "@heroicons/react/24/outline";
-import type { StartRunnerOptions } from "@hyaenidae/bridge";
+import type { StartRunnerOptions, AppSettings, LocalRunnerSettings } from "@hyaenidae/bridge";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AsyncButton from "../../../components/async-button";
@@ -19,7 +19,6 @@ import {
     startRunner,
     stopRunner,
 } from "../../../services/model";
-import type { AppSettings, LocalRunnerSettings } from "../../../services/settings";
 import { useSettingsStore } from "../../../services/settings.state";
 import Card from "../components/card";
 import FieldLabel from "../components/field-label";

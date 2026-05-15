@@ -2,9 +2,9 @@ import type {
     AddToChatOptions,
     AgentResponseEvent,
     AgentSession,
+    ApiProviderSettings,
     ModelProvider,
 } from "@hyaenidae/bridge";
-import type { ApiProviderSettings } from "./settings";
 
 const TOOL_UNFRIENDLY_MODEL_PATTERN =
     /embed|embedding|rerank|moderation|whisper|tts|stt|transcribe|vision-preview|omni-moderation/i;

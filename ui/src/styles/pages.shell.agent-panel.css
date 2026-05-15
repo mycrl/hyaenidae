@@ -101,7 +101,7 @@
 }
 
 .agent-empty-greeting {
-    @apply text-sm leading-7 text-slate-600;
+    @apply text-xs leading-7 text-slate-600;
 }
 
 .agent-message {

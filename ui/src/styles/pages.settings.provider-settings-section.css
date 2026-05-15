@@ -5,11 +5,11 @@
 }
 
 .provider-settings-hint {
-    @apply text-[13px] leading-5 text-slate-600;
+    @apply text-xs leading-5 text-slate-600;
 }
 
 .provider-settings-add-button {
-    @apply inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[13px] text-slate-700 transition-colors hover:bg-slate-50;
+    @apply inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs text-slate-700 transition-colors hover:bg-slate-50;
 }
 
 .provider-settings-add-icon,
@@ -22,7 +22,7 @@
 }
 
 .provider-settings-empty {
-    @apply rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-[13px] text-slate-500;
+    @apply rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-xs text-slate-500;
 }
 
 .provider-settings-item {
@@ -36,7 +36,7 @@
 
 .provider-settings-item-title,
 .local-runner-provider-card-title {
-    @apply text-[13px] font-medium text-slate-900;
+    @apply text-xs font-medium text-slate-900;
 }
 
 .provider-settings-item-description,
@@ -58,11 +58,11 @@
 }
 
 .provider-settings-control {
-    @apply h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none focus:border-blue-500;
+    @apply h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none focus:border-blue-500;
 }
 
 .provider-settings-control-readonly {
-    @apply h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-[13px] outline-none;
+    @apply h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-xs outline-none;
 }
 
 .local-runner-provider-card {

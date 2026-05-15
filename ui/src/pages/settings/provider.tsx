@@ -1,14 +1,11 @@
-import "../../../styles/pages.settings.provider-settings-section.css";
+import "../../styles/pages.settings.provider-settings-section.css";
 
 import { PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
 import { useTranslation } from "react-i18next";
-import {
-    createProviderSettings,
-    type ApiProviderSettings,
-    type ApiProviderType,
-} from "../../../services/settings";
-import Card from "../components/card";
-import FieldLabel from "../components/field-label";
+import { createProviderSettings } from "../../services/settings";
+import Card from "./components/card";
+import FieldLabel from "./components/field-label";
+import type { ApiProviderSettings, ApiProviderType } from "@hyaenidae/bridge";
 
 const providerTypeOptions: ApiProviderType[] = ["openai", "google", "custom"];
 

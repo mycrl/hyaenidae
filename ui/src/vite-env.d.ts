@@ -7,8 +7,18 @@ declare global {
         bridge: BridgeRenderer;
     };
 
+    interface FontData {
+        family: string;
+        fullName: string;
+        postscriptName: string;
+        style: string;
+    }
+
+    function queryLocalFonts(): Promise<FontData[]>;
+
     const __APP_CONFIG__: {
         settingsUrl: string;
+        defaultTabUrl: string;
     };
 }
 

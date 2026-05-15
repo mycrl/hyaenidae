@@ -3,6 +3,7 @@ import {
     WebContents,
     WebContentsView,
     WebContentsViewConstructorOptions,
+    WebPreferences,
 } from "electron";
 import EventEmitter from "node:events";
 import { Layout, Bridge } from "@hyaenidae/bridge";
@@ -47,8 +48,8 @@ function smartParseURL(input: string, searchEngine = "https://www.google.com/sea
     const urlPattern = /^[a-z0-9-]+(\.[a-z0-9-]+)+([/?#].*)?$/i;
 
     if (urlPattern.test(trimmedInput)) {
-        // Prepend https:// when the protocol is omitted.
-        return `https://${trimmedInput}`;
+        // Prepend http:// when the protocol is omitted.
+        return `http://${trimmedInput}`;
     }
 
     // 4. Fall back to the default search engine.
@@ -67,16 +68,183 @@ async function loadUrl(webContents: WebContents, uri: string) {
     await webContents.loadURL(url);
 }
 
+export enum TabKind {
+    Shell = "shell",
+    Other = "other",
+}
+
 /**
  * Extended WebContentsView with a built-in RPC channel.
  */
 export class Tab extends WebContentsView {
     public readonly bridge = new Bridge(this.webContents);
 
-    constructor(options: WebContentsViewConstructorOptions) {
-        super(options);
+    constructor(
+        kind: TabKind,
+        browser: Browser,
+        settingsManager: SettingsManager,
+        modelRunnerCounter: ModelRunnerCounter,
+        options: WebContentsViewConstructorOptions,
+    ) {
+        const settings = settingsManager.load();
+        super({
+            ...options,
+            webPreferences: {
+                ...options.webPreferences,
+                defaultFontSize: settings.defaultFontSize,
+                defaultFontFamily: settings.defaultFontFamily,
+            } as WebPreferences,
+        });
+
+        const tab = this;
+        const id = tab.webContents.id;
+
+        /**
+         * Register a context menu for the tab. The shell tab gets a different
+         * menu with additional options, while other tabs get a standard menu
+         * with common actions like reload and view source.
+         */
+        if (kind === TabKind.Shell) {
+            registerContextMenu({
+                browser,
+                tab,
+                isShell: true,
+            });
+        } else {
+            registerContextMenu({
+                browser,
+                tab,
+            });
+        }
+
+        /**
+         * Wire up web contents events to send messages to the shell for UI updates
+         */
+        if (kind === TabKind.Other) {
+            tab.webContents.on("page-title-updated", async (_, title) => {
+                await browser.shell.bridge.request("shell:tab-title-changed", {
+                    id,
+                    title,
+                });
+            });
+
+            tab.webContents.on("destroyed", async () => {
+                await browser.shell.bridge.request("shell:tab-destroyed", { id });
+            });
+
+            tab.webContents.on("did-start-loading", async () => {
+                await browser.shell.bridge.request("shell:tab-start-loading", {
+                    id,
+                });
+            });
+
+            tab.webContents.on("did-stop-loading", async () => {
+                await browser.shell.bridge.request("shell:tab-stop-loading", {
+                    id,
+                });
+            });
+
+            tab.webContents.on("did-navigate", async (_, url) => {
+                await browser.shell.bridge.request("shell:tab-url-updated", {
+                    id,
+                    url,
+                });
+            });
+
+            tab.webContents.setWindowOpenHandler(({ url }) => {
+                browser.create(url).catch((error) => {
+                    console.error("Failed to open new tab for URL:", url, error);
+                });
+
+                return { action: "deny" };
+            });
+
+            tab.bridge.handle("shell:settings-get", async () => {
+                return {
+                    settings: await settingsManager.load(),
+                };
+            });
+
+            tab.bridge.handle("shell:settings-set", async ({ settings }) => {
+                await settingsManager.restore(settings as any);
+
+                browser.shell.bridge.send("shell:settings-changed");
+            });
+
+            tab.bridge.handle("model:search", async ({ query, limit }) => {
+                return {
+                    models: await RemoteModelsManager.search(query, limit),
+                };
+            });
+
+            tab.bridge.handle("model:get-files", async ({ model }) => {
+                return {
+                    files: await RemoteModelsManager.getFiles(model),
+                };
+            });
+
+            tab.bridge.on("model:download", (options) => {
+                RemoteModelsManager.download(options, ({ path, progress }) => {
+                    tab.bridge.send("model:download-progress", {
+                        name: options.name,
+                        path,
+                        progress,
+                    });
+                }).catch((error) => {
+                    const path =
+                        error instanceof Error && "path" in error && typeof error.path === "string"
+                            ? error.path
+                            : "";
+
+                    tab.bridge.send("model:download-fail", {
+                        name: options.name,
+                        path,
+                        error: error instanceof Error ? error.message : "Failed to download model.",
+                    });
+                });
+            });
+
+            tab.bridge.handle("model:get-local-models", async () => {
+                return {
+                    models: await LocalModelsManager.list(),
+                };
+            });
+
+            tab.bridge.handle("model:get-local-model-files", async ({ model }) => {
+                return {
+                    files: await LocalModelsManager.getFiles(model),
+                };
+            });
+
+            tab.bridge.handle("model:remove-local-model", async ({ model }) => {
+                await LocalModelsManager.remove(model);
+            });
+
+            tab.bridge.handle("model:get-runners", async () => {
+                return {
+                    runners: await modelRunnerCounter.getRunners(),
+                };
+            });
+
+            tab.bridge.handle("model:get-runner-status", async () => {
+                return {
+                    running: modelRunnerCounter.isRunning,
+                };
+            });
+
+            tab.bridge.handle("model:start-runner", async (options) => {
+                return await modelRunnerCounter.start(options);
+            });
+
+            tab.bridge.handle("model:stop-runner", async () => {
+                await modelRunnerCounter.stop();
+            });
+        }
     }
 
+    /**
+     * Closes the web contents associated with this tab
+     */
     destroy() {
         this.webContents.close();
     }
@@ -110,7 +278,7 @@ export class Browser extends EventEmitter {
 
         console.info("Browser view initialized");
 
-        this.shell = new Tab({
+        this.shell = new Tab(TabKind.Shell, this, this.settingsManager, this.modelRunnerCounter, {
             webPreferences: {
                 preload: CONFIG.preloadScriptPath,
                 contextIsolation: true,
@@ -124,12 +292,6 @@ export class Browser extends EventEmitter {
             loadUrl(this.shell.webContents, CONFIG.shellUrl);
             this.syncBounds();
             this.baseWindow.contentView.addChildView(this.shell);
-
-            registerContextMenu({
-                tab: this.shell,
-                browser: this,
-                isShell: true,
-            });
 
             if (CONFIG.openDevTools) {
                 this.shell.webContents.openDevTools({
@@ -184,7 +346,7 @@ export class Browser extends EventEmitter {
     async create(url: string = "about:blank") {
         const isHyaenidaeUrl = isApplicationRegisteredUrl(url);
 
-        const tab = new Tab({
+        const tab = new Tab(TabKind.Other, this, this.settingsManager, this.modelRunnerCounter, {
             webPreferences: isHyaenidaeUrl
                 ? {
                       preload: CONFIG.preloadScriptPath,
@@ -201,134 +363,10 @@ export class Browser extends EventEmitter {
             });
         }
 
-        const id = tab.webContents.id;
-
         this.tabs.push(tab);
         this.syncBounds();
 
-        registerContextMenu({
-            browser: this,
-            tab,
-        });
-
-        {
-            tab.webContents.on("page-title-updated", async (_, title) => {
-                await this.shell.bridge.request("shell:tab-title-changed", {
-                    id,
-                    title,
-                });
-            });
-
-            tab.webContents.on("destroyed", async () => {
-                await this.shell.bridge.request("shell:tab-destroyed", { id });
-            });
-
-            tab.webContents.on("did-start-loading", async () => {
-                await this.shell.bridge.request("shell:tab-start-loading", {
-                    id,
-                });
-            });
-
-            tab.webContents.on("did-stop-loading", async () => {
-                await this.shell.bridge.request("shell:tab-stop-loading", {
-                    id,
-                });
-            });
-
-            tab.webContents.on("did-navigate", async (_, url) => {
-                await this.shell.bridge.request("shell:tab-url-updated", {
-                    id,
-                    url,
-                });
-            });
-
-            tab.webContents.setWindowOpenHandler(({ url }) => {
-                this.create(url);
-
-                return { action: "deny" };
-            });
-
-            tab.bridge.handle("shell:settings-get", async () => {
-                return {
-                    settings: await this.settingsManager.load(),
-                };
-            });
-
-            tab.bridge.handle("shell:settings-set", async ({ settings }) => {
-                await this.settingsManager.restore(settings);
-
-                this.shell.bridge.send("shell:settings-changed");
-            });
-
-            tab.bridge.handle("model:search", async ({ query, limit }) => {
-                return {
-                    models: await RemoteModelsManager.search(query, limit),
-                };
-            });
-
-            tab.bridge.handle("model:get-files", async ({ model }) => {
-                return {
-                    files: await RemoteModelsManager.getFiles(model),
-                };
-            });
-
-            tab.bridge.on("model:download", (options) => {
-                RemoteModelsManager.download(options, ({ path, progress }) => {
-                    tab.bridge.send("model:download-progress", {
-                        name: options.name,
-                        path,
-                        progress,
-                    });
-                }).catch((error) => {
-                    const path =
-                        error instanceof Error && "path" in error && typeof error.path === "string"
-                            ? error.path
-                            : "";
-
-                    tab.bridge.send("model:download-fail", {
-                        name: options.name,
-                        path,
-                        error: error instanceof Error ? error.message : "Failed to download model.",
-                    });
-                });
-            });
-
-            tab.bridge.handle("model:get-local-models", async () => {
-                return {
-                    models: await LocalModelsManager.list(),
-                };
-            });
-
-            tab.bridge.handle("model:get-local-model-files", async ({ model }) => {
-                return {
-                    files: await LocalModelsManager.getFiles(model),
-                };
-            });
-
-            tab.bridge.handle("model:remove-local-model", async ({ model }) => {
-                await LocalModelsManager.remove(model);
-            });
-
-            tab.bridge.handle("model:get-runners", async () => {
-                return {
-                    runners: await this.modelRunnerCounter.getRunners(),
-                };
-            });
-
-            tab.bridge.handle("model:get-runner-status", async () => {
-                return {
-                    running: this.modelRunnerCounter.isRunning,
-                };
-            });
-
-            tab.bridge.handle("model:start-runner", async (options) => {
-                return await this.modelRunnerCounter.start(options);
-            });
-
-            tab.bridge.handle("model:stop-runner", async () => {
-                await this.modelRunnerCounter.stop();
-            });
-        }
+        const id = tab.webContents.id;
 
         await this.shell.bridge.request("shell:tab-created", { id, url });
 
