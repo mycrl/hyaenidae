@@ -27,6 +27,10 @@ import { registerContextMenu } from "./context-menu";
 function smartParseURL(input: string, searchEngine = "https://www.google.com/search?q=") {
     const trimmedInput = input.trim();
 
+    if (trimmedInput.startsWith("http://") || trimmedInput.startsWith("https://")) {
+        return trimmedInput;
+    }
+
     // 1. Treat inputs containing spaces as search queries.
     if (trimmedInput.includes(" ")) {
         return searchEngine + encodeURIComponent(trimmedInput);
