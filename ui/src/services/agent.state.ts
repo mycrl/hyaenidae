@@ -770,15 +770,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             return;
         }
 
-        console.log(get().conversations, sessionId);
         const conversation = get().conversations[sessionId];
         if (conversation?.activeResponseId == null) {
             return;
         }
 
         try {
-            console.log("Stopping active response with id", conversation.activeResponseId);
-
             await stopAgentResponse(conversation.activeResponseId);
         } catch (error) {
             set((state) => ({
