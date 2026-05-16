@@ -6,7 +6,7 @@ import {
 } from "electron";
 import type { Browser } from ".";
 import type { SettingsManager } from "../settings";
-import type { ModelRunnerCounter } from "../model-runner";
+import type { ModelRunnerController } from "../model-runner";
 import { registerContextMenu } from "./menu";
 import {
     LocalModelsManager,
@@ -30,7 +30,7 @@ export class Tab extends WebContentsView {
         type: TabType,
         browser: Browser,
         settingsManager: SettingsManager,
-        modelRunnerCounter: ModelRunnerCounter,
+        modelRunnerController: ModelRunnerController,
         options: WebContentsViewConstructorOptions,
     ) {
         const settings = settingsManager.load();
@@ -165,17 +165,18 @@ export class Tab extends WebContentsView {
                     await LocalModelsManager.remove(model);
                 })
                 .handle("model:get-runners", async () => ({
-                    runners: await modelRunnerCounter.getRunners(),
+                    runners: await modelRunnerController.getRunners(),
                 }))
                 .handle("model:get-runner-status", async () => ({
-                    running: modelRunnerCounter.isRunning,
+                    running: modelRunnerController.isRunning,
                 }))
                 .handle(
                     "model:start-runner",
-                    async (options) => await modelRunnerCounter.start(options),
+                    async (options) =>
+                        await modelRunnerController.start(options),
                 )
                 .handle("model:stop-runner", async () => {
-                    await modelRunnerCounter.stop();
+                    await modelRunnerController.stop();
                 });
         }
     }

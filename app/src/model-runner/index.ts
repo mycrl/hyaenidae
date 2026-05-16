@@ -17,7 +17,7 @@ export interface StartRunnerOptions {
  * Responsible for listing available runners, starting a runner for a
  * specified model, and stopping the running loader instance.
  */
-export class ModelRunnerCounter {
+export class ModelRunnerController {
     /**
      * The currently active Loader instance. Null means no model is running.
      */

@@ -161,10 +161,29 @@ export interface Api {
     "shell:settings-changed": [void, void];
 
     /**
-     * Triggers when a download event occurs, providing details about the
-     * download such as the URL, file path, progress, and status
+     * Triggers when a download event occurs
      */
     "shell:download-event": [Types.DownloadEvent, void];
+
+    /**
+     * Lists all current download items with their details
+     */
+    "shell:list-download-items": [void, { items: Types.DownloadEvent[] }];
+
+    /**
+     * Pauses an active download by its unique ID
+     */
+    "shell:download-pause": [{ id: number }, void];
+
+    /**
+     * Resumes a paused download by its unique ID, if it can be resumed
+     */
+    "shell:download-resume": [{ id: number }, void];
+
+    /**
+     * Cancels an active download by its unique ID
+     */
+    "shell:download-cancel": [{ id: number }, void];
 
     /**
      * ============== Model Management =============

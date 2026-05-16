@@ -222,9 +222,19 @@ export function registerContextMenu({
                     visible:
                         options.selectionText !== "" ||
                         options.mediaType === "image",
+                    click: () => {
+                        if (options.mediaType === "image") {
+                            tab.webContents.copyImageAt(options.x, options.y);
+                        } else {
+                            tab.webContents.copy();
+                        }
+                    },
                 },
                 paste: {
                     visible: options.isEditable && options.editFlags.canPaste,
+                    click: () => {
+                        tab.webContents.paste();
+                    },
                 },
                 saveImage: {
                     visible: options.mediaType === "image",
@@ -250,6 +260,9 @@ export function registerContextMenu({
                 },
                 copyLink: {
                     visible: options.linkURL !== "",
+                    click: () => {
+                        tab.webContents.copy();
+                    },
                 },
                 openLinkInNewTab: {
                     visible: options.linkURL !== "",

@@ -3,7 +3,7 @@ import EventEmitter from "node:events";
 import { Layout } from "@hyaenidae/bridge";
 import { CONFIG } from "../config";
 import { SettingsManager } from "../settings";
-import { ModelRunnerCounter } from "../model-runner";
+import { ModelRunnerController } from "../model-runner";
 import { Tab, TabType } from "./tab";
 
 /**
@@ -82,7 +82,7 @@ export class Browser extends EventEmitter {
 
     constructor(
         private readonly settingsManager: SettingsManager,
-        private readonly modelRunnerCounter: ModelRunnerCounter,
+        private readonly modelRunnerController: ModelRunnerController,
     ) {
         super();
 
@@ -99,7 +99,7 @@ export class Browser extends EventEmitter {
             TabType.Shell,
             this,
             this.settingsManager,
-            this.modelRunnerCounter,
+            this.modelRunnerController,
             {
                 webPreferences: {
                     preload: CONFIG.preloadScriptPath,
@@ -124,28 +124,6 @@ export class Browser extends EventEmitter {
         // Handle window resizing to adjust content views
         this.baseWindow.on("resize", () => {
             this.syncBounds();
-        });
-
-        /**
-         * Handle download events from any tab's web contents session and
-         * forward them to the shell
-         */
-        session.defaultSession.on("will-download", (_, item) => {
-            for (const event of ["updated", "done"]) {
-                item.on(event as any, (_, type) => {
-                    this.shell.getBridge().send("shell:download-event", {
-                        type,
-                        url: item.getURL(),
-                        path: item.getSavePath(),
-                        filename: item.getFilename(),
-                        totalBytes: item.getTotalBytes(),
-                        receivedBytes: item.getReceivedBytes(),
-                        canResume: item.canResume(),
-                        bytesPerSecond: item.getReceivedBytes(),
-                        progress: item.getPercentComplete(),
-                    });
-                });
-            }
         });
     }
 
@@ -193,7 +171,7 @@ export class Browser extends EventEmitter {
             TabType.Other,
             this,
             this.settingsManager,
-            this.modelRunnerCounter,
+            this.modelRunnerController,
             {
                 webPreferences: isHyaenidaeUrl
                     ? {

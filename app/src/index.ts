@@ -9,17 +9,19 @@ import { Browser } from "./browser";
 import { CONFIG, initConfig } from "./config";
 import { SettingsManager } from "./settings";
 import { registerLogger } from "./logger";
-import { ModelRunnerCounter } from "./model-runner";
+import { ModelRunnerController } from "./model-runner";
 import { BaseTabInfo } from "@hyaenidae/bridge";
+import { DownloadController } from "./browser/download";
 
 registerLogger();
 initConfig();
 
 const coreService = new Hyaenidae();
 const settingsManager = new SettingsManager();
-const modelRunnerCounter = new ModelRunnerCounter();
-const browser = new Browser(settingsManager, modelRunnerCounter);
+const modelRunnerController = new ModelRunnerController();
+const browser = new Browser(settingsManager, modelRunnerController);
 const browserRuntime = new ElectronBrowserRuntime(browser);
+const downloadController = new DownloadController(browser);
 const shellBridge = browser.getShellBridge();
 
 let isReady = false;
@@ -53,6 +55,18 @@ shellBridge
     })
     .handle("shell:quit", async () => {
         app.quit();
+    })
+    .handle("shell:list-download-items", async () => ({
+        items: downloadController.getItems(),
+    }))
+    .handle("shell:download-pause", async ({ id }) => {
+        downloadController.pause(id);
+    })
+    .handle("shell:download-resume", async ({ id }) => {
+        downloadController.resume(id);
+    })
+    .handle("shell:download-cancel", async ({ id }) => {
+        downloadController.cancel(id);
     })
     .handle("shell:get-tabs", async () => ({
         tabs: browser.getTabs().map(

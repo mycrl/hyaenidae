@@ -363,15 +363,23 @@ export interface AppSettings {
     homeUrl: Optional<string>;
 }
 
+export type DownloadEventType =
+    | "progressing"
+    | "completed"
+    | "cancelled"
+    | "interrupted";
+
 /**
  * Event structure for download progress and status updates emitted by the main
  * process when a download is initiated from the renderer (e.g. for model files).
  */
 export interface DownloadEvent {
-    type: "progressing" | "completed" | "cancelled" | "interrupted";
+    id: number;
+    type: DownloadEventType;
     url: string;
     path: string;
     filename: string;
+    isPaused: boolean;
     canResume: boolean;
     bytesPerSecond: number;
     totalBytes: number;
