@@ -36,8 +36,6 @@ browser.shell.bridge
     .handle("settings:get", async () => settingsManager.load())
     .handle("settings:set", async (settings) => {
         await settingsManager.restore(settings as any);
-
-        browser.notifySettingsChanged();
     })
     .handle("shell:minimize", async () => {
         browser.baseWindow.minimize();
