@@ -4,7 +4,7 @@ import {
     WebPreferences,
 } from "electron";
 import type { Browser } from ".";
-import { Bridge } from "@hyaenidae/bridge";
+import { Bridge, DownloadEvent } from "@hyaenidae/bridge";
 import { registerContextMenu } from "./menu";
 import { LocalModelsManager, RemoteModelsManager } from "../runner/models";
 import { UriProcessor } from "./uri";
@@ -19,6 +19,8 @@ export enum TabType {
  * Extended WebContentsView with a built-in RPC channel.
  */
 export class Tab extends WebContentsView {
+    private downloadEventHandler?: (event: DownloadEvent) => void;
+
     /**
      * The RPC bridge for this tab, used for communication between the web
      * contents and the main process. The shell tab uses this bridge to
@@ -127,9 +129,22 @@ export class Tab extends WebContentsView {
          * these handlers.
          */
         if (type == TabType.Application) {
-            browser.downloadController.on("change", (event) => {
-                this.bridge.send("download:item-updated", event);
-            });
+            /**
+             * If the tab's URL is registered as a download URL, listen for
+             * download events and forward them to the renderer. This allows
+             * application tabs to display download progress for downloads
+             * initiated by the page.
+             */
+            if (this.url && UriProcessor.isDownloadRegisteredUrl(this.url)) {
+                this.downloadEventHandler = (event: DownloadEvent) => {
+                    this.bridge.send("download:item-updated", event);
+                };
+
+                browser.downloadController.on(
+                    "change",
+                    this.downloadEventHandler,
+                );
+            }
 
             this.bridge
                 .handle("settings:get", async () =>
@@ -138,7 +153,11 @@ export class Tab extends WebContentsView {
                 .handle("settings:set", async (settings) => {
                     await browser.settingsManager.restore(settings as any);
 
-                    browser.notifySettingsChanged();
+                    /**
+                     * Send setting update notifications from the settings page
+                     * to the shell.
+                     */
+                    browser.shell.bridge.send("settings:changed");
                 })
                 .handle("download:get-items", async () =>
                     browser.downloadController.getItems(),
@@ -228,6 +247,13 @@ export class Tab extends WebContentsView {
      * Closes the web contents associated with this tab
      */
     destroy() {
+        if (this.downloadEventHandler) {
+            this.browser.downloadController.off(
+                "change",
+                this.downloadEventHandler,
+            );
+        }
+
         this.webContents.close();
     }
 }

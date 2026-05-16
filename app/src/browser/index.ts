@@ -88,19 +88,6 @@ export class Browser extends EventEmitter {
     }
 
     /**
-     * Notifies all application pages and the shell that settings were persisted.
-     */
-    notifySettingsChanged() {
-        this.shell.bridge.send("settings:changed");
-
-        for (const tab of this.tabs) {
-            if (tab.type === TabType.Application) {
-                tab.bridge.send("settings:changed");
-            }
-        }
-    }
-
-    /**
      * Recalculates and applies bounds for the shell and all tab views.
      */
     syncBounds() {
