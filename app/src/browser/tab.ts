@@ -1,20 +1,17 @@
-import { Bridge } from "@hyaenidae/bridge";
 import {
     WebContentsView,
     WebContentsViewConstructorOptions,
     WebPreferences,
 } from "electron";
 import type { Browser } from ".";
-import type { SettingsManager } from "../settings";
-import type { ModelRunnerController } from "../model-runner";
+import { Bridge } from "@hyaenidae/bridge";
 import { registerContextMenu } from "./menu";
-import {
-    LocalModelsManager,
-    RemoteModelsManager,
-} from "../model-runner/models";
+import { LocalModelsManager, RemoteModelsManager } from "../runner/models";
+import { UriProcessor } from "./uri";
 
 export enum TabType {
     Shell = "shell",
+    Application = "application",
     Other = "other",
 }
 
@@ -22,18 +19,32 @@ export enum TabType {
  * Extended WebContentsView with a built-in RPC channel.
  */
 export class Tab extends WebContentsView {
-    private readonly bridge = new Bridge(this.webContents);
-    private title?: string;
-    private url?: string;
+    /**
+     * The RPC bridge for this tab, used for communication between the web
+     * contents and the main process. The shell tab uses this bridge to
+     * coordinate events and state updates for all tabs, while application tabs
+     * use it to handle settings and model management requests from the renderer.
+     */
+    public readonly bridge = new Bridge(this.webContents);
+
+    /**
+     * The current title of the tab, which may be undefined if the page hasn't
+     * set it yet.
+     */
+    public title?: string;
+
+    /**
+     * The current URL of the tab, which may be undefined if the page hasn't
+     * navigated yet.
+     */
+    public url?: string;
 
     constructor(
-        type: TabType,
-        browser: Browser,
-        settingsManager: SettingsManager,
-        modelRunnerController: ModelRunnerController,
-        options: WebContentsViewConstructorOptions,
+        public readonly type: TabType,
+        public readonly browser: Browser,
+        public readonly options: WebContentsViewConstructorOptions,
     ) {
-        const settings = settingsManager.load();
+        const settings = browser.settingsManager.load();
         super({
             ...options,
             webPreferences: {
@@ -43,62 +54,60 @@ export class Tab extends WebContentsView {
             } as WebPreferences,
         });
 
-        const tab = this;
-        const id = tab.webContents.id;
+        const id = this.webContents.id;
 
         /**
          * Register a context menu for the tab. The shell tab gets a different
          * menu with additional options, while other tabs get a standard menu
          * with common actions like reload and view source.
          */
-        if (type === TabType.Shell) {
-            registerContextMenu({
-                browser,
-                tab,
-                isShell: true,
-            });
-        } else {
-            registerContextMenu({
-                browser,
-                tab,
-            });
-        }
+        registerContextMenu(this);
 
         /**
-         * Wire up web contents events to send messages to the shell for UI updates
+         * Wire up web contents events to send messages to the shell for UI
+         * updates. Only the shell tab doesn't need these events.
          */
-        if (type === TabType.Other) {
-            const shellBridge = browser.getShellBridge();
-
-            tab.webContents
+        if (type != TabType.Shell) {
+            this.webContents
                 .on("page-title-updated", async (_, title) => {
                     this.title = title;
 
-                    await shellBridge.request("shell:tab-title-changed", {
-                        id,
-                        title,
-                    });
+                    await browser.shell.bridge.request(
+                        "shell:tab-title-changed",
+                        {
+                            id,
+                            title,
+                        },
+                    );
                 })
                 .on("destroyed", async () => {
-                    await shellBridge.request("shell:tab-destroyed", { id });
+                    await browser.shell.bridge.request(
+                        "shell:tab-destroyed",
+                        id,
+                    );
                 })
                 .on("did-start-loading", async () => {
-                    await shellBridge.request("shell:tab-start-loading", {
+                    await browser.shell.bridge.request(
+                        "shell:tab-start-loading",
                         id,
-                    });
+                    );
                 })
                 .on("did-stop-loading", async () => {
-                    await shellBridge.request("shell:tab-stop-loading", {
+                    await browser.shell.bridge.request(
+                        "shell:tab-stop-loading",
                         id,
-                    });
+                    );
                 })
                 .on("did-navigate", async (_, url) => {
                     this.url = url;
 
-                    await shellBridge.request("shell:tab-url-updated", {
-                        id,
-                        url,
-                    });
+                    await browser.shell.bridge.request(
+                        "shell:tab-url-updated",
+                        {
+                            id,
+                            url,
+                        },
+                    );
                 })
                 .setWindowOpenHandler(({ url }) => {
                     browser.create(url).catch((error) => {
@@ -111,27 +120,49 @@ export class Tab extends WebContentsView {
 
                     return { action: "deny" };
                 });
+        }
 
-            tab.bridge
-                .handle("shell:settings-get", async () => ({
-                    settings: await settingsManager.load(),
-                }))
-                .handle("shell:settings-set", async ({ settings }) => {
-                    await settingsManager.restore(settings as any);
+        /**
+         * Wire up RPC handlers for the tab. Only the shell tab doesn't need
+         * these handlers.
+         */
+        if (type == TabType.Application) {
+            browser.downloadController.on("change", (event) => {
+                this.bridge.send("download:item-updated", event);
+            });
 
-                    shellBridge.send("shell:settings-changed");
+            this.bridge
+                .handle("settings:get", async () =>
+                    browser.settingsManager.load(),
+                )
+                .handle("settings:set", async (settings) => {
+                    await browser.settingsManager.restore(settings as any);
+
+                    browser.notifySettingsChanged();
                 })
-                .handle("model:search", async ({ query, limit }) => ({
-                    models: await RemoteModelsManager.search(query, limit),
-                }))
-                .handle("model:get-files", async ({ model }) => ({
-                    files: await RemoteModelsManager.getFiles(model),
-                }))
+                .handle("download:get-items", async () =>
+                    browser.downloadController.getItems(),
+                )
+                .handle("download:pause", async (id) => {
+                    browser.downloadController.pause(id);
+                })
+                .handle("download:resume", async (id) => {
+                    browser.downloadController.resume(id);
+                })
+                .handle("download:cancel", async (id) => {
+                    browser.downloadController.cancel(id);
+                })
+                .handle("model:search", async ({ query, limit }) =>
+                    RemoteModelsManager.search(query, limit),
+                )
+                .handle("model:get-files", async (model) =>
+                    RemoteModelsManager.getFiles(model),
+                )
                 .on("model:download", (options) => {
                     RemoteModelsManager.download(
                         options,
                         ({ path, progress }) => {
-                            tab.bridge.send("model:download-progress", {
+                            this.bridge.send("model:download-progress", {
                                 name: options.name,
                                 path,
                                 progress,
@@ -145,7 +176,7 @@ export class Tab extends WebContentsView {
                                 ? error.path
                                 : "";
 
-                        tab.bridge.send("model:download-fail", {
+                        this.bridge.send("model:download-failed", {
                             name: options.name,
                             path,
                             error:
@@ -155,51 +186,42 @@ export class Tab extends WebContentsView {
                         });
                     });
                 })
-                .handle("model:get-local-models", async () => ({
-                    models: await LocalModelsManager.list(),
-                }))
-                .handle("model:get-local-model-files", async ({ model }) => ({
-                    files: await LocalModelsManager.getFiles(model),
-                }))
-                .handle("model:remove-local-model", async ({ model }) => {
+                .handle("model:get-local-models", async () =>
+                    LocalModelsManager.list(),
+                )
+                .handle("model:get-local-model-files", async (model) =>
+                    LocalModelsManager.getFiles(model),
+                )
+                .handle("model:remove-local-model", async (model) => {
                     await LocalModelsManager.remove(model);
                 })
-                .handle("model:get-runners", async () => ({
-                    runners: await modelRunnerController.getRunners(),
-                }))
-                .handle("model:get-runner-status", async () => ({
-                    running: modelRunnerController.isRunning,
-                }))
+                .handle("model:get-runners", async () =>
+                    browser.modelRunnerController.getRunners(),
+                )
+                .handle(
+                    "model:get-runner-status",
+                    async () => browser.modelRunnerController.isRunning,
+                )
                 .handle(
                     "model:start-runner",
                     async (options) =>
-                        await modelRunnerController.start(options),
+                        await browser.modelRunnerController.start(options),
                 )
                 .handle("model:stop-runner", async () => {
-                    await modelRunnerController.stop();
+                    await browser.modelRunnerController.stop();
                 });
         }
     }
 
     /**
-     * Returns the RPC bridge associated with this tab
+     * Loads the given URL in the tab's web contents. This method is used
+     * instead of calling webContents.loadURL directly because it includes
+     * additional logic for handling special URL schemes and coordinating with
+     * the shell. For example, if the URL is registered as an application URL,
+     * it may trigger different behavior than a normal web URL.
      */
-    getBridge() {
-        return this.bridge;
-    }
-
-    /**
-     * Returns the current title of the tab, or undefined if not set yet
-     */
-    getTitle() {
-        return this.title;
-    }
-
-    /**
-     * Returns the current URL of the tab, or undefined if not set yet
-     */
-    getUrl() {
-        return this.url;
+    async loadUrl(url: string) {
+        await this.webContents.loadURL(UriProcessor.parseInput(url));
     }
 
     /**

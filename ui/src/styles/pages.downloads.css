@@ -1,0 +1,73 @@
+@reference "tailwindcss";
+
+.downloads-page-root {
+    @apply h-screen min-h-screen overflow-y-auto bg-slate-50;
+}
+
+.downloads-page-header {
+    @apply border-b border-slate-200 bg-white px-6 py-5;
+}
+
+.downloads-page-heading {
+    @apply flex items-center gap-3;
+}
+
+.downloads-page-icon {
+    @apply h-6 w-6 shrink-0 text-slate-500;
+}
+
+.downloads-page-title {
+    @apply text-lg font-semibold text-slate-900;
+}
+
+.downloads-page-subtitle {
+    @apply mt-0.5 text-sm text-slate-500;
+}
+
+.downloads-page-empty {
+    @apply px-6 py-12 text-sm text-slate-500;
+}
+
+.downloads-page-list {
+    @apply mx-auto max-w-3xl space-y-2 p-4;
+}
+
+.downloads-item {
+    @apply flex items-start gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm;
+}
+
+.downloads-item-main {
+    @apply min-w-0 flex-1;
+}
+
+.downloads-item-filename {
+    @apply block truncate text-sm font-medium text-slate-900;
+}
+
+.downloads-item-meta {
+    @apply mt-1 block text-xs text-slate-500;
+}
+
+.downloads-item-progress {
+    @apply mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100;
+}
+
+.downloads-item-progress-bar {
+    @apply h-full rounded-full bg-blue-500 transition-[width] duration-200;
+}
+
+.downloads-item-actions {
+    @apply flex shrink-0 items-center gap-0.5;
+}
+
+.downloads-item-action {
+    @apply flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700;
+}
+
+.downloads-item-action-cancel:hover {
+    @apply text-red-600;
+}
+
+.downloads-item-action-icon {
+    @apply h-4 w-4;
+}

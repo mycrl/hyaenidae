@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { DownloadEvent, Layout } from "@hyaenidae/bridge";
+import type { Layout } from "@hyaenidae/bridge";
 import type { Tab } from "./shell";
 import { useSettingsStore } from "./settings.state";
 import {
@@ -13,7 +13,6 @@ import {
     loadTab,
     maximizeWindow,
     minimizeWindow,
-    onDownloadEvent,
     onTabCreated,
     onTabDestroyed,
     onTabFocused,
@@ -26,6 +25,7 @@ import {
     reloadTab,
     restoreWindow,
     sendLayoutChanged,
+    onDownloadProgressingChanged,
     showContextMenu,
     stopTabLoad,
 } from "./shell";
@@ -35,11 +35,11 @@ const updateTabList = (tabs: Tab[], id: number, updater: (tab: Tab) => Tab) =>
 
 interface ShellState {
     tabs: Tab[];
-    downloads: DownloadEvent[];
     activeTabId: number | null;
     rpcInitialized: boolean;
     isAgentPanelOpen: boolean;
     isWindowMaximized: boolean;
+    isDownloading: boolean;
     addTab: (tab: Tab) => void;
     focusTabState: (id: number) => void;
     removeTab: (id: number) => void;
@@ -77,11 +77,11 @@ interface ShellState {
 
 export const useShellStore = create<ShellState>((set, get) => ({
     tabs: [],
-    downloads: [],
     activeTabId: null,
     rpcInitialized: false,
     isAgentPanelOpen: true,
     isWindowMaximized: false,
+    isDownloading: false,
     initializeRpc: async () => {
         if (get().rpcInitialized) {
             return;
@@ -100,19 +100,19 @@ export const useShellStore = create<ShellState>((set, get) => ({
             });
         });
 
-        onTabFocused(({ id }) => {
+        onTabFocused((id) => {
             get().focusTabState(id);
         });
 
-        onTabDestroyed(({ id }) => {
+        onTabDestroyed((id) => {
             get().removeTab(id);
         });
 
-        onTabStartLoading(({ id }) => {
+        onTabStartLoading((id) => {
             get().setTabLoading(id, true);
         });
 
-        onTabStopLoading(({ id }) => {
+        onTabStopLoading((id) => {
             get().setTabLoading(id, false);
         });
 
@@ -125,17 +125,8 @@ export const useShellStore = create<ShellState>((set, get) => ({
             get().setTabTitle(id, title);
         });
 
-        onDownloadEvent((event) => {
-            let downloads = get().downloads;
-
-            const index = downloads.findIndex((item) => item.url === event.url);
-            if (index === -1) {
-                downloads.push(event);
-            } else {
-                downloads[index] = event;
-            }
-
-            set({ downloads });
+        onDownloadProgressingChanged((progressing) => {
+            set({ isDownloading: progressing });
         });
 
         getTabs().then((tabs) => {

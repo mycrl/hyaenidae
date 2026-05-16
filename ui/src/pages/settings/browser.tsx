@@ -249,8 +249,8 @@ export default function BrowserSection({
                                             : undefined,
                                     }}
                                 >
-                                    {settings.defaultFontSize}: The quick brown
-                                    fox jumps over the lazy dog
+                                    {settings.defaultFontSize || "default"}: The
+                                    quick brown fox jumps over the lazy dog
                                 </p>
                             </FieldLabel>
                         ))}

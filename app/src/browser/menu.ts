@@ -1,6 +1,5 @@
 import { BrowserWindow, Menu, WebContents } from "electron";
-import type { Browser } from ".";
-import type { Tab } from "./tab";
+import { TabType, type Tab } from "./tab";
 
 const TRANSLATIONS = {
     "zh-CN": {
@@ -74,19 +73,12 @@ function setItemsProperties(
  * @param view The view whose web contents to attach the context menu to.
  * @param lang The language for the context menu labels (default is "en-US").
  */
-export function registerContextMenu({
-    tab,
-    browser,
-    isShell = false,
-    lang = "zh-CN",
-}: {
-    tab: Tab;
-    browser: Browser;
-    isShell?: boolean;
-    lang?: keyof typeof TRANSLATIONS;
-}) {
+export function registerContextMenu(
+    tab: Tab,
+    lang: keyof typeof TRANSLATIONS = "zh-CN",
+) {
     const contextMenu = Menu.buildFromTemplate(
-        isShell
+        tab.type === TabType.Shell
             ? [
                   {
                       id: "reload",
@@ -156,24 +148,24 @@ export function registerContextMenu({
               ],
     );
 
-    if (isShell) {
-        tab.getBridge().on("shell:show-context-menu", (options) => {
+    if (tab.type === TabType.Shell) {
+        tab.bridge.on("shell:show-context-menu", (options) => {
             console.debug("Shell context menu requested at", options);
 
             setItemsProperties(contextMenu, {
                 reload: {
                     click: () => {
-                        browser.reload(options.tabId);
+                        tab.browser.reload(options.tabId);
                     },
                 },
                 closeTab: {
                     click: () => {
-                        browser.remove(options.tabId);
+                        tab.browser.remove(options.tabId);
                     },
                 },
                 addToChat: {
                     click: () => {
-                        tab.getBridge().send("shell:add-to-chat", {
+                        tab.bridge.send("shell:add-to-chat", {
                             tabId: options.tabId,
                         });
                     },
@@ -198,7 +190,7 @@ export function registerContextMenu({
                         options.selectionText !== "" ||
                         options.mediaType === "image",
                     click: () => {
-                        browser.getShellBridge().send("shell:add-to-chat", {
+                        tab.browser.shell.bridge.send("shell:add-to-chat", {
                             tabId: tab.webContents.id,
                             selected:
                                 options.mediaType === "image"
@@ -246,7 +238,7 @@ export function registerContextMenu({
                     visible: options.selectionText !== "",
                     label: `${TRANSLATIONS["en-US"].searchWithGoogle} "${options.selectionText}"`,
                     click: () => {
-                        browser
+                        tab.browser
                             .create(
                                 `https://www.google.com/search?q=${encodeURIComponent(options.selectionText)}`,
                             )
@@ -267,7 +259,7 @@ export function registerContextMenu({
                 openLinkInNewTab: {
                     visible: options.linkURL !== "",
                     click: () => {
-                        browser.create(options.linkURL).catch((error) => {
+                        tab.browser.create(options.linkURL).catch((error) => {
                             console.error(
                                 "Failed to open link in new tab:",
                                 error,

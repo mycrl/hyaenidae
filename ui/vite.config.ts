@@ -19,6 +19,7 @@ export default defineConfig({
     define: {
         __APP_CONFIG__: {
             settingsUrl: globalConfig.settingsUrl || "hyaenidae://settings",
+            downloadsUrl: globalConfig.downloadsUrl || "hyaenidae://downloads",
             defaultTabUrl:
                 globalConfig.defaultTabUrl || "https://online.bonjourr.fr",
         },

@@ -1,6 +1,6 @@
 import { DownloadItem, session } from "electron";
-import type { Browser } from ".";
 import { DownloadEvent, DownloadEventType } from "@hyaenidae/bridge";
+import EventEmitter from "node:events";
 
 export type Item = {
     id: number;
@@ -27,11 +27,14 @@ const downloadItemIntoEvent = (item: Item): DownloadEvent => ({
  * and maintains a list of active downloads, allowing the user to pause, resume,
  * or cancel them as needed.
  */
-export class DownloadController {
+export class DownloadController extends EventEmitter {
     private countor = 0;
     private items: Item[] = [];
+    private isProgressing = false;
 
-    constructor(private readonly browser: Browser) {
+    constructor() {
+        super();
+
         /**
          * Handle download events from any tab's web contents session and
          * forward them to the shell
@@ -44,19 +47,12 @@ export class DownloadController {
             {
                 this.items.push(item);
 
-                this.browser
-                    .getShellBridge()
-                    .send("shell:download-event", downloadItemIntoEvent(item));
+                this.emit("change", downloadItemIntoEvent(item));
             }
 
             for (const event of ["updated", "done"]) {
                 item.on(event as any, () => {
-                    this.browser
-                        .getShellBridge()
-                        .send(
-                            "shell:download-event",
-                            downloadItemIntoEvent(item),
-                        );
+                    this.emit("change", downloadItemIntoEvent(item));
 
                     /**
                      * Remove the item from the list when the download is
@@ -66,6 +62,19 @@ export class DownloadController {
                         const index = this.items.findIndex((i) => i.id === id);
                         if (index !== -1) {
                             this.items.splice(index, 1);
+                        }
+                    }
+
+                    // Emit an event to indicate whether there are any ongoing downloads
+                    {
+                        const isProgressing = this.items.some(
+                            (item) => item.getState() == "progressing",
+                        );
+
+                        if (this.isProgressing !== isProgressing) {
+                            this.isProgressing = isProgressing;
+
+                            this.emit("progressing-change", isProgressing);
                         }
                     }
                 });

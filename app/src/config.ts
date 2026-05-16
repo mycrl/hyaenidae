@@ -7,6 +7,7 @@ export type Config = {
     defaultTabUrl: string;
     shellUrl: string;
     settingsUrl: string;
+    downloadsUrl: string;
     defaultWidth: number;
     defaultHeight: number;
     openDevTools: boolean;
@@ -20,6 +21,7 @@ export let CONFIG: Config = {
     defaultTabUrl: "https://google.com",
     shellUrl: "http://localhost:5173",
     settingsUrl: "http://localhost:5173/#settings",
+    downloadsUrl: "http://localhost:5173/#downloads",
     defaultWidth: 1280,
     defaultHeight: 760,
     openDevTools: true,

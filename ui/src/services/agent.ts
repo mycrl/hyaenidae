@@ -97,19 +97,17 @@ export const getProviderModels = async (
         toModelProvider(provider, ""),
     );
 
-    return filterAgentModels(result.models ?? []);
+    return filterAgentModels(result ?? []);
 };
 
 export const listAgentSessions = async (): Promise<AgentSession[]> => {
-    const result = await hyaenidae.bridge.request("agent:session-list");
-
-    return result.sessions;
+    return await hyaenidae.bridge.request("agent:session-list");
 };
 
 export const createAgentSession = async (
     name?: string,
 ): Promise<AgentSession> => {
-    return await hyaenidae.bridge.request("agent:session-create", { name });
+    return await hyaenidae.bridge.request("agent:session-create", name);
 };
 
 export const askAgent = async (input: {
@@ -118,7 +116,7 @@ export const askAgent = async (input: {
     model: string;
     message: string;
     locale: string;
-}) => {
+}): Promise<number> => {
     return await hyaenidae.bridge.request("agent:chat-ask", {
         modelProvider: toModelProvider(input.provider, input.model),
         session: input.session,
@@ -128,7 +126,7 @@ export const askAgent = async (input: {
 };
 
 export const stopAgentResponse = async (askId: number) => {
-    await hyaenidae.bridge.request("agent:chat-stop", { askId });
+    await hyaenidae.bridge.request("agent:chat-stop", askId);
 };
 
 export const onAgentChatResponse = (

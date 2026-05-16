@@ -8,105 +8,129 @@ export interface Api {
      * ============== Shell and Tab Management =============
      */
 
-    "shell:get-tabs": [void, { tabs: Types.BaseTabInfo[] }];
-
     /**
-     * Navigates forward to the next history entry in the specified tab
+     * Lists every open content tab (excludes the hidden shell view).
      */
-    "shell:tab-go-forward": [{ id: number }, void];
+    "shell:get-tabs": [void, Types.BaseTabInfo[]];
 
     /**
-     * Navigates backward to the previous history entry in the specified tab
+     * Navigates forward in the tab history stack.
+     *
+     * @param tabId - WebContents id of the target tab.
      */
-    "shell:tab-go-back": [{ id: number }, void];
+    "shell:tab-go-forward": [number, void];
 
     /**
-     * Checks if the specified tab can navigate backward in its history, returning
-     * a boolean indicating whether backward navigation is possible
+     * Navigates backward in the tab history stack.
+     *
+     * @param tabId - WebContents id of the target tab.
      */
-    "shell:tab-can-go-back": [{ id: number }, boolean];
+    "shell:tab-go-back": [number, void];
 
     /**
-     * Checks if the specified tab can navigate forward in its history, returning a
-     * boolean indicating whether forward navigation is possible
+     * Whether the tab has a previous history entry.
+     *
+     * @param tabId - WebContents id of the target tab.
+     * @returns True when back navigation is allowed.
      */
-    "shell:tab-can-go-forward": [{ id: number }, boolean];
+    "shell:tab-can-go-back": [number, boolean];
 
     /**
-     * Pushes a new URL into the history of the specified tab
+     * Whether the tab has a next history entry.
+     *
+     * @param tabId - WebContents id of the target tab.
+     * @returns True when forward navigation is allowed.
+     */
+    "shell:tab-can-go-forward": [number, boolean];
+
+    /**
+     * Loads a URL in the given tab.
      */
     "shell:tab-load": [{ id: number; url: string }, void];
 
     /**
-     * Flushes the browsing history of the specified tab
+     * Reloads the current page in the tab.
+     *
+     * @param tabId - WebContents id of the target tab.
      */
-    "shell:tab-reload": [{ id: number }, void];
+    "shell:tab-reload": [number, void];
 
     /**
-     * Stops the current navigation or page load in the specified tab
+     * Stops an in-flight navigation or resource load.
+     *
+     * @param tabId - WebContents id of the target tab.
      */
-    "shell:tab-stop-load": [{ id: number }, void];
+    "shell:tab-stop-load": [number, void];
 
     /**
-     * Closes the specified tab
+     * Closes and destroys a content tab.
+     *
+     * @param tabId - WebContents id of the tab to close.
      */
-    "shell:tab-close": [{ id: number }, void];
+    "shell:tab-close": [number, void];
 
     /**
-     * Focuses on and activates the specified tab
+     * Brings a tab to the foreground in the window.
+     *
+     * @param tabId - WebContents id of the tab to focus.
      */
-    "shell:tab-focus": [{ id: number }, void];
+    "shell:tab-focus": [number, void];
 
     /**
-     * Creates a new tab
+     * Opens a new content tab and focuses it.
+     *
+     * @param initialUrl - Optional URL to load; omit for the default blank page.
+     * @returns WebContents id assigned to the new tab.
      */
-    "shell:tab-new": [{ url?: string }, { id: number }];
+    "shell:tab-new": [string | undefined, number];
 
     /**
-     * Toggles the visibility of the agent panel
+     * Reports shell chrome dimensions so the main process can size WebViews.
      */
     "shell:layout-changed": [Types.Layout, void];
 
     /**
-     * Triggers when a tab's title is updated, providing the tab ID and the new
-     * title
+     * Pushed when the document title changes.
      */
     "shell:tab-title-changed": [{ id: number; title: string }, void];
 
     /**
-     * Triggers when a tab is destroyed, providing the ID of the destroyed tab
+     * Pushed when a content tab is closed.
+     *
+     * @param tabId - WebContents id of the tab that was destroyed.
      */
-    "shell:tab-destroyed": [{ id: number }, void];
+    "shell:tab-destroyed": [number, void];
 
     /**
-     * Triggers when a tab starts navigating to a new URL, providing the tab ID
-     * and the URL being navigated to
+     * Pushed when a tab begins loading a document.
+     *
+     * @param tabId - WebContents id of the tab that started loading.
      */
-    "shell:tab-start-loading": [{ id: number }, void];
+    "shell:tab-start-loading": [number, void];
 
     /**
-     * Triggers when a tab finishes navigating to a new URL, providing the tab ID,
-     * the URL that was navigated to, and whether the tab can navigate backward
-     * or forward in its history
+     * Pushed when a tab finishes loading (success or failure).
+     *
+     * @param tabId - WebContents id of the tab that stopped loading.
      */
-    "shell:tab-stop-loading": [{ id: number }, void];
+    "shell:tab-stop-loading": [number, void];
 
     /**
-     * Triggers when a tab's URL is updated (e.g., due to in-page navigation),
-     * providing the tab ID and the new URL
+     * Pushed when the tab's committed URL changes.
      */
     "shell:tab-url-updated": [{ id: number; url: string }, void];
 
     /**
-     * Triggers when a new tab is created, providing the ID of the new tab and
-     * optionally the URL it was created with
+     * Pushed after a new content tab is created.
      */
     "shell:tab-created": [{ id: number; url?: string }, void];
 
     /**
-     * Triggers when a tab is focused, providing the ID of the focused tab
+     * Pushed when a tab becomes the focused content view.
+     *
+     * @param tabId - WebContents id of the focused tab.
      */
-    "shell:tab-focused": [{ id: number }, void];
+    "shell:tab-focused": [number, void];
 
     /**
      * Triggers when the application is ready, indicating that the main process
@@ -146,61 +170,81 @@ export interface Api {
     "shell:add-to-chat": [Types.AddToChatOptions, void];
 
     /**
-     * Reads the application settings.
+     * ============== Settings Management =============
      */
-    "shell:settings-get": [void, { settings: Types.AppSettings }];
 
     /**
-     * Writes the application settings.
+     * Loads persisted application settings from disk.
      */
-    "shell:settings-set": [{ settings: Partial<Types.AppSettings> }, void];
+    "settings:get": [void, Types.AppSettings];
 
     /**
-     * Triggers when the application settings are changed.
+     * Merges and persists a settings patch.
      */
-    "shell:settings-changed": [void, void];
+    "settings:set": [Partial<Types.AppSettings>, void];
 
     /**
-     * Triggers when a download event occurs
+     * Pushed when settings are persisted (from any application page or shell).
      */
-    "shell:download-event": [Types.DownloadEvent, void];
+    "settings:changed": [void, void];
 
     /**
-     * Lists all current download items with their details
+     * ============== Browser Download Management =============
      */
-    "shell:list-download-items": [void, { items: Types.DownloadEvent[] }];
 
     /**
-     * Pauses an active download by its unique ID
+     * Pushed when a browser download item is created or its state changes.
      */
-    "shell:download-pause": [{ id: number }, void];
+    "download:item-updated": [Types.DownloadEvent, void];
 
     /**
-     * Resumes a paused download by its unique ID, if it can be resumed
+     * Pushed when the shell should show or hide the “downloading” chrome state.
+     *
+     * @param progressing - True while at least one download is in progress.
      */
-    "shell:download-resume": [{ id: number }, void];
+    "download:progressing-changed": [boolean, void];
 
     /**
-     * Cancels an active download by its unique ID
+     * Lists in-flight browser downloads tracked by the main process.
      */
-    "shell:download-cancel": [{ id: number }, void];
+    "download:get-items": [void, Types.DownloadEvent[]];
+
+    /**
+     * Pauses a browser download.
+     *
+     * @param downloadId - Download item id (`DownloadEvent.id`).
+     */
+    "download:pause": [number, void];
+
+    /**
+     * Resumes a paused browser download.
+     *
+     * @param downloadId - Download item id (`DownloadEvent.id`).
+     */
+    "download:resume": [number, void];
+
+    /**
+     * Cancels a browser download.
+     *
+     * @param downloadId - Download item id (`DownloadEvent.id`).
+     */
+    "download:cancel": [number, void];
 
     /**
      * ============== Model Management =============
      */
 
     /**
-     * Search for models on the Hugging Face hub using a query string.
+     * Search Hugging Face for GGUF model repositories.
      */
-    "model:search": [
-        { query: string; limit?: number },
-        { models: Types.ModelInfo[] },
-    ];
+    "model:search": [{ query: string; limit?: number }, Types.ModelInfo[]];
 
     /**
-     * Retrieve downloadable files for a given model repository.
+     * Lists downloadable files in a Hugging Face model repository.
+     *
+     * @param modelId - Repository id (e.g. `org/model-name`).
      */
-    "model:get-files": [{ model: string }, { files: Types.ModelFileInfo[] }];
+    "model:get-files": [string, Types.ModelFileInfo[]];
 
     /**
      * Download a model artifact (and optional mmproj) into the local cache.
@@ -208,18 +252,15 @@ export interface Api {
     "model:download": [{ name: string; files: Types.ModelFileInfo[] }, void];
 
     /**
-     * Triggers when a model download fails, providing the name of the model and
-     * the error message
+     * Pushed when a Hugging Face model download fails.
      */
-    "model:download-fail": [
+    "model:download-failed": [
         { name: string; path: string; error: string },
         void,
     ];
 
     /**
-     * Triggers periodically during a model download to report progress,
-     * providing the name of the model and the current progress as a
-     * percentage (0 to 1)
+     * Pushed periodically during a Hugging Face model download (progress 0–1).
      */
     "model:download-progress": [
         { name: string; path: string; progress: number },
@@ -227,32 +268,37 @@ export interface Api {
     ];
 
     /**
-     * List locally cached models stored under the resources directory.
+     * Lists model repository names already cached on disk.
      */
-    "model:get-local-models": [void, { models: string[] }];
+    "model:get-local-models": [void, string[]];
 
     /**
-     * List downloaded GGUF files for a locally cached model repository.
+     * Lists files for one locally cached model.
+     *
+     * @param modelId - Local model directory name.
      */
-    "model:get-local-model-files": [
-        { model: string },
-        { files: Types.ModelFileInfo[] },
-    ];
+    "model:get-local-model-files": [string, Types.ModelFileInfo[]];
 
     /**
-     * Remove a locally cached model directory.
+     * Deletes a locally cached model directory.
+     *
+     * @param modelId - Local model directory name to remove.
      */
-    "model:remove-local-model": [{ model: string }, void];
+    "model:remove-local-model": [string, void];
 
     /**
-     * List available local runner binary directories.
+     * Lists installed local inference runner bundles.
+     *
+     * @returns Runner directory names available to start.
      */
-    "model:get-runners": [void, { runners: string[] }];
+    "model:get-runners": [void, string[]];
 
     /**
-     * Query whether a local runner (loader) is currently running.
+     * Whether a local model runner process is currently running.
+     *
+     * @returns True when the loader subprocess is active.
      */
-    "model:get-runner-status": [void, { running: boolean }];
+    "model:get-runner-status": [void, boolean];
 
     /**
      * Start a runner for the specified local model and return connection info.
@@ -272,40 +318,47 @@ export interface Api {
      */
 
     /**
-     * Retrieves a list of available models for a given provider ID.
+     * Fetches model ids available for an API provider configuration.
      */
-    "agent:provider-get-models": [Types.ModelProvider, { models: string[] }];
+    "agent:provider-get-models": [Types.ModelProvider, string[]];
 
     /**
-     * Retrieves a list of active agent sessions.
+     * Lists agent chat sessions stored in the main process.
      */
-    "agent:session-list": [void, { sessions: Types.AgentSession[] }];
+    "agent:session-list": [void, Types.AgentSession[]];
 
     /**
-     * Creates a new agent session with an optional name.
+     * Creates a new agent conversation session.
+     *
+     * @param name - Optional display name; omit for a default title.
      */
-    "agent:session-create": [{ name?: string }, Types.AgentSession];
+    "agent:session-create": [string | undefined, Types.AgentSession];
 
     /**
-     * Removes an existing agent session by its unique ID.
+     * Deletes an agent session and its messages.
+     *
+     * @param sessionId - Agent session id (`AgentSession.id`).
      */
-    "agent:session-remove": [{ id: number }, void];
+    "agent:session-remove": [number, void];
 
     /**
-     * Sends a message to an agent or chat model.
+     * Starts an agent turn (stream chunks on `agent:chat-response`).
+     *
+     * @returns Ask id used to correlate streamed events and `agent:chat-stop`.
      */
-    "agent:chat-ask": [Types.AgentAskOptions, { askId: number }];
+    "agent:chat-ask": [Types.AgentAskOptions, number];
 
     /**
-     * Streams all response-side updates for an agent/chat turn.
+     * Streams text, tool activity, completion, and errors for one ask.
      */
     "agent:chat-response": [Types.AgentResponseEvent, void];
 
     /**
-     * Stops an ongoing conversation with an agent or chat model, providing the
-     * unique ID of the conversation to stop.
+     * Cancels an in-flight agent response.
+     *
+     * @param askId - Ask id returned from `agent:chat-ask`.
      */
-    "agent:chat-stop": [{ askId: number }, void];
+    "agent:chat-stop": [number, void];
 }
 
 /**

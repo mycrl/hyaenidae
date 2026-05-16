@@ -10,6 +10,20 @@
         "restore": "Restore",
         "close": "Close"
     },
+    "downloads": {
+        "open": "Downloads",
+        "title": "Downloads",
+        "subtitle": "View and manage browser downloads",
+        "empty": "No downloads yet",
+        "completed": "Completed",
+        "cancelled": "Cancelled",
+        "interrupted": "Interrupted",
+        "paused": "Paused",
+        "progress": "{{received}} / {{total}}",
+        "pause": "Pause",
+        "resume": "Resume",
+        "cancel": "Cancel"
+    },
     "common": {
         "errorTitle": "Error",
         "dismiss": "Dismiss",

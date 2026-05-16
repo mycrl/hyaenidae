@@ -69,17 +69,15 @@ export const mergeSettings = (
 };
 
 export const getSettings = async (): Promise<AppSettings> => {
-    return await hyaenidae.bridge
-        .request("shell:settings-get")
-        .then(({ settings }) => settings);
+    return await hyaenidae.bridge.request("settings:get");
 };
 
 export const setSettings = async (settings: AppSettings) => {
-    await hyaenidae.bridge.request("shell:settings-set", { settings });
+    await hyaenidae.bridge.request("settings:set", settings);
 };
 
 export const onSettingsChanged = (handler: () => Promise<void> | void) => {
-    hyaenidae.bridge.on("shell:settings-changed", async () => {
+    hyaenidae.bridge.on("settings:changed", async () => {
         await handler();
     });
 };

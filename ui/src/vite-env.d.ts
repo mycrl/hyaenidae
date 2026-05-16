@@ -18,6 +18,7 @@ declare global {
 
     const __APP_CONFIG__: {
         settingsUrl: string;
+        downloadsUrl: string;
         defaultTabUrl: string;
     };
 }

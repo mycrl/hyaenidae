@@ -1,88 +1,45 @@
-import { BaseWindow, session, WebContents } from "electron";
+import { BaseWindow } from "electron";
 import EventEmitter from "node:events";
 import { Layout } from "@hyaenidae/bridge";
 import { CONFIG } from "../config";
 import { SettingsManager } from "../settings";
-import { ModelRunnerController } from "../model-runner";
+import { ModelRunnerController } from "../runner";
 import { Tab, TabType } from "./tab";
-
-/**
- * Smart URL parser that mimics browser address bar behavior with the
- * following rules:
- * 1. If the input contains spaces, treat it as a search query and use the
- *    default search engine.
- * 2. If the input already starts with a protocol (such as http://, https://,
- *    or ftp://), treat it as a URL.
- * 3. If the input matches common website patterns (such as example.com or
- *    www.example.com), automatically prepend https://.
- * 4. Treat all other inputs as search queries and use the default search
- *    engine.
- */
-function smartParseURL(
-    input: string,
-    searchEngine = "https://www.google.com/search?q=",
-) {
-    const trimmedInput = input.trim();
-
-    if (
-        trimmedInput.startsWith("http://") ||
-        trimmedInput.startsWith("https://")
-    ) {
-        return trimmedInput;
-    }
-
-    // 1. Treat inputs containing spaces as search queries.
-    if (trimmedInput.includes(" ")) {
-        return searchEngine + encodeURIComponent(trimmedInput);
-    }
-
-    // 2. Check whether the input already includes a protocol.
-    if (/^[a-z0-9]+:\/\//i.test(trimmedInput)) {
-        return trimmedInput;
-    }
-
-    // 3. Detect common website-style hostnames.
-    // Pattern: starts with letters or digits, contains dots, and ends with
-    // a top-level domain of at least two characters (for example .com or .cn).
-    const urlPattern = /^[a-z0-9-]+(\.[a-z0-9-]+)+([/?#].*)?$/i;
-
-    if (urlPattern.test(trimmedInput)) {
-        // Prepend http:// when the protocol is omitted.
-        return `http://${trimmedInput}`;
-    }
-
-    // 4. Fall back to the default search engine.
-    return searchEngine + encodeURIComponent(trimmedInput);
-}
-
-function isApplicationRegisteredUrl(url: string) {
-    return url == CONFIG.shellUrl || url == CONFIG.settingsUrl;
-}
-
-async function loadUrl(webContents: WebContents, uri: string) {
-    const url =
-        isApplicationRegisteredUrl(uri) || uri == "about:blank"
-            ? uri
-            : smartParseURL(uri);
-
-    console.info("Loading URL:", url);
-
-    await webContents.loadURL(url);
-}
+import { UriProcessor } from "./uri";
+import { DownloadController } from "./download";
 
 /**
  * Manages the shell UI view and all tab content views inside a single BaseWindow.
  */
 export class Browser extends EventEmitter {
-    private layout: Layout = { tabBarHeight: 98, agentPanelWidth: 451 };
-    private baseWindow: BaseWindow;
-    private focusedId: number | null = null;
-    private tabs: Tab[] = [];
-    private shell: Tab;
+    public baseWindow: BaseWindow;
+    public downloadController = new DownloadController();
+
+    /**
+     * The ID of the currently focused tab, or null if no tab is focused
+     * (e.g. when all tabs are closed).
+     */
+    public focusedId: number | null = null;
+
+    // All tabs except the shell tab.
+    public tabs: Tab[] = [];
+
+    // The shell tab is a special tab that hosts the main UI and is always present.
+    public shell: Tab;
+
+    /**
+     * The layout state controls the dimensions of the tab bar and agent panel,
+     * which can be toggled on and off. When the agent panel is toggled, tab
+     * bounds are automatically recalculated to fit the remaining space.
+     */
+    public layout: Layout = {
+        tabBarHeight: 98,
+        agentPanelWidth: 451,
+    };
 
     constructor(
-        private readonly settingsManager: SettingsManager,
-        private readonly modelRunnerController: ModelRunnerController,
+        public readonly settingsManager: SettingsManager,
+        public readonly modelRunnerController: ModelRunnerController,
     ) {
         super();
 
@@ -95,22 +52,21 @@ export class Browser extends EventEmitter {
             titleBarStyle: "hidden",
         });
 
-        this.shell = new Tab(
-            TabType.Shell,
-            this,
-            this.settingsManager,
-            this.modelRunnerController,
-            {
+        /**
+         * Create the shell tab first since it's needed to host the main UI and
+         * coordinate events for all other tabs. The shell tab is hidden behind
+         * the scenes and doesn't navigate like regular tabs, so it doesn't need
+         * to be managed in the tabs array.
+         */
+        {
+            this.shell = new Tab(TabType.Shell, this, {
                 webPreferences: {
                     preload: CONFIG.preloadScriptPath,
                     contextIsolation: true,
                 },
-            },
-        );
+            });
 
-        // Create the window frame content view
-        {
-            loadUrl(this.shell.webContents, CONFIG.shellUrl);
+            this.shell.loadUrl(CONFIG.shellUrl);
             this.syncBounds();
             this.baseWindow.contentView.addChildView(this.shell);
 
@@ -125,6 +81,23 @@ export class Browser extends EventEmitter {
         this.baseWindow.on("resize", () => {
             this.syncBounds();
         });
+
+        this.downloadController.on("progressing-change", (progressing) => {
+            this.shell.bridge.send("download:progressing-changed", progressing);
+        });
+    }
+
+    /**
+     * Notifies all application pages and the shell that settings were persisted.
+     */
+    notifySettingsChanged() {
+        this.shell.bridge.send("settings:changed");
+
+        for (const tab of this.tabs) {
+            if (tab.type === TabType.Application) {
+                tab.bridge.send("settings:changed");
+            }
+        }
     }
 
     /**
@@ -165,15 +138,13 @@ export class Browser extends EventEmitter {
      * ID.
      */
     async create(url: string = "about:blank") {
-        const isHyaenidaeUrl = isApplicationRegisteredUrl(url);
+        const isApplicationUrl = UriProcessor.isApplicationRegisteredUrl(url);
 
         const tab = new Tab(
-            TabType.Other,
+            isApplicationUrl ? TabType.Application : TabType.Other,
             this,
-            this.settingsManager,
-            this.modelRunnerController,
             {
-                webPreferences: isHyaenidaeUrl
+                webPreferences: isApplicationUrl
                     ? {
                           preload: CONFIG.preloadScriptPath,
                           contextIsolation: true,
@@ -184,7 +155,7 @@ export class Browser extends EventEmitter {
             },
         );
 
-        if (isHyaenidaeUrl && CONFIG.openDevTools) {
+        if (isApplicationUrl && CONFIG.openDevTools) {
             tab.webContents.openDevTools({
                 mode: "detach",
             });
@@ -195,12 +166,12 @@ export class Browser extends EventEmitter {
 
         const id = tab.webContents.id;
 
-        await this.shell.getBridge().request("shell:tab-created", { id, url });
+        await this.shell.bridge.request("shell:tab-created", { id, url });
 
         // Focus the new tab after creation to bring it to the front
         await this.focus(id);
 
-        await loadUrl(tab.webContents, url);
+        await tab.loadUrl(url);
 
         return id;
     }
@@ -266,7 +237,7 @@ export class Browser extends EventEmitter {
             this.baseWindow.contentView.addChildView(tab);
             this.focusedId = id;
 
-            await this.shell.getBridge().request("shell:tab-focused", { id });
+            await this.shell.bridge.request("shell:tab-focused", id);
         }
     }
 
@@ -279,7 +250,7 @@ export class Browser extends EventEmitter {
             return;
         }
 
-        await loadUrl(tab.webContents, url);
+        await tab.loadUrl(url);
     }
 
     /**
@@ -295,34 +266,6 @@ export class Browser extends EventEmitter {
      */
     stop(id: number) {
         this.tabs.find((t) => t.webContents.id === id)?.webContents.stop();
-    }
-
-    /**
-     * Returns the BaseWindow instance of the browser
-     */
-    getBaseWindow() {
-        return this.baseWindow;
-    }
-
-    /**
-     * Returns an array of all open tabs
-     */
-    getTabs() {
-        return this.tabs;
-    }
-
-    /**
-     * Returns the shell bridge for communication with the shell tab
-     */
-    getShellBridge() {
-        return this.shell.getBridge();
-    }
-
-    /**
-     * Returns the currently focused tab, or undefined if no tab is focused.
-     */
-    getFocusedId() {
-        return this.focusedId;
     }
 
     /**

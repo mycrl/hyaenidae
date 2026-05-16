@@ -141,7 +141,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     constructor(private readonly browser: Browser) {}
 
     async listTabs(): Promise<BrowserTabSummary[]> {
-        return this.browser.getTabs().map((tab) => this.toSummary(tab));
+        return this.browser.tabs.map((tab) => this.toSummary(tab));
     }
 
     async getFocusedTab(): Promise<BrowserTabSummary | null> {
@@ -694,7 +694,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
             id: tab.webContents.id,
             title: sanitizeString(tab.webContents.getTitle() || "New Tab"),
             url: sanitizeUrl(tab.webContents.getURL()),
-            isFocused: this.browser.getFocusedId() === tab.webContents.id,
+            isFocused: this.browser.focusedId === tab.webContents.id,
             isLoading: tab.webContents.isLoading(),
         };
     }

@@ -801,14 +801,14 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                         sessionId,
                         (conversation) => ({
                             ...conversation,
-                            activeResponseId: result.askId,
+                            activeResponseId: result,
                             isResponding: true,
                             messages: updateAssistantMessage(
                                 conversation,
-                                result.askId,
+                                result,
                                 (message) => message,
                                 () => ({
-                                    id: result.askId,
+                                    id: result,
                                     role: "assistant",
                                     content: "",
                                     timestamp: getTimestamp(),

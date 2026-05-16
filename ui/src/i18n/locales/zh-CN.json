@@ -10,6 +10,20 @@
         "restore": "恢复",
         "close": "关闭"
     },
+    "downloads": {
+        "open": "下载",
+        "title": "下载",
+        "subtitle": "查看和管理浏览器下载",
+        "empty": "暂无下载",
+        "completed": "已完成",
+        "cancelled": "已取消",
+        "interrupted": "已中断",
+        "paused": "已暂停",
+        "progress": "{{received}} / {{total}}",
+        "pause": "暂停",
+        "resume": "继续",
+        "cancel": "取消"
+    },
     "common": {
         "errorTitle": "错误",
         "dismiss": "知道了",
