@@ -16,23 +16,25 @@ export const useDownloadsStore = create<DownloadsState>((set, get) => ({
             return;
         }
 
-        set({ initialized: true });
-
-        const downloads = await getDownloadItems();
-        set({ downloads });
+        set({
+            initialized: true,
+            downloads: await getDownloadItems(),
+        });
 
         onDownloadItemUpdated((event) => {
             set((state) => {
-                const next = [...state.downloads];
-                const index = next.findIndex((item) => item.id === event.id);
+                const downloads = [...state.downloads];
+                const index = downloads.findIndex(
+                    (item) => item.id === event.id,
+                );
 
                 if (index >= 0) {
-                    next[index] = event;
+                    downloads[index] = event;
                 } else {
-                    next.push(event);
+                    downloads.push(event);
                 }
 
-                return { downloads: next };
+                return { downloads };
             });
         });
     },

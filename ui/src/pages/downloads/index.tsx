@@ -148,9 +148,9 @@ export default function DownloadsPage() {
                 <div className="downloads-page-heading">
                     <ArrowDownTrayIcon className="downloads-page-icon" />
                     <div>
-                        <h1 className="downloads-page-title">
+                        <h3 className="downloads-page-title">
                             {t("downloads.title")}
-                        </h1>
+                        </h3>
                         <p className="downloads-page-subtitle">
                             {t("downloads.subtitle")}
                         </p>

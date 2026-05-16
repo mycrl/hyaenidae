@@ -135,9 +135,14 @@ export class Tab extends WebContentsView {
              * application tabs to display download progress for downloads
              * initiated by the page.
              */
-            if (this.url && UriProcessor.isDownloadRegisteredUrl(this.url)) {
+            {
                 this.downloadEventHandler = (event: DownloadEvent) => {
-                    this.bridge.send("download:item-updated", event);
+                    if (
+                        this.url &&
+                        UriProcessor.isDownloadRegisteredUrl(this.url)
+                    ) {
+                        this.bridge.send("download:item-updated", event);
+                    }
                 };
 
                 browser.downloadController.on(

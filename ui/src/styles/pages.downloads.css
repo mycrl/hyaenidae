@@ -21,11 +21,11 @@
 }
 
 .downloads-page-subtitle {
-    @apply mt-0.5 text-sm text-slate-500;
+    @apply mt-0.5 text-xs text-slate-500;
 }
 
 .downloads-page-empty {
-    @apply px-6 py-12 text-sm text-slate-500;
+    @apply px-6 py-12 text-xs text-slate-500;
 }
 
 .downloads-page-list {
@@ -33,7 +33,7 @@
 }
 
 .downloads-item {
-    @apply flex items-start gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm;
+    @apply flex items-start gap-2 rounded-sm border border-slate-200 bg-white px-4 py-3;
 }
 
 .downloads-item-main {
@@ -41,7 +41,7 @@
 }
 
 .downloads-item-filename {
-    @apply block truncate text-sm font-medium text-slate-900;
+    @apply block truncate text-xs font-medium text-slate-900;
 }
 
 .downloads-item-meta {
