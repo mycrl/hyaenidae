@@ -6,6 +6,7 @@ import {
     PlusIcon,
     SparklesIcon,
     XMarkIcon,
+    ArrowDownTrayIcon,
 } from "@heroicons/react/24/outline";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -110,6 +111,10 @@ export default function TabBar() {
                 >
                     <SparklesIcon className="tab-bar-agent-toggle-icon" />
                     <span className="tab-bar-agent-toggle-label">AI</span>
+                </button>
+
+                <button type="button" className="tab-bar-settings-button">
+                    <ArrowDownTrayIcon className="tab-bar-settings-icon" />
                 </button>
 
                 <button

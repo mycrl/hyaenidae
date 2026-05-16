@@ -1,17 +1,10 @@
-import {
-    BaseWindow,
-    WebContents,
-    WebContentsView,
-    WebContentsViewConstructorOptions,
-    WebPreferences,
-} from "electron";
+import { BaseWindow, WebContents } from "electron";
 import EventEmitter from "node:events";
-import { Layout, Bridge } from "@hyaenidae/bridge";
+import { Layout } from "@hyaenidae/bridge";
 import { CONFIG } from "../config";
 import { SettingsManager } from "../settings";
-import { LocalModelsManager, RemoteModelsManager } from "../model-runner/models";
 import { ModelRunnerCounter } from "../model-runner";
-import { registerContextMenu } from "./context-menu";
+import { Tab, TabType } from "./tab";
 
 /**
  * Smart URL parser that mimics browser address bar behavior with the
@@ -68,198 +61,15 @@ async function loadUrl(webContents: WebContents, uri: string) {
     await webContents.loadURL(url);
 }
 
-export enum TabKind {
-    Shell = "shell",
-    Other = "other",
-}
-
-/**
- * Extended WebContentsView with a built-in RPC channel.
- */
-export class Tab extends WebContentsView {
-    public readonly bridge = new Bridge(this.webContents);
-
-    constructor(
-        kind: TabKind,
-        browser: Browser,
-        settingsManager: SettingsManager,
-        modelRunnerCounter: ModelRunnerCounter,
-        options: WebContentsViewConstructorOptions,
-    ) {
-        const settings = settingsManager.load();
-        super({
-            ...options,
-            webPreferences: {
-                ...options.webPreferences,
-                defaultFontSize: settings.defaultFontSize,
-                defaultFontFamily: settings.defaultFontFamily,
-            } as WebPreferences,
-        });
-
-        const tab = this;
-        const id = tab.webContents.id;
-
-        /**
-         * Register a context menu for the tab. The shell tab gets a different
-         * menu with additional options, while other tabs get a standard menu
-         * with common actions like reload and view source.
-         */
-        if (kind === TabKind.Shell) {
-            registerContextMenu({
-                browser,
-                tab,
-                isShell: true,
-            });
-        } else {
-            registerContextMenu({
-                browser,
-                tab,
-            });
-        }
-
-        /**
-         * Wire up web contents events to send messages to the shell for UI updates
-         */
-        if (kind === TabKind.Other) {
-            tab.webContents.on("page-title-updated", async (_, title) => {
-                await browser.shell.bridge.request("shell:tab-title-changed", {
-                    id,
-                    title,
-                });
-            });
-
-            tab.webContents.on("destroyed", async () => {
-                await browser.shell.bridge.request("shell:tab-destroyed", { id });
-            });
-
-            tab.webContents.on("did-start-loading", async () => {
-                await browser.shell.bridge.request("shell:tab-start-loading", {
-                    id,
-                });
-            });
-
-            tab.webContents.on("did-stop-loading", async () => {
-                await browser.shell.bridge.request("shell:tab-stop-loading", {
-                    id,
-                });
-            });
-
-            tab.webContents.on("did-navigate", async (_, url) => {
-                await browser.shell.bridge.request("shell:tab-url-updated", {
-                    id,
-                    url,
-                });
-            });
-
-            tab.webContents.setWindowOpenHandler(({ url }) => {
-                browser.create(url).catch((error) => {
-                    console.error("Failed to open new tab for URL:", url, error);
-                });
-
-                return { action: "deny" };
-            });
-
-            tab.bridge.handle("shell:settings-get", async () => {
-                return {
-                    settings: await settingsManager.load(),
-                };
-            });
-
-            tab.bridge.handle("shell:settings-set", async ({ settings }) => {
-                await settingsManager.restore(settings as any);
-
-                browser.shell.bridge.send("shell:settings-changed");
-            });
-
-            tab.bridge.handle("model:search", async ({ query, limit }) => {
-                return {
-                    models: await RemoteModelsManager.search(query, limit),
-                };
-            });
-
-            tab.bridge.handle("model:get-files", async ({ model }) => {
-                return {
-                    files: await RemoteModelsManager.getFiles(model),
-                };
-            });
-
-            tab.bridge.on("model:download", (options) => {
-                RemoteModelsManager.download(options, ({ path, progress }) => {
-                    tab.bridge.send("model:download-progress", {
-                        name: options.name,
-                        path,
-                        progress,
-                    });
-                }).catch((error) => {
-                    const path =
-                        error instanceof Error && "path" in error && typeof error.path === "string"
-                            ? error.path
-                            : "";
-
-                    tab.bridge.send("model:download-fail", {
-                        name: options.name,
-                        path,
-                        error: error instanceof Error ? error.message : "Failed to download model.",
-                    });
-                });
-            });
-
-            tab.bridge.handle("model:get-local-models", async () => {
-                return {
-                    models: await LocalModelsManager.list(),
-                };
-            });
-
-            tab.bridge.handle("model:get-local-model-files", async ({ model }) => {
-                return {
-                    files: await LocalModelsManager.getFiles(model),
-                };
-            });
-
-            tab.bridge.handle("model:remove-local-model", async ({ model }) => {
-                await LocalModelsManager.remove(model);
-            });
-
-            tab.bridge.handle("model:get-runners", async () => {
-                return {
-                    runners: await modelRunnerCounter.getRunners(),
-                };
-            });
-
-            tab.bridge.handle("model:get-runner-status", async () => {
-                return {
-                    running: modelRunnerCounter.isRunning,
-                };
-            });
-
-            tab.bridge.handle("model:start-runner", async (options) => {
-                return await modelRunnerCounter.start(options);
-            });
-
-            tab.bridge.handle("model:stop-runner", async () => {
-                await modelRunnerCounter.stop();
-            });
-        }
-    }
-
-    /**
-     * Closes the web contents associated with this tab
-     */
-    destroy() {
-        this.webContents.close();
-    }
-}
-
 /**
  * Manages the shell UI view and all tab content views inside a single BaseWindow.
  */
 export class Browser extends EventEmitter {
     private layout: Layout = { tabBarHeight: 98, agentPanelWidth: 451 };
-
-    public baseWindow: BaseWindow;
-    public currentId: number | null = null;
-    public tabs: Tab[] = [];
-    public shell: Tab;
+    private baseWindow: BaseWindow;
+    private focusedId: number | null = null;
+    private tabs: Tab[] = [];
+    private shell: Tab;
 
     constructor(
         private readonly settingsManager: SettingsManager,
@@ -276,16 +86,12 @@ export class Browser extends EventEmitter {
             titleBarStyle: "hidden",
         });
 
-        console.info("Browser view initialized");
-
-        this.shell = new Tab(TabKind.Shell, this, this.settingsManager, this.modelRunnerCounter, {
+        this.shell = new Tab(TabType.Shell, this, this.settingsManager, this.modelRunnerCounter, {
             webPreferences: {
                 preload: CONFIG.preloadScriptPath,
                 contextIsolation: true,
             },
         });
-
-        console.info("Shell view initialized");
 
         // Create the window frame content view
         {
@@ -346,7 +152,7 @@ export class Browser extends EventEmitter {
     async create(url: string = "about:blank") {
         const isHyaenidaeUrl = isApplicationRegisteredUrl(url);
 
-        const tab = new Tab(TabKind.Other, this, this.settingsManager, this.modelRunnerCounter, {
+        const tab = new Tab(TabType.Other, this, this.settingsManager, this.modelRunnerCounter, {
             webPreferences: isHyaenidaeUrl
                 ? {
                       preload: CONFIG.preloadScriptPath,
@@ -368,7 +174,7 @@ export class Browser extends EventEmitter {
 
         const id = tab.webContents.id;
 
-        await this.shell.bridge.request("shell:tab-created", { id, url });
+        await this.shell.getBridge().request("shell:tab-created", { id, url });
 
         // Focus the new tab after creation to bring it to the front
         await this.focus(id);
@@ -391,19 +197,21 @@ export class Browser extends EventEmitter {
         const [tab] = this.tabs.splice(index, 1);
         tab?.destroy();
 
-        // If there are no tabs left after removal, reset currentId and emit an
-        // event
+        /**
+         * If there are no tabs left after removal, reset focusedId and emit an
+         * event
+         */
         if (this.tabs.length === 0) {
-            this.currentId = null;
+            this.focusedId = null;
             this.emit("all-tabs-closed");
 
             return;
         }
 
         // If the removed tab was focused, auto-focus an adjacent tab
-        if (tab && this.currentId === id) {
+        if (tab && this.focusedId === id) {
             this.baseWindow.contentView.removeChildView(tab);
-            this.currentId = null;
+            this.focusedId = null;
 
             // Try to focus the next tab, otherwise the previous tab
             const nextTab = this.tabs[index] || this.tabs[index - 1];
@@ -419,10 +227,12 @@ export class Browser extends EventEmitter {
     async focus(id: number) {
         const tab = this.tabs.find((t) => t.webContents.id === id);
         if (tab) {
-            // If there is a currently focused tab, remove it from the content
-            // view before adding the new one
-            if (this.currentId != null) {
-                const focustab = this.tabs.find((t) => t.webContents.id === this.currentId);
+            /**
+             * If there is a currently focused tab, remove it from the content
+             * view before adding the new one
+             */
+            if (this.focusedId != null) {
+                const focustab = this.tabs.find((t) => t.webContents.id === this.focusedId);
 
                 if (focustab) {
                     this.baseWindow.contentView.removeChildView(focustab);
@@ -431,9 +241,9 @@ export class Browser extends EventEmitter {
 
             tab.webContents.focus();
             this.baseWindow.contentView.addChildView(tab);
-            this.currentId = id;
+            this.focusedId = id;
 
-            await this.shell.bridge.request("shell:tab-focused", { id });
+            await this.shell.getBridge().request("shell:tab-focused", { id });
         }
     }
 
@@ -465,6 +275,34 @@ export class Browser extends EventEmitter {
     }
 
     /**
+     * Returns the BaseWindow instance of the browser
+     */
+    getBaseWindow() {
+        return this.baseWindow;
+    }
+
+    /**
+     * Returns an array of all open tabs
+     */
+    getTabs() {
+        return this.tabs;
+    }
+
+    /**
+     * Returns the shell bridge for communication with the shell tab
+     */
+    getShellBridge() {
+        return this.shell.getBridge();
+    }
+
+    /**
+     * Returns the currently focused tab, or undefined if no tab is focused.
+     */
+    getFocusedId() {
+        return this.focusedId;
+    }
+
+    /**
      * Returns the tab with the given ID, or undefined if not found.
      */
     getTab(id: number) {
@@ -475,7 +313,7 @@ export class Browser extends EventEmitter {
      * Returns the currently focused tab, or undefined if no tab is focused.
      */
     getFocusedTab() {
-        return this.currentId == null ? undefined : this.getTab(this.currentId);
+        return this.focusedId == null ? undefined : this.getTab(this.focusedId);
     }
 
     /**

@@ -1,4 +1,4 @@
-import type { AddToChatOptions, Api, Layout } from "@hyaenidae/bridge";
+import type { AddToChatOptions, Api, DownloadEvent, Layout } from "@hyaenidae/bridge";
 
 export interface Tab {
     id: number;
@@ -23,6 +23,7 @@ interface ShellHandledEventMap {
 
 interface ShellListenedEventMap {
     "shell:add-to-chat": AddToChatOptions;
+    "shell:download-event": DownloadEvent;
 }
 
 const handleShellRpcEvent = <
@@ -111,6 +112,10 @@ export const getTabNavigationState = async (id: number) => {
     };
 };
 
+export const getTabs = async () => {
+    return (await hyaenidae.bridge.request("shell:get-tabs")).tabs;
+};
+
 export const createTab = async (url?: string) => {
     if (url) {
         await hyaenidae.bridge.request("shell:tab-new", { url });
@@ -170,4 +175,8 @@ export const sendLayoutChanged = (layout: Layout) => {
 
 export const showContextMenu = (input: { x: number; y: number; tabId: number }) => {
     hyaenidae.bridge.send("shell:show-context-menu", input);
+};
+
+export const onDownloadEvent = (handler: (event: DownloadEvent) => Promise<void> | void) => {
+    listenShellEvent("shell:download-event", handler);
 };

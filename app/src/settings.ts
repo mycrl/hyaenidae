@@ -19,6 +19,11 @@ export class SettingsManager {
         console.info("SettingsManager initialized with path:", CONFIG.settingsFilePath);
     }
 
+    /**
+     * Loads the settings from the settings file. If the file does not exist or cannot
+     * be read, it initializes the settings with default values. The settings are
+     * decrypted using Electron's safeStorage API and parsed from JSON.
+     */
     load() {
         if (this.settings) {
             return this.settings;
@@ -44,6 +49,12 @@ export class SettingsManager {
         return this.settings!!;
     }
 
+    /**
+     * Writes the provided settings to the settings file. It merges the new settings with
+     * the existing settings to ensure that only the specified fields are updated. The
+     * merged settings are then encrypted using Electron's safeStorage API and written
+     * to the file system.
+     */
     async restore(settings: Partial<AppSettings>) {
         console.info("Restoring settings:", settings);
 

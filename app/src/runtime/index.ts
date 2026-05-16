@@ -9,7 +9,8 @@ import type {
     BrowserImageSnapshot,
 } from "@hyaenidae/core";
 import type { WebContents } from "electron";
-import { Browser, Tab } from "..";
+import type { Browser } from "../browser";
+import type { Tab } from "../browser/tab";
 import { AccessibilityTreeReader } from "./accessibility";
 import { VisionGrounder } from "./vision";
 
@@ -126,7 +127,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     constructor(private readonly browser: Browser) {}
 
     async listTabs(): Promise<BrowserTabSummary[]> {
-        return this.browser.tabs.map((tab) => this.toSummary(tab));
+        return this.browser.getTabs().map((tab) => this.toSummary(tab));
     }
 
     async getFocusedTab(): Promise<BrowserTabSummary | null> {
@@ -657,7 +658,7 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
             id: tab.webContents.id,
             title: sanitizeString(tab.webContents.getTitle() || "New Tab"),
             url: sanitizeUrl(tab.webContents.getURL()),
-            isFocused: this.browser.currentId === tab.webContents.id,
+            isFocused: this.browser.getFocusedId() === tab.webContents.id,
             isLoading: tab.webContents.isLoading(),
         };
     }

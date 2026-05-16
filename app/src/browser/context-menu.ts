@@ -1,5 +1,6 @@
 import { BrowserWindow, Menu, WebContents } from "electron";
-import { Browser, Tab } from ".";
+import type { Browser } from ".";
+import type { Tab } from "./tab";
 
 const TRANSLATIONS = {
     "zh-CN": {
@@ -152,7 +153,7 @@ export function registerContextMenu({
     );
 
     if (isShell) {
-        tab.bridge.on("shell:show-context-menu", (options) => {
+        tab.getBridge().on("shell:show-context-menu", (options) => {
             console.debug("Shell context menu requested at", options);
 
             setItemsProperties(contextMenu, {
@@ -168,7 +169,7 @@ export function registerContextMenu({
                 },
                 addToChat: {
                     click: () => {
-                        tab.bridge.send("shell:add-to-chat", {
+                        tab.getBridge().send("shell:add-to-chat", {
                             tabId: options.tabId,
                         });
                     },
@@ -193,7 +194,7 @@ export function registerContextMenu({
                         options.selectionText !== "" ||
                         options.mediaType === "image",
                     click: () => {
-                        browser.shell.bridge.send("shell:add-to-chat", {
+                        browser.getShellBridge().send("shell:add-to-chat", {
                             tabId: tab.webContents.id,
                             selected:
                                 options.mediaType === "image"

@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Layout } from "@hyaenidae/bridge";
+import type { DownloadEvent, Layout } from "@hyaenidae/bridge";
 import type { Tab } from "./shell";
 import { useSettingsStore } from "./settings.state";
 import {
@@ -7,11 +7,13 @@ import {
     createTab,
     focusTab,
     getTabNavigationState,
+    getTabs,
     goBack,
     goForward,
     loadTab,
     maximizeWindow,
     minimizeWindow,
+    onDownloadEvent,
     onTabCreated,
     onTabDestroyed,
     onTabFocused,
@@ -33,6 +35,7 @@ const updateTabList = (tabs: Tab[], id: number, updater: (tab: Tab) => Tab) =>
 
 interface ShellState {
     tabs: Tab[];
+    downloads: DownloadEvent[];
     activeTabId: number | null;
     rpcInitialized: boolean;
     isAgentPanelOpen: boolean;
@@ -66,6 +69,7 @@ interface ShellState {
 
 export const useShellStore = create<ShellState>((set, get) => ({
     tabs: [],
+    downloads: [],
     activeTabId: null,
     rpcInitialized: false,
     isAgentPanelOpen: true,
@@ -77,7 +81,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
 
         set({ rpcInitialized: true });
 
-        onTabCreated(async ({ id, url }) => {
+        onTabCreated(({ id, url }) => {
             get().addTab({
                 id,
                 url,
@@ -87,24 +91,62 @@ export const useShellStore = create<ShellState>((set, get) => ({
                 canGoForward: false,
             });
         });
-        onTabFocused(async ({ id }) => {
+
+        onTabFocused(({ id }) => {
             get().focusTabState(id);
         });
-        onTabDestroyed(async ({ id }) => {
+
+        onTabDestroyed(({ id }) => {
             get().removeTab(id);
         });
-        onTabStartLoading(async ({ id }) => {
+
+        onTabStartLoading(({ id }) => {
             get().setTabLoading(id, true);
         });
-        onTabStopLoading(async ({ id }) => {
+
+        onTabStopLoading(({ id }) => {
             get().setTabLoading(id, false);
         });
+
         onTabUrlUpdated(async ({ id, url }) => {
             get().setTabUrl(id, url);
             await get().refreshTabNavState(id);
         });
-        onTabTitleChanged(async ({ id, title }) => {
+
+        onTabTitleChanged(({ id, title }) => {
             get().setTabTitle(id, title);
+        });
+
+        onDownloadEvent((event) => {
+            let downloads = get().downloads;
+
+            const index = downloads.findIndex((item) => item.url === event.url);
+            if (index === -1) {
+                downloads.push(event);
+            } else {
+                downloads[index] = event;
+            }
+
+            set({ downloads });
+        });
+
+        getTabs().then((tabs) => {
+            set({
+                tabs: tabs.map((tab) => {
+                    if (tab.focused) {
+                        get().focusTabState(tab.id);
+                    }
+
+                    return {
+                        id: tab.id,
+                        url: tab.url,
+                        title: undefined,
+                        isLoading: false,
+                        canGoBack: false,
+                        canGoForward: false,
+                    };
+                }),
+            });
         });
 
         await readyShell();
@@ -116,7 +158,6 @@ export const useShellStore = create<ShellState>((set, get) => ({
             }
 
             return {
-                ...state,
                 tabs: [...state.tabs, tab],
                 activeTabId: state.activeTabId ?? tab.id,
             };
@@ -124,28 +165,23 @@ export const useShellStore = create<ShellState>((set, get) => ({
     focusTabState: (id) => set({ activeTabId: id }),
     removeTab: (id) =>
         set((state) => ({
-            ...state,
             tabs: state.tabs.filter((tab) => tab.id !== id),
             activeTabId: state.activeTabId === id ? null : state.activeTabId,
         })),
     setTabLoading: (id, isLoading) =>
         set((state) => ({
-            ...state,
             tabs: updateTabList(state.tabs, id, (tab) => ({ ...tab, isLoading })),
         })),
     setTabUrl: (id, url) =>
         set((state) => ({
-            ...state,
             tabs: updateTabList(state.tabs, id, (tab) => ({ ...tab, url })),
         })),
     setTabTitle: (id, title) =>
         set((state) => ({
-            ...state,
             tabs: updateTabList(state.tabs, id, (tab) => ({ ...tab, title })),
         })),
     setTabNavState: (id, canGoBack, canGoForward) =>
         set((state) => ({
-            ...state,
             tabs: updateTabList(state.tabs, id, (tab) => ({
                 ...tab,
                 canGoBack,
@@ -220,10 +256,12 @@ export const useShellStore = create<ShellState>((set, get) => ({
     },
     maximizeWindow: async () => {
         await maximizeWindow();
+
         set({ isWindowMaximized: true });
     },
     restoreWindow: async () => {
         await restoreWindow();
+
         set({ isWindowMaximized: false });
     },
     quitWindow: async () => {

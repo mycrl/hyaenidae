@@ -19,6 +19,17 @@ export interface Layout {
 }
 
 /**
+ * Basic information about a browser tab, used in various API calls and UI
+ * displays.
+ */
+export interface BaseTabInfo {
+    id: number;
+    title?: string;
+    url?: string;
+    focused: boolean;
+}
+
+/**
  * Describes a model provider configuration.
  * - When `type` is "custom", a `baseUrl` must be provided.
  * - `model` is required for all providers; `apiKey` is optional.
@@ -350,4 +361,20 @@ export interface AppSettings {
      * Homepage URL; when null the app default is used.
      */
     homeUrl: Optional<string>;
+}
+
+/**
+ * Event structure for download progress and status updates emitted by the main
+ * process when a download is initiated from the renderer (e.g. for model files).
+ */
+export interface DownloadEvent {
+    type: "progressing" | "completed" | "cancelled" | "interrupted";
+    url: string;
+    path: string;
+    filename: string;
+    canResume: boolean;
+    bytesPerSecond: number;
+    totalBytes: number;
+    receivedBytes: number;
+    progress: number;
 }

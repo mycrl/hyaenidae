@@ -8,6 +8,8 @@ export interface Api {
      * ============== Shell and Tab Management =============
      */
 
+    "shell:get-tabs": [void, { tabs: Types.BaseTabInfo[] }];
+
     /**
      * Navigates forward to the next history entry in the specified tab
      */
@@ -157,6 +159,12 @@ export interface Api {
      * Triggers when the application settings are changed.
      */
     "shell:settings-changed": [void, void];
+
+    /**
+     * Triggers when a download event occurs, providing details about the
+     * download such as the URL, file path, progress, and status
+     */
+    "shell:download-event": [Types.DownloadEvent, void];
 
     /**
      * ============== Model Management =============
@@ -410,6 +418,8 @@ export class BridgeService {
                     }))),
             });
         };
+
+        return this;
     }
 
     /**
@@ -437,6 +447,8 @@ export class BridgeService {
      */
     on<T extends keyof Api>(method: T, callback: (params: Api[T][0]) => void) {
         this.handler.on(method, callback);
+
+        return this;
     }
 }
 

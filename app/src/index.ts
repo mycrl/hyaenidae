@@ -1,179 +1,161 @@
 import { app } from "electron";
 import { AgentActivityEvent, Hyaenidae, getModelsWithModelProvider } from "@hyaenidae/core";
-import { ElectronBrowserRuntime } from "./browser/runtime";
+import { ElectronBrowserRuntime } from "./runtime";
 import { Browser } from "./browser";
 import { CONFIG, initConfig } from "./config";
 import { SettingsManager } from "./settings";
 import { registerLogger } from "./logger";
 import { ModelRunnerCounter } from "./model-runner";
+import { BaseTabInfo } from "@hyaenidae/bridge";
 
 registerLogger();
 initConfig();
+
+let isReady = false;
 
 const coreService = new Hyaenidae();
 const settingsManager = new SettingsManager();
 const modelRunnerCounter = new ModelRunnerCounter();
 const browser = new Browser(settingsManager, modelRunnerCounter);
 const browserRuntime = new ElectronBrowserRuntime(browser);
+const shellBridge = browser.getShellBridge();
 
-browser.on("all-tabs-closed", () => {
-    app.quit();
-});
-
-browser.shell.bridge.handle("shell:settings-get", async () => {
-    return {
+shellBridge
+    .handle("shell:settings-get", async () => ({
         settings: await settingsManager.load(),
-    };
-});
+    }))
+    .handle("shell:settings-set", async ({ settings }) => {
+        await settingsManager.restore(settings as any);
 
-browser.shell.bridge.handle("shell:settings-set", async ({ settings }) => {
-    await settingsManager.restore(settings as any);
-
-    browser.shell.bridge.send("shell:settings-changed");
-});
-
-browser.shell.bridge.handle("shell:minimize", async () => {
-    browser.baseWindow.minimize();
-});
-
-browser.shell.bridge.handle("shell:maximize", async () => {
-    browser.baseWindow.maximize();
-});
-
-browser.shell.bridge.handle("shell:restore", async () => {
-    browser.baseWindow.restore();
-});
-
-browser.shell.bridge.handle("shell:quit", async () => {
-    app.quit();
-});
-
-browser.shell.bridge.handle("shell:tab-new", async ({ url } = {}) => {
-    const id = await browser.create(url);
-    return { id };
-});
-
-browser.shell.bridge.handle("shell:tab-close", async ({ id }) => {
-    await browser.remove(id);
-});
-
-browser.shell.bridge.handle("shell:tab-load", async ({ id, url }) => {
-    await browser.load(id, url);
-});
-
-browser.shell.bridge.handle("shell:tab-reload", async ({ id }) => {
-    await browser.reload(id);
-});
-
-browser.shell.bridge.handle("shell:tab-stop-load", async ({ id }) => {
-    await browser.stop(id);
-});
-
-browser.shell.bridge.handle("shell:tab-focus", async ({ id }) => {
-    await browser.focus(id);
-});
-
-browser.shell.bridge.handle("shell:tab-can-go-back", async ({ id }) => {
-    return (await browser.getNavigationHistory(id)?.canGoBack()) ?? false;
-});
-
-browser.shell.bridge.handle("shell:tab-can-go-forward", async ({ id }) => {
-    return (await browser.getNavigationHistory(id)?.canGoForward()) ?? false;
-});
-
-browser.shell.bridge.handle("shell:tab-go-back", async ({ id }) => {
-    await browser.getNavigationHistory(id)?.goBack();
-});
-
-browser.shell.bridge.handle("shell:tab-go-forward", async ({ id }) => {
-    await browser.getNavigationHistory(id)?.goForward();
-});
-
-browser.shell.bridge.on("shell:layout-changed", (layout) => {
-    browser.updateLayout(layout);
-});
-
-browser.shell.bridge.handle("agent:provider-get-models", async (modelProvider) => {
-    return { models: await getModelsWithModelProvider(modelProvider) };
-});
-
-browser.shell.bridge.handle("agent:session-list", async () => {
-    return { sessions: coreService.sessionManager.list() };
-});
-
-browser.shell.bridge.handle("agent:session-create", async ({ name }) => {
-    return coreService.sessionManager.create(name);
-});
-
-browser.shell.bridge.handle("agent:session-remove", async ({ id }) => {
-    coreService.sessionManager.remove(id);
-});
-
-browser.shell.bridge.handle("agent:chat-ask", async (options) => {
-    const { askId, askTask } = coreService.ask({
-        ...options,
-        browserRuntime,
-    });
-
-    const baseResponse = {
-        sessionId: options.session,
-        askId,
-    };
-
-    askTask()
-        .then((response) => {
-            response
-                .on("error", (error: Error) => {
-                    browser.shell.bridge.send("agent:chat-response", {
-                        ...baseResponse,
-                        type: "done",
-                        error: error.message,
-                    });
-                })
-                .on("text", (message: string) => {
-                    browser.shell.bridge.send("agent:chat-response", {
-                        ...baseResponse,
-                        type: "text",
-                        message,
-                    });
-                })
-                .on("activity", (activity: AgentActivityEvent) => {
-                    browser.shell.bridge.send("agent:chat-response", {
-                        ...baseResponse,
-                        type: "activity",
-                        ...activity,
-                    });
-                })
-                .on("end", () => {
-                    browser.shell.bridge.send("agent:chat-response", {
-                        ...baseResponse,
-                        type: "done",
-                    });
-                });
-        })
-        .catch((error: any) => {
-            browser.shell.bridge.send("agent:chat-response", {
-                ...baseResponse,
-                type: "done",
-                error: error.message,
-            });
+        shellBridge.send("shell:settings-changed");
+    })
+    .handle("shell:minimize", async () => {
+        browser.getBaseWindow().minimize();
+    })
+    .handle("shell:maximize", async () => {
+        browser.getBaseWindow().maximize();
+    })
+    .handle("shell:restore", async () => {
+        browser.getBaseWindow().restore();
+    })
+    .handle("shell:quit", async () => {
+        app.quit();
+    })
+    .handle("shell:get-tabs", async () => ({
+        tabs: browser.getTabs().map(
+            (item) =>
+                ({
+                    id: item.webContents.id,
+                    title: item.getTitle(),
+                    url: item.getUrl(),
+                    focused: item.webContents.id === browser.getFocusedId(),
+                }) as BaseTabInfo,
+        ),
+    }))
+    .handle("shell:tab-new", async ({ url } = {}) => ({ id: await browser.create(url) }))
+    .handle("shell:tab-close", async ({ id }) => {
+        await browser.remove(id);
+    })
+    .handle("shell:tab-load", async ({ id, url }) => {
+        await browser.load(id, url);
+    })
+    .handle("shell:tab-reload", async ({ id }) => {
+        await browser.reload(id);
+    })
+    .handle("shell:tab-stop-load", async ({ id }) => {
+        await browser.stop(id);
+    })
+    .handle("shell:tab-focus", async ({ id }) => {
+        await browser.focus(id);
+    })
+    .handle(
+        "shell:tab-can-go-back",
+        async ({ id }) => (await browser.getNavigationHistory(id)?.canGoBack()) ?? false,
+    )
+    .handle(
+        "shell:tab-can-go-forward",
+        async ({ id }) => (await browser.getNavigationHistory(id)?.canGoForward()) ?? false,
+    )
+    .handle("shell:tab-go-back", async ({ id }) => {
+        await browser.getNavigationHistory(id)?.goBack();
+    })
+    .handle("shell:tab-go-forward", async ({ id }) => {
+        await browser.getNavigationHistory(id)?.goForward();
+    })
+    .on("shell:layout-changed", (layout) => {
+        browser.updateLayout(layout);
+    })
+    .handle("agent:provider-get-models", async (modelProvider) => ({
+        models: await getModelsWithModelProvider(modelProvider),
+    }))
+    .handle("agent:session-list", async () => ({ sessions: coreService.sessionManager.list() }))
+    .handle("agent:session-create", async ({ name }) => coreService.sessionManager.create(name))
+    .handle("agent:session-remove", async ({ id }) => {
+        coreService.sessionManager.remove(id);
+    })
+    .handle("agent:chat-ask", async (options) => {
+        const { askId, askTask } = coreService.ask({
+            ...options,
+            browserRuntime,
         });
 
-    return { askId };
-});
+        const baseResponse = {
+            sessionId: options.session,
+            askId,
+        };
 
-browser.shell.bridge.handle("agent:chat-stop", async ({ askId }) => {
-    await coreService.cancelAsk(askId);
-});
+        askTask()
+            .then((response) => {
+                response
+                    .on("error", (error: Error) => {
+                        shellBridge.send("agent:chat-response", {
+                            ...baseResponse,
+                            type: "done",
+                            error: error.message,
+                        });
+                    })
+                    .on("text", (message: string) => {
+                        shellBridge.send("agent:chat-response", {
+                            ...baseResponse,
+                            type: "text",
+                            message,
+                        });
+                    })
+                    .on("activity", (activity: AgentActivityEvent) => {
+                        shellBridge.send("agent:chat-response", {
+                            ...baseResponse,
+                            type: "activity",
+                            ...activity,
+                        });
+                    })
+                    .on("end", () => {
+                        shellBridge.send("agent:chat-response", {
+                            ...baseResponse,
+                            type: "done",
+                        });
+                    });
+            })
+            .catch((error: any) => {
+                shellBridge.send("agent:chat-response", {
+                    ...baseResponse,
+                    type: "done",
+                    error: error.message,
+                });
+            });
 
-{
-    let isReady = false;
-
-    browser.shell.bridge.handle("shell:ready", async () => {
+        return { askId };
+    })
+    .handle("agent:chat-stop", async ({ askId }) => {
+        await coreService.cancelAsk(askId);
+    })
+    .handle("shell:ready", async () => {
         if (!isReady) {
             isReady = true;
 
             await browser.create(settingsManager.load().homeUrl ?? CONFIG.defaultTabUrl);
         }
     });
-}
+
+browser.on("all-tabs-closed", () => {
+    app.quit();
+});
