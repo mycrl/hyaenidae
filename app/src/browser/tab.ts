@@ -7,7 +7,7 @@ import {
 import type { Browser } from ".";
 import type { SettingsManager } from "../settings";
 import type { ModelRunnerCounter } from "../model-runner";
-import { registerContextMenu } from "./context-menu";
+import { registerContextMenu } from "./menu";
 import {
     LocalModelsManager,
     RemoteModelsManager,

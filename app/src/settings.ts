@@ -43,10 +43,32 @@ export class SettingsManager {
         } catch {
             this.settings = {
                 schemaVersion: 1,
-                providers: [],
-                localRunner: {},
-                defaultFontFamily: {},
-            } as unknown as AppSettings;
+                providers: [
+                    {
+                        id: "provider-local",
+                        name: "local-runner",
+                        type: "local-runner",
+                        baseUrl: null,
+                        apiKey: null,
+                    },
+                ],
+                localRunner: {
+                    runner: null,
+                    model: null,
+                    modelFile: null,
+                    mmprojFile: null,
+                },
+                defaultProviderId: null,
+                defaultModelId: null,
+                defaultFontFamily: {
+                    standard: null,
+                    serif: null,
+                    sansSerif: null,
+                    monospace: null,
+                },
+                defaultFontSize: null,
+                homeUrl: null,
+            };
 
             console.warn(
                 "No existing settings found, starting with empty settings.",

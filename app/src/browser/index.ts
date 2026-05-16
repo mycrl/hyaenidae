@@ -1,4 +1,4 @@
-import { BaseWindow, WebContents } from "electron";
+import { BaseWindow, session, WebContents } from "electron";
 import EventEmitter from "node:events";
 import { Layout } from "@hyaenidae/bridge";
 import { CONFIG } from "../config";
@@ -124,6 +124,28 @@ export class Browser extends EventEmitter {
         // Handle window resizing to adjust content views
         this.baseWindow.on("resize", () => {
             this.syncBounds();
+        });
+
+        /**
+         * Handle download events from any tab's web contents session and
+         * forward them to the shell
+         */
+        session.defaultSession.on("will-download", (_, item) => {
+            for (const event of ["updated", "done"]) {
+                item.on(event as any, (_, type) => {
+                    this.shell.getBridge().send("shell:download-event", {
+                        type,
+                        url: item.getURL(),
+                        path: item.getSavePath(),
+                        filename: item.getFilename(),
+                        totalBytes: item.getTotalBytes(),
+                        receivedBytes: item.getReceivedBytes(),
+                        canResume: item.canResume(),
+                        bytesPerSecond: item.getReceivedBytes(),
+                        progress: item.getPercentComplete(),
+                    });
+                });
+            }
         });
     }
 

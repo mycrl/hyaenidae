@@ -15,8 +15,6 @@ import { BaseTabInfo } from "@hyaenidae/bridge";
 registerLogger();
 initConfig();
 
-let isReady = false;
-
 const coreService = new Hyaenidae();
 const settingsManager = new SettingsManager();
 const modelRunnerCounter = new ModelRunnerCounter();
@@ -24,7 +22,18 @@ const browser = new Browser(settingsManager, modelRunnerCounter);
 const browserRuntime = new ElectronBrowserRuntime(browser);
 const shellBridge = browser.getShellBridge();
 
+let isReady = false;
+
 shellBridge
+    .handle("shell:ready", async () => {
+        if (!isReady) {
+            isReady = true;
+
+            await browser.create(
+                settingsManager.load().homeUrl ?? CONFIG.defaultTabUrl,
+            );
+        }
+    })
     .handle("shell:settings-get", async () => ({
         settings: await settingsManager.load(),
     }))
@@ -159,15 +168,6 @@ shellBridge
     })
     .handle("agent:chat-stop", async ({ askId }) => {
         await coreService.cancelAsk(askId);
-    })
-    .handle("shell:ready", async () => {
-        if (!isReady) {
-            isReady = true;
-
-            await browser.create(
-                settingsManager.load().homeUrl ?? CONFIG.defaultTabUrl,
-            );
-        }
     });
 
 browser.on("all-tabs-closed", () => {

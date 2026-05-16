@@ -1,5 +1,5 @@
 /**
- * Optional type: either T or null. Used to represent nullable fields.
+ * Optional type: either T or null or undefined. Used to represent nullable fields.
  */
 export type Optional<T> = T | null;
 
