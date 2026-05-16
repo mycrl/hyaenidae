@@ -1,4 +1,4 @@
-import type { AddToChatOptions, Api, Layout } from "@hyaenidae/bridge";
+import type { AddToChatOptions, Events, Layout } from "@hyaenidae/bridge";
 
 export interface Tab {
     id: number;
@@ -27,27 +27,27 @@ interface ShellListenedEventMap {
 }
 
 const handleShellRpcEvent = <
-    TEvent extends keyof ShellHandledEventMap & keyof Api,
+    TEvent extends keyof ShellHandledEventMap & keyof Events,
     TOutput = ShellHandledEventMap[TEvent],
 >(
     event: TEvent,
     handler: ShellEventHandler<TOutput>,
 ) => {
-    hyaenidae.bridge.handle(event, async (payload: Api[TEvent][0]) => {
+    hyaenidae.bridge.handle(event, async (payload: Events[TEvent][0]) => {
         await handler(payload as unknown as TOutput);
 
-        return undefined as Api[TEvent][1];
+        return undefined as Events[TEvent][1];
     });
 };
 
 const listenShellEvent = <
-    TEvent extends keyof ShellListenedEventMap & keyof Api,
+    TEvent extends keyof ShellListenedEventMap & keyof Events,
     TOutput = ShellListenedEventMap[TEvent],
 >(
     event: TEvent,
     handler: ShellEventHandler<TOutput>,
 ) => {
-    hyaenidae.bridge.on(event, async (payload: Api[TEvent][0]) => {
+    hyaenidae.bridge.on(event, async (payload: Events[TEvent][0]) => {
         await handler(payload as unknown as TOutput);
     });
 };

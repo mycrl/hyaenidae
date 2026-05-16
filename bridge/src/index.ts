@@ -3,7 +3,7 @@ import * as Types from "./types";
 
 export * from "./types";
 
-export interface Api {
+export interface Events {
     /**
      * ============== Shell and Tab Management =============
      */
@@ -438,11 +438,11 @@ export class BridgeService {
      * rejects with an error if the request times out or if an error response is
      * received.
      */
-    async request<T extends keyof Api>(
+    async request<T extends keyof Events>(
         method: T,
-        params?: Api[T][0],
+        params?: Events[T][0],
         { timeout }: { timeout: number } = { timeout: 10000 },
-    ): Promise<Api[T][1]> {
+    ): Promise<Events[T][1]> {
         const id = this.counter++;
         const listenerKey = `${method}-relay-${id}`;
 
@@ -489,9 +489,9 @@ export class BridgeService {
      * and returns a promise that resolves with the response to be sent back to
      * the requester or rejects with an error if the request cannot be processed.
      */
-    handle<T extends keyof Api>(
+    handle<T extends keyof Events>(
         method: T,
-        callback: (params: Api[T][0]) => Promise<Api[T][1]>,
+        callback: (params: Events[T][0]) => Promise<Events[T][1]>,
     ) {
         this.listeners[method] = async (message: Message) => {
             this.handler.send(BRIDGE_RPC_EVENT_NAME, {
@@ -517,9 +517,9 @@ export class BridgeService {
      * longer be called when requests for that method are received.
      *
      * @param method - The name of the RPC method to stop handling, which must
-     * be a key of the Api type.
+     * be a key of the Events type.
      */
-    off<T extends keyof Api>(method: T) {
+    off<T extends keyof Events>(method: T) {
         delete this.listeners[method];
 
         this.handler.off(method);
@@ -528,14 +528,17 @@ export class BridgeService {
     /**
      * Sends a message for electron ipc channel.
      */
-    send<T extends keyof Api>(method: T, params?: Api[T][0]) {
+    send<T extends keyof Events>(method: T, params?: Events[T][0]) {
         this.handler.send(method, params);
     }
 
     /**
      * Registers a callback for the specified electron ipc channel.
      */
-    on<T extends keyof Api>(method: T, callback: (params: Api[T][0]) => void) {
+    on<T extends keyof Events>(
+        method: T,
+        callback: (params: Events[T][0]) => void,
+    ) {
         this.handler.on(method, callback);
 
         return this;
