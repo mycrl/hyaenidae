@@ -66,6 +66,11 @@ interface SessionCompressionResult {
  * prompts.
  */
 export class SessionCompressor {
+    /**
+     * Normalizes the session title by stripping extraneous whitespace and punctuation,
+     * then truncating to the maximum length. This helps ensure titles are clean
+     * and concise when surfaced in the UI.
+     */
     private static normalizeTitle(value: string) {
         return value
             .replace(/\s+/g, " ")
@@ -77,6 +82,9 @@ export class SessionCompressor {
             .slice(0, MAX_SESSION_TITLE_LENGTH);
     }
 
+    /**
+     * Parses the compressor model's output into structured title and summary fields.
+     */
     private static parseCompressionResult(
         text: string,
     ): SessionCompressionResult {
@@ -85,6 +93,7 @@ export class SessionCompressor {
         const title = titleMatch?.[2]
             ? this.normalizeTitle(titleMatch[2])
             : null;
+
         const summary = normalized
             .replace(/(^|\n)Title:\s*([^\n]*)\n?/i, "$1")
             .trim();
