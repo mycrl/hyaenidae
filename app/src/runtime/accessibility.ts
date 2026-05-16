@@ -4,11 +4,15 @@ import { WebContentsDebugger } from "./debugger";
 
 // Reads Chromium's accessibility tree so the agent can reason about semantics, not only raw DOM.
 export class AccessibilityTreeReader {
-    async read(webContents: WebContents): Promise<BrowserElementNode | undefined> {
+    async read(
+        webContents: WebContents,
+    ): Promise<BrowserElementNode | undefined> {
         const debuggerSession = new WebContentsDebugger(webContents);
 
         try {
-            const response = await debuggerSession.sendCommand("Accessibility.getFullAXTree");
+            const response = await debuggerSession.sendCommand(
+                "Accessibility.getFullAXTree",
+            );
             const nodes = Array.isArray(response.nodes)
                 ? (response.nodes as Array<Record<string, unknown>>)
                 : [];
@@ -16,7 +20,10 @@ export class AccessibilityTreeReader {
             const childIds = new Set<string>();
 
             for (const rawNode of nodes) {
-                const nodeId = typeof rawNode.nodeId === "string" ? rawNode.nodeId : undefined;
+                const nodeId =
+                    typeof rawNode.nodeId === "string"
+                        ? rawNode.nodeId
+                        : undefined;
                 if (!nodeId) {
                     continue;
                 }
@@ -36,7 +43,10 @@ export class AccessibilityTreeReader {
             }
 
             for (const rawNode of nodes) {
-                const nodeId = typeof rawNode.nodeId === "string" ? rawNode.nodeId : undefined;
+                const nodeId =
+                    typeof rawNode.nodeId === "string"
+                        ? rawNode.nodeId
+                        : undefined;
                 const node = nodeId ? byId.get(nodeId) : undefined;
                 const rawChildren = Array.isArray(rawNode.childIds)
                     ? (rawNode.childIds as unknown[])
@@ -62,7 +72,9 @@ export class AccessibilityTreeReader {
                 }
             }
 
-            const rootEntry = [...byId.entries()].find(([nodeId]) => !childIds.has(nodeId));
+            const rootEntry = [...byId.entries()].find(
+                ([nodeId]) => !childIds.has(nodeId),
+            );
             return rootEntry?.[1];
         } catch {
             return undefined;

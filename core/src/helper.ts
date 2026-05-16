@@ -13,7 +13,8 @@ const MAX_PROMPT_HISTORY_TURNS = 12;
  * Older context is expected to move into the compressed summary, so this helper
  * deliberately drops long-tail history instead of trying to preserve everything.
  */
-export const trimTurns = (turns: AgentConversationTurn[]) => turns.slice(-MAX_STORED_TURNS);
+export const trimTurns = (turns: AgentConversationTurn[]) =>
+    turns.slice(-MAX_STORED_TURNS);
 
 /**
  * Rebuilds the prompt sent to the agent from the saved conversation state.
@@ -39,7 +40,8 @@ export function buildConversationInput(
             ? [
                   "Recent conversation turns:",
                   ...recentTurns.map(
-                      (turn) => `${turn.role === "user" ? "User" : "Assistant"}: ${turn.content}`,
+                      (turn) =>
+                          `${turn.role === "user" ? "User" : "Assistant"}: ${turn.content}`,
                   ),
                   "",
               ]
@@ -98,7 +100,8 @@ export async function getModelsWithModelProvider(modelProvider: ModelProvider) {
         method: "GET",
         headers: {
             Accept: "application/json",
-            ...(modelProvider.apiKey === undefined || modelProvider.apiKey.trim().length === 0
+            ...(modelProvider.apiKey === undefined ||
+            modelProvider.apiKey.trim().length === 0
                 ? {}
                 : {
                       Authorization: `Bearer ${modelProvider.apiKey.trim()}`,
@@ -131,5 +134,8 @@ export async function getModelsWithModelProvider(modelProvider: ModelProvider) {
 
     return data
         .map((item) => item.id)
-        .filter((id): id is string => typeof id === "string" && id.trim().length > 0);
+        .filter(
+            (id): id is string =>
+                typeof id === "string" && id.trim().length > 0,
+        );
 }

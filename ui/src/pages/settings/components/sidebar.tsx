@@ -21,7 +21,10 @@ export default function Sidebar({
 }) {
     return (
         <aside tag="settings-sidebar" className="settings-sidebar-root">
-            <div tag="settings-sidebar-header" className="settings-sidebar-header">
+            <div
+                tag="settings-sidebar-header"
+                className="settings-sidebar-header"
+            >
                 <h1 className="settings-sidebar-title">{title}</h1>
                 <p className="settings-sidebar-subtitle">{subtitle}</p>
             </div>
@@ -39,7 +42,9 @@ export default function Sidebar({
                                 : "settings-sidebar-item-inactive",
                         ].join(" ")}
                     >
-                        <div className="settings-sidebar-item-title">{section.title}</div>
+                        <div className="settings-sidebar-item-title">
+                            {section.title}
+                        </div>
                         <div className="settings-sidebar-item-description">
                             {section.description}
                         </div>

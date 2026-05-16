@@ -173,7 +173,10 @@ export interface Api {
     /**
      * Search for models on the Hugging Face hub using a query string.
      */
-    "model:search": [{ query: string; limit?: number }, { models: Types.ModelInfo[] }];
+    "model:search": [
+        { query: string; limit?: number },
+        { models: Types.ModelInfo[] },
+    ];
 
     /**
      * Retrieve downloadable files for a given model repository.
@@ -189,14 +192,20 @@ export interface Api {
      * Triggers when a model download fails, providing the name of the model and
      * the error message
      */
-    "model:download-fail": [{ name: string; path: string; error: string }, void];
+    "model:download-fail": [
+        { name: string; path: string; error: string },
+        void,
+    ];
 
     /**
      * Triggers periodically during a model download to report progress,
      * providing the name of the model and the current progress as a
      * percentage (0 to 1)
      */
-    "model:download-progress": [{ name: string; path: string; progress: number }, void];
+    "model:download-progress": [
+        { name: string; path: string; progress: number },
+        void,
+    ];
 
     /**
      * List locally cached models stored under the resources directory.
@@ -206,7 +215,10 @@ export interface Api {
     /**
      * List downloaded GGUF files for a locally cached model repository.
      */
-    "model:get-local-model-files": [{ model: string }, { files: Types.ModelFileInfo[] }];
+    "model:get-local-model-files": [
+        { model: string },
+        { files: Types.ModelFileInfo[] },
+    ];
 
     /**
      * Remove a locally cached model directory.
@@ -226,7 +238,10 @@ export interface Api {
     /**
      * Start a runner for the specified local model and return connection info.
      */
-    "model:start-runner": [Types.StartRunnerOptions, { baseUrl: string; apiKey: string }];
+    "model:start-runner": [
+        Types.StartRunnerOptions,
+        { baseUrl: string; apiKey: string },
+    ];
 
     /**
      * Stop the currently running local runner (if any).
@@ -402,7 +417,10 @@ export class BridgeService {
      * and returns a promise that resolves with the response to be sent back to
      * the requester or rejects with an error if the request cannot be processed.
      */
-    handle<T extends keyof Api>(method: T, callback: (params: Api[T][0]) => Promise<Api[T][1]>) {
+    handle<T extends keyof Api>(
+        method: T,
+        callback: (params: Api[T][0]) => Promise<Api[T][1]>,
+    ) {
         this.listeners[method] = async (message: Message) => {
             this.handler.send(BRIDGE_RPC_EVENT_NAME, {
                 id: message.id,
@@ -472,7 +490,11 @@ export class BridgeRenderer extends BridgeService {
             },
             on: (method, callback) => {
                 callbacks[method] = (_: any, message: any) => {
-                    console.debug("Renderer Received IPC message:", method, message);
+                    console.debug(
+                        "Renderer Received IPC message:",
+                        method,
+                        message,
+                    );
 
                     callback(message);
                 };
@@ -506,7 +528,11 @@ export class Bridge extends BridgeService {
         super({
             on: (method, callback) => {
                 callbacks[method] = (_: any, message: any) => {
-                    console.debug("Main Received IPC message:", method, message);
+                    console.debug(
+                        "Main Received IPC message:",
+                        method,
+                        message,
+                    );
 
                     callback(message);
                 };

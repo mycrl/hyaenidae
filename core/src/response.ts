@@ -69,7 +69,9 @@ export const createAskReponseResult = (
                 kind: "reasoning",
                 status: "running",
                 name: "reasoning_started",
-                ...(options.text === undefined ? {} : { data: { text: options.text } }),
+                ...(options.text === undefined
+                    ? {}
+                    : { data: { text: options.text } }),
             };
         case AskResponseResultEvent.TOOL_RUNNING:
             return {
@@ -114,7 +116,9 @@ export const createAskReponseResult = (
                 kind: "status",
                 status: "completed",
                 name: "session_compression",
-                ...(options.error === undefined ? {} : { data: { error: options.error } }),
+                ...(options.error === undefined
+                    ? {}
+                    : { data: { error: options.error } }),
             };
         case AskResponseResultEvent.SESSION_RENAMED_COMPLETED:
             return {
@@ -122,14 +126,21 @@ export const createAskReponseResult = (
                 kind: "status",
                 status: "completed",
                 name: "session_renamed",
-                ...(options.title === undefined ? {} : { data: { title: options.title } }),
+                ...(options.title === undefined
+                    ? {}
+                    : { data: { title: options.title } }),
             };
     }
 };
 
 type HandledEvent =
     | {
-          type: "start-step" | "reasoning-start" | "reasoning-delta" | "text-delta" | "finish-step";
+          type:
+              | "start-step"
+              | "reasoning-start"
+              | "reasoning-delta"
+              | "text-delta"
+              | "finish-step";
           text?: string;
           textDelta?: string;
           delta?: string;
@@ -172,8 +183,13 @@ export class AskResponse extends EventEmitter {
      */
     async start() {
         try {
-            for await (const event of this.runResult.fullStream as AsyncIterable<HandledEvent>) {
-                if (typeof event !== "object" || event === null || !("type" in event)) {
+            for await (const event of this.runResult
+                .fullStream as AsyncIterable<HandledEvent>) {
+                if (
+                    typeof event !== "object" ||
+                    event === null ||
+                    !("type" in event)
+                ) {
                     continue;
                 }
 
@@ -183,33 +199,46 @@ export class AskResponse extends EventEmitter {
 
                         this.emit(
                             "activity",
-                            createAskReponseResult(AskResponseResultEvent.REASONING_RUNNING, {
-                                step: this.currentStep,
-                            }),
+                            createAskReponseResult(
+                                AskResponseResultEvent.REASONING_RUNNING,
+                                {
+                                    step: this.currentStep,
+                                },
+                            ),
                         );
 
                         break;
                     case "reasoning-start":
                         this.emit(
                             "activity",
-                            createAskReponseResult(AskResponseResultEvent.REASONING_RUNNING, {
-                                step: this.currentStep,
-                            }),
+                            createAskReponseResult(
+                                AskResponseResultEvent.REASONING_RUNNING,
+                                {
+                                    step: this.currentStep,
+                                },
+                            ),
                         );
 
                         break;
                     case "reasoning-delta":
                         this.emit(
                             "activity",
-                            createAskReponseResult(AskResponseResultEvent.REASONING_RUNNING, {
-                                step: this.currentStep,
-                                text: event.text ?? event.textDelta ?? event.delta,
-                            }),
+                            createAskReponseResult(
+                                AskResponseResultEvent.REASONING_RUNNING,
+                                {
+                                    step: this.currentStep,
+                                    text:
+                                        event.text ??
+                                        event.textDelta ??
+                                        event.delta,
+                                },
+                            ),
                         );
 
                         break;
                     case "text-delta": {
-                        const text = event.text ?? event.textDelta ?? event.delta;
+                        const text =
+                            event.text ?? event.textDelta ?? event.delta;
 
                         if (typeof text === "string" && text.length > 0) {
                             this.outputText += text;
@@ -222,22 +251,28 @@ export class AskResponse extends EventEmitter {
                     case "tool-call":
                         this.emit(
                             "activity",
-                            createAskReponseResult(AskResponseResultEvent.TOOL_RUNNING, {
-                                toolCallId: event.toolCallId,
-                                toolName: event.toolName,
-                                input: event.input,
-                            }),
+                            createAskReponseResult(
+                                AskResponseResultEvent.TOOL_RUNNING,
+                                {
+                                    toolCallId: event.toolCallId,
+                                    toolName: event.toolName,
+                                    input: event.input,
+                                },
+                            ),
                         );
 
                         break;
                     case "tool-result":
                         this.emit(
                             "activity",
-                            createAskReponseResult(AskResponseResultEvent.TOOL_COMPLETED, {
-                                toolCallId: event.toolCallId,
-                                toolName: event.toolName,
-                                output: event.output,
-                            }),
+                            createAskReponseResult(
+                                AskResponseResultEvent.TOOL_COMPLETED,
+                                {
+                                    toolCallId: event.toolCallId,
+                                    toolName: event.toolName,
+                                    output: event.output,
+                                },
+                            ),
                         );
 
                         break;

@@ -37,14 +37,20 @@ export let CONFIG: Config = {
  * Defaults to "../../config.json".
  */
 export function initConfig(
-    configFilePath = process.env.CONFIG_FILE_PATH ?? require.resolve("../../config.json"),
+    configFilePath = process.env.CONFIG_FILE_PATH ??
+        require.resolve("../../config.json"),
 ) {
     console.info("Initializing configuration from", configFilePath);
 
     try {
-        CONFIG = Object.assign(CONFIG, JSON.parse(readFileSync(configFilePath, "utf-8")));
+        CONFIG = Object.assign(
+            CONFIG,
+            JSON.parse(readFileSync(configFilePath, "utf-8")),
+        );
     } catch {
-        console.warn("Failed to read configuration file, using default configuration.");
+        console.warn(
+            "Failed to read configuration file, using default configuration.",
+        );
     }
 
     console.info("Configuration initialized:", CONFIG);

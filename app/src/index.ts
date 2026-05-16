@@ -1,5 +1,9 @@
 import { app } from "electron";
-import { AgentActivityEvent, Hyaenidae, getModelsWithModelProvider } from "@hyaenidae/core";
+import {
+    AgentActivityEvent,
+    Hyaenidae,
+    getModelsWithModelProvider,
+} from "@hyaenidae/core";
 import { ElectronBrowserRuntime } from "./runtime";
 import { Browser } from "./browser";
 import { CONFIG, initConfig } from "./config";
@@ -52,7 +56,9 @@ shellBridge
                 }) as BaseTabInfo,
         ),
     }))
-    .handle("shell:tab-new", async ({ url } = {}) => ({ id: await browser.create(url) }))
+    .handle("shell:tab-new", async ({ url } = {}) => ({
+        id: await browser.create(url),
+    }))
     .handle("shell:tab-close", async ({ id }) => {
         await browser.remove(id);
     })
@@ -70,11 +76,13 @@ shellBridge
     })
     .handle(
         "shell:tab-can-go-back",
-        async ({ id }) => (await browser.getNavigationHistory(id)?.canGoBack()) ?? false,
+        async ({ id }) =>
+            (await browser.getNavigationHistory(id)?.canGoBack()) ?? false,
     )
     .handle(
         "shell:tab-can-go-forward",
-        async ({ id }) => (await browser.getNavigationHistory(id)?.canGoForward()) ?? false,
+        async ({ id }) =>
+            (await browser.getNavigationHistory(id)?.canGoForward()) ?? false,
     )
     .handle("shell:tab-go-back", async ({ id }) => {
         await browser.getNavigationHistory(id)?.goBack();
@@ -88,8 +96,12 @@ shellBridge
     .handle("agent:provider-get-models", async (modelProvider) => ({
         models: await getModelsWithModelProvider(modelProvider),
     }))
-    .handle("agent:session-list", async () => ({ sessions: coreService.sessionManager.list() }))
-    .handle("agent:session-create", async ({ name }) => coreService.sessionManager.create(name))
+    .handle("agent:session-list", async () => ({
+        sessions: coreService.sessionManager.list(),
+    }))
+    .handle("agent:session-create", async ({ name }) =>
+        coreService.sessionManager.create(name),
+    )
     .handle("agent:session-remove", async ({ id }) => {
         coreService.sessionManager.remove(id);
     })
@@ -152,7 +164,9 @@ shellBridge
         if (!isReady) {
             isReady = true;
 
-            await browser.create(settingsManager.load().homeUrl ?? CONFIG.defaultTabUrl);
+            await browser.create(
+                settingsManager.load().homeUrl ?? CONFIG.defaultTabUrl,
+            );
         }
     });
 

@@ -106,7 +106,8 @@ export default function BrowserSection({
                         <select
                             value={homepageMode}
                             onChange={(event) => {
-                                const nextMode = event.target.value as HomepageMode;
+                                const nextMode = event.target
+                                    .value as HomepageMode;
 
                                 setHomepageMode(nextMode);
 
@@ -130,10 +131,14 @@ export default function BrowserSection({
                                 value={settings.homeUrl ?? ""}
                                 onChange={(event) =>
                                     onSettingsChange({
-                                        homeUrl: toNullableInputValue(event.target.value),
+                                        homeUrl: toNullableInputValue(
+                                            event.target.value,
+                                        ),
                                     })
                                 }
-                                placeholder={t("settings.browser.homepage.customUrlPlaceholder")}
+                                placeholder={t(
+                                    "settings.browser.homepage.customUrlPlaceholder",
+                                )}
                                 className="browser-settings-text-control"
                             />
                         ) : null}
@@ -154,7 +159,8 @@ export default function BrowserSection({
                         <select
                             value={selectedFontSize}
                             onChange={(event) => {
-                                const option = event.target.value as FontSizeOption;
+                                const option = event.target
+                                    .value as FontSizeOption;
 
                                 onSettingsChange({
                                     defaultFontSize: fontSizeValueMap[option],
@@ -199,13 +205,17 @@ export default function BrowserSection({
                                 className="mb-[10px]"
                             >
                                 <select
-                                    value={settings.defaultFontFamily[item.key] ?? "system"}
+                                    value={
+                                        settings.defaultFontFamily[item.key] ??
+                                        "system"
+                                    }
                                     onChange={(event) =>
                                         onSettingsChange({
                                             defaultFontFamily: {
                                                 ...settings.defaultFontFamily,
                                                 [item.key]:
-                                                    event.target.value === "system"
+                                                    event.target.value ===
+                                                    "system"
                                                         ? null
                                                         : event.target.value,
                                             },
@@ -214,10 +224,15 @@ export default function BrowserSection({
                                     className="browser-settings-select-control"
                                 >
                                     <option value="system">
-                                        {t("settings.browser.fonts.options.system")}
+                                        {t(
+                                            "settings.browser.fonts.options.system",
+                                        )}
                                     </option>
                                     {fonts.map((font) => (
-                                        <option key={font.fullName} value={font.fullName}>
+                                        <option
+                                            key={font.fullName}
+                                            value={font.fullName}
+                                        >
                                             {font.fullName}
                                         </option>
                                     ))}
@@ -226,14 +241,16 @@ export default function BrowserSection({
                                     className="text-sample"
                                     style={{
                                         fontFamily:
-                                            settings.defaultFontFamily[item.key] ?? "system",
+                                            settings.defaultFontFamily[
+                                                item.key
+                                            ] ?? "system",
                                         fontSize: settings.defaultFontSize
                                             ? `${settings.defaultFontSize}px`
                                             : undefined,
                                     }}
                                 >
-                                    {settings.defaultFontSize}: The quick brown fox jumps over the
-                                    lazy dog
+                                    {settings.defaultFontSize}: The quick brown
+                                    fox jumps over the lazy dog
                                 </p>
                             </FieldLabel>
                         ))}

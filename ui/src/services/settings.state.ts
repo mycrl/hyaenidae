@@ -1,5 +1,10 @@
 import { create } from "zustand";
-import { DEFAULT_SETTINGS, getSettings, mergeSettings, setSettings } from "./settings";
+import {
+    DEFAULT_SETTINGS,
+    getSettings,
+    mergeSettings,
+    setSettings,
+} from "./settings";
 import { onSettingsChanged } from "./settings";
 import type { AppSettings } from "@hyaenidae/bridge";
 

@@ -4,7 +4,9 @@ import type { AgentActivity } from "../../services/agent.state";
 const MAX_DETAIL_LENGTH = 240;
 
 const truncate = (value: string) =>
-    value.length <= MAX_DETAIL_LENGTH ? value : `${value.slice(0, MAX_DETAIL_LENGTH)}...`;
+    value.length <= MAX_DETAIL_LENGTH
+        ? value
+        : `${value.slice(0, MAX_DETAIL_LENGTH)}...`;
 
 const parseJsonString = (value: string) => {
     const trimmed = value.trim();
@@ -24,8 +26,14 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null && !Array.isArray(value);
 
 const summarizeTab = (tab: Record<string, unknown>) => {
-    const title = typeof tab.title === "string" && tab.title.trim() ? tab.title.trim() : undefined;
-    const url = typeof tab.url === "string" && tab.url.trim() ? tab.url.trim() : undefined;
+    const title =
+        typeof tab.title === "string" && tab.title.trim()
+            ? tab.title.trim()
+            : undefined;
+    const url =
+        typeof tab.url === "string" && tab.url.trim()
+            ? tab.url.trim()
+            : undefined;
     const isLoading = tab.isLoading === true;
 
     if (title && url) {
@@ -44,7 +52,8 @@ const summarizeTab = (tab: Record<string, unknown>) => {
 };
 
 const summarizeToolArguments = (args: unknown) => {
-    const normalized = typeof args === "string" ? (parseJsonString(args) ?? args) : args;
+    const normalized =
+        typeof args === "string" ? (parseJsonString(args) ?? args) : args;
 
     if (typeof normalized === "string") {
         return normalized.trim() ? truncate(normalized.trim()) : undefined;
@@ -58,7 +67,10 @@ const summarizeToolArguments = (args: unknown) => {
         return truncate(normalized.url.trim());
     }
 
-    if (typeof normalized.description === "string" && normalized.description.trim()) {
+    if (
+        typeof normalized.description === "string" &&
+        normalized.description.trim()
+    ) {
         return truncate(normalized.description.trim());
     }
 
@@ -86,7 +98,10 @@ const summarizeToolArguments = (args: unknown) => {
 };
 
 const summarizeToolOutput = (output: unknown) => {
-    const normalized = typeof output === "string" ? (parseJsonString(output) ?? output) : output;
+    const normalized =
+        typeof output === "string"
+            ? (parseJsonString(output) ?? output)
+            : output;
 
     if (typeof normalized === "string") {
         const compact = normalized.trim();
@@ -98,7 +113,9 @@ const summarizeToolOutput = (output: unknown) => {
     }
 
     if (Array.isArray(normalized)) {
-        return normalized.length > 0 ? `${normalized.length} result(s)` : undefined;
+        return normalized.length > 0
+            ? `${normalized.length} result(s)`
+            : undefined;
     }
 
     if (!isRecord(normalized)) {
@@ -164,7 +181,8 @@ export const formatAgentActivity = (activity: AgentActivity, t: TFunction) => {
         if (activity.name === "session_renamed" && isRecord(activity.data)) {
             return {
                 title: t("chat.activityLabels.sessionRenamed"),
-                ...(typeof activity.data.title === "string" && activity.data.title.trim()
+                ...(typeof activity.data.title === "string" &&
+                activity.data.title.trim()
                     ? { detail: truncate(activity.data.title.trim()) }
                     : {}),
             };
@@ -194,8 +212,12 @@ export const formatAgentActivity = (activity: AgentActivity, t: TFunction) => {
         return {
             title:
                 activity.status === "running"
-                    ? t("chat.activityLabels.toolCalling", { name: activity.name })
-                    : t("chat.activityLabels.toolCompleted", { name: activity.name }),
+                    ? t("chat.activityLabels.toolCalling", {
+                          name: activity.name,
+                      })
+                    : t("chat.activityLabels.toolCompleted", {
+                          name: activity.name,
+                      }),
             ...(detail === undefined ? {} : { detail }),
         };
     }

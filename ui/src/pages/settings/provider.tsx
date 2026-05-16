@@ -11,15 +11,19 @@ const providerTypeOptions: ApiProviderType[] = ["openai", "google", "custom"];
 
 const toNullableInputValue = (value: string) => (value === "" ? null : value);
 
-const getProviderTitle = (provider: ApiProviderSettings, index: number, providerLabel: string) =>
-    provider.name?.trim() || `${providerLabel} ${index + 1}`;
+const getProviderTitle = (
+    provider: ApiProviderSettings,
+    index: number,
+    providerLabel: string,
+) => provider.name?.trim() || `${providerLabel} ${index + 1}`;
 
 const getProviderDescription = (
     provider: ApiProviderSettings,
     translate: (key: string) => string,
 ) =>
     provider.type === "custom"
-        ? provider.baseUrl?.trim() || translate("settings.providerBaseURLPlaceholder")
+        ? provider.baseUrl?.trim() ||
+          translate("settings.providerBaseURLPlaceholder")
         : translate(`settings.providerTypes.${provider.type}`);
 
 export default function ProviderSection({
@@ -30,10 +34,17 @@ export default function ProviderSection({
     onProvidersChange: (providers: ApiProviderSettings[]) => void;
 }) {
     const { t } = useTranslation();
-    const localRunnerProvider = providers.find((provider) => provider.type === "local-runner");
-    const editableProviders = providers.filter((provider) => provider.type !== "local-runner");
+    const localRunnerProvider = providers.find(
+        (provider) => provider.type === "local-runner",
+    );
+    const editableProviders = providers.filter(
+        (provider) => provider.type !== "local-runner",
+    );
 
-    const updateProvider = (id: string, patch: Partial<ApiProviderSettings>) => {
+    const updateProvider = (
+        id: string,
+        patch: Partial<ApiProviderSettings>,
+    ) => {
         onProvidersChange(
             providers.map((provider) =>
                 provider.id === id ? { ...provider, ...patch } : provider,
@@ -47,11 +58,18 @@ export default function ProviderSection({
             description={t("settings.sections.providers.description")}
         >
             <div className="provider-settings-toolbar">
-                <p className="provider-settings-hint">{t("settings.providersHint")}</p>
+                <p className="provider-settings-hint">
+                    {t("settings.providersHint")}
+                </p>
 
                 <button
                     type="button"
-                    onClick={() => onProvidersChange([...providers, createProviderSettings()])}
+                    onClick={() =>
+                        onProvidersChange([
+                            ...providers,
+                            createProviderSettings(),
+                        ])
+                    }
                     className="provider-settings-add-button"
                 >
                     <PlusIcon className="provider-settings-add-icon" />
@@ -60,7 +78,9 @@ export default function ProviderSection({
             </div>
 
             <div className="provider-settings-list">
-                {localRunnerProvider ? <LocalRunnerCard provider={localRunnerProvider} /> : null}
+                {localRunnerProvider ? (
+                    <LocalRunnerCard provider={localRunnerProvider} />
+                ) : null}
 
                 {editableProviders.map((provider, index) => (
                     <EditableProviderCard
@@ -68,7 +88,11 @@ export default function ProviderSection({
                         provider={provider}
                         index={index}
                         onRemove={() =>
-                            onProvidersChange(providers.filter((item) => item.id !== provider.id))
+                            onProvidersChange(
+                                providers.filter(
+                                    (item) => item.id !== provider.id,
+                                ),
+                            )
                         }
                         onUpdate={(patch) => updateProvider(provider.id, patch)}
                     />
@@ -90,15 +114,23 @@ function EditableProviderCard({
     onRemove: () => void;
 }) {
     const { t } = useTranslation();
-    const providerTitle = getProviderTitle(provider, index, t("settings.providerLabel"));
+    const providerTitle = getProviderTitle(
+        provider,
+        index,
+        t("settings.providerLabel"),
+    );
     const providerDescription = getProviderDescription(provider, t);
 
     return (
         <div className="provider-settings-item">
             <div className="provider-settings-item-header">
                 <div>
-                    <div className="provider-settings-item-title">{providerTitle}</div>
-                    <div className="provider-settings-item-description">{providerDescription}</div>
+                    <div className="provider-settings-item-title">
+                        {providerTitle}
+                    </div>
+                    <div className="provider-settings-item-description">
+                        {providerDescription}
+                    </div>
                 </div>
 
                 <button
@@ -122,10 +154,14 @@ function EditableProviderCard({
                     <select
                         value={provider.type}
                         onChange={(event) => {
-                            const nextType = event.target.value as ApiProviderType;
+                            const nextType = event.target
+                                .value as ApiProviderType;
                             onUpdate({
                                 type: nextType,
-                                baseUrl: nextType === "custom" ? provider.baseUrl : null,
+                                baseUrl:
+                                    nextType === "custom"
+                                        ? provider.baseUrl
+                                        : null,
                             });
                         }}
                         className="provider-settings-control"
@@ -172,7 +208,9 @@ function ProviderTextField({
         <FieldLabel label={label}>
             <input
                 value={value ?? ""}
-                onChange={(event) => onChange(toNullableInputValue(event.target.value))}
+                onChange={(event) =>
+                    onChange(toNullableInputValue(event.target.value))
+                }
                 placeholder={placeholder}
                 className="provider-settings-control"
             />
@@ -196,7 +234,8 @@ function LocalRunnerCard({ provider }: { provider: ApiProviderSettings }) {
                 </div>
 
                 <div className="local-runner-provider-card-badge">
-                    {provider.name ?? t(`settings.providerTypes.${provider.type}`)}
+                    {provider.name ??
+                        t(`settings.providerTypes.${provider.type}`)}
                 </div>
             </div>
         </div>

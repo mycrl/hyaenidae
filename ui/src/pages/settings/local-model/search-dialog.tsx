@@ -11,11 +11,16 @@ import {
     useLocalModelSearchStore,
 } from "../../../services/model.state";
 
-const LOCAL_MODEL_SEARCH_ERROR_TRANSLATION_KEYS: Record<LocalModelSearchErrorCode, string> = {
-    [LOCAL_MODEL_SEARCH_ERROR_CODE.SEARCH_FAILED]: "settings.localModels.failed",
+const LOCAL_MODEL_SEARCH_ERROR_TRANSLATION_KEYS: Record<
+    LocalModelSearchErrorCode,
+    string
+> = {
+    [LOCAL_MODEL_SEARCH_ERROR_CODE.SEARCH_FAILED]:
+        "settings.localModels.failed",
 };
 
-const formatSizeInMb = (size: number) => `${(size / (1024 * 1024)).toFixed(2)} MB`;
+const formatSizeInMb = (size: number) =>
+    `${(size / (1024 * 1024)).toFixed(2)} MB`;
 
 export default function SearchDialog({
     open,
@@ -29,19 +34,31 @@ export default function SearchDialog({
     const { t } = useTranslation();
     const initialized = useLocalModelSearchStore((state) => state.initialized);
     const query = useLocalModelSearchStore((state) => state.query);
-    const searchLoading = useLocalModelSearchStore((state) => state.searchLoading);
+    const searchLoading = useLocalModelSearchStore(
+        (state) => state.searchLoading,
+    );
     const results = useLocalModelSearchStore((state) => state.results);
     const error = useLocalModelSearchStore((state) => state.error);
-    const downloadStates = useLocalModelSearchStore((state) => state.downloadStates);
-    const completedVersion = useLocalModelSearchStore((state) => state.completedVersion);
-    const initializeRpc = useLocalModelSearchStore((state) => state.initializeRpc);
+    const downloadStates = useLocalModelSearchStore(
+        (state) => state.downloadStates,
+    );
+    const completedVersion = useLocalModelSearchStore(
+        (state) => state.completedVersion,
+    );
+    const initializeRpc = useLocalModelSearchStore(
+        (state) => state.initializeRpc,
+    );
     const setQuery = useLocalModelSearchStore((state) => state.setQuery);
     const search = useLocalModelSearchStore((state) => state.search);
-    const downloadModel = useLocalModelSearchStore((state) => state.downloadModel);
+    const downloadModel = useLocalModelSearchStore(
+        (state) => state.downloadModel,
+    );
     const handledCompletedVersionRef = useRef(completedVersion);
     const errorText =
         error?.message ??
-        (error?.code ? t(LOCAL_MODEL_SEARCH_ERROR_TRANSLATION_KEYS[error.code]) : null);
+        (error?.code
+            ? t(LOCAL_MODEL_SEARCH_ERROR_TRANSLATION_KEYS[error.code])
+            : null);
 
     useEffect(() => {
         if (!initialized) {
@@ -90,7 +107,11 @@ export default function SearchDialog({
                         </p>
                     </div>
 
-                    <button type="button" onClick={onClose} className="model-search-close-button">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="model-search-close-button"
+                    >
                         <XMarkIcon className="model-search-close-icon" />
                     </button>
                 </div>
@@ -101,13 +122,17 @@ export default function SearchDialog({
                             <MagnifyingGlassIcon className="model-search-input-icon" />
                             <input
                                 value={query}
-                                onChange={(event) => setQuery(event.target.value)}
+                                onChange={(event) =>
+                                    setQuery(event.target.value)
+                                }
                                 onKeyDown={(event) => {
                                     if (event.key === "Enter") {
                                         void search();
                                     }
                                 }}
-                                placeholder={t("settings.localModels.searchPlaceholder")}
+                                placeholder={t(
+                                    "settings.localModels.searchPlaceholder",
+                                )}
                                 className="model-search-input"
                             />
                         </div>
@@ -123,29 +148,39 @@ export default function SearchDialog({
                     </div>
 
                     {searchLoading ? (
-                        <div className="model-search-loading">{t("settings.loading")}</div>
+                        <div className="model-search-loading">
+                            {t("settings.loading")}
+                        </div>
                     ) : null}
-                    {errorText ? <div className="model-search-error">{errorText}</div> : null}
+                    {errorText ? (
+                        <div className="model-search-error">{errorText}</div>
+                    ) : null}
 
                     <div className="model-search-results">
                         {results.length === 0 ? (
                             <div className="model-search-empty">
                                 {query.trim()
                                     ? t("settings.localModels.noSearchResults")
-                                    : t("settings.localModels.searchDialogEmpty")}
+                                    : t(
+                                          "settings.localModels.searchDialogEmpty",
+                                      )}
                             </div>
                         ) : null}
 
                         {results.map((model) => (
-                            <details key={model.id} className="model-search-result-card">
+                            <details
+                                key={model.id}
+                                className="model-search-result-card"
+                            >
                                 <summary className="model-search-result-summary">
                                     <div className="model-search-result-main">
                                         <div className="model-search-result-title">
                                             {model.name}
                                         </div>
                                         <div className="model-search-result-meta">
-                                            {model.author} · {model.downloads} downloads ·{" "}
-                                            {model.files.length} files
+                                            {model.author} · {model.downloads}{" "}
+                                            downloads · {model.files.length}{" "}
+                                            files
                                         </div>
                                         {model.tags.length > 0 ? (
                                             <div className="model-search-result-tags">
@@ -163,7 +198,9 @@ export default function SearchDialog({
 
                                     <div className="model-search-result-side">
                                         <span className="model-search-result-side-text">
-                                            {t("settings.localModels.chooseFiles")}
+                                            {t(
+                                                "settings.localModels.chooseFiles",
+                                            )}
                                         </span>
                                     </div>
                                 </summary>
@@ -171,12 +208,16 @@ export default function SearchDialog({
                                 <div className="model-search-file-list">
                                     {model.files.map((file) => {
                                         const downloadKey = `${model.name}:${file.path}`;
-                                        const downloadState = downloadStates[downloadKey];
+                                        const downloadState =
+                                            downloadStates[downloadKey];
                                         const isDownloading =
                                             downloadState !== undefined &&
                                             downloadState.progress < 1;
                                         const progressPercent = Math.round(
-                                            Math.min(downloadState?.progress ?? 0, 1) * 100,
+                                            Math.min(
+                                                downloadState?.progress ?? 0,
+                                                1,
+                                            ) * 100,
                                         );
 
                                         return (
@@ -189,19 +230,29 @@ export default function SearchDialog({
                                                         {file.path}
                                                     </div>
                                                     <div className="model-search-file-meta">
-                                                        {file.type} · {formatSizeInMb(file.size)}
+                                                        {file.type} ·{" "}
+                                                        {formatSizeInMb(
+                                                            file.size,
+                                                        )}
                                                     </div>
                                                 </div>
 
                                                 <button
                                                     type="button"
-                                                    onClick={() => void downloadModel(model, file)}
+                                                    onClick={() =>
+                                                        void downloadModel(
+                                                            model,
+                                                            file,
+                                                        )
+                                                    }
                                                     disabled={isDownloading}
                                                     className="model-search-file-action"
                                                 >
                                                     {isDownloading
                                                         ? `${progressPercent}%`
-                                                        : t("settings.localModels.download")}
+                                                        : t(
+                                                              "settings.localModels.download",
+                                                          )}
                                                 </button>
                                             </div>
                                         );

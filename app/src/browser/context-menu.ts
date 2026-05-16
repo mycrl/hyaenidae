@@ -46,7 +46,11 @@ function setItemsProperties(
             visible: boolean;
             enabled: boolean;
             checked: boolean;
-            click: (event: Event, window: BrowserWindow, webContents: WebContents) => void;
+            click: (
+                event: Event,
+                window: BrowserWindow,
+                webContents: WebContents,
+            ) => void;
         }>;
     },
 ) {
@@ -215,7 +219,9 @@ export function registerContextMenu({
                     },
                 },
                 copy: {
-                    visible: options.selectionText !== "" || options.mediaType === "image",
+                    visible:
+                        options.selectionText !== "" ||
+                        options.mediaType === "image",
                 },
                 paste: {
                     visible: options.isEditable && options.editFlags.canPaste,
@@ -235,7 +241,10 @@ export function registerContextMenu({
                                 `https://www.google.com/search?q=${encodeURIComponent(options.selectionText)}`,
                             )
                             .catch((error) => {
-                                console.error("Failed to open search results:", error);
+                                console.error(
+                                    "Failed to open search results:",
+                                    error,
+                                );
                             });
                     },
                 },
@@ -246,7 +255,10 @@ export function registerContextMenu({
                     visible: options.linkURL !== "",
                     click: () => {
                         browser.create(options.linkURL).catch((error) => {
-                            console.error("Failed to open link in new tab:", error);
+                            console.error(
+                                "Failed to open link in new tab:",
+                                error,
+                            );
                         });
                     },
                 },

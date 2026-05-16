@@ -73,7 +73,10 @@ const toProviderType = (value: unknown): ApiProviderType => {
     }
 };
 
-const normalizeProvider = (value: unknown, index: number): ApiProviderSettings => {
+const normalizeProvider = (
+    value: unknown,
+    index: number,
+): ApiProviderSettings => {
     const provider = isRecord(value) ? value : {};
 
     return {
@@ -91,9 +94,13 @@ export const normalizeSettings = (value: unknown): AppSettings => {
     const record = isRecord(value) ? value : {};
     const localRunner = isRecord(record.localRunner) ? record.localRunner : {};
     const providers = Array.isArray(record.providers)
-        ? record.providers.map((provider, index) => normalizeProvider(provider, index))
+        ? record.providers.map((provider, index) =>
+              normalizeProvider(provider, index),
+          )
         : DEFAULT_SETTINGS.providers.map((provider) => ({ ...provider }));
-    const defaultFontFamily = isRecord(record.defaultFontFamily) ? record.defaultFontFamily : {};
+    const defaultFontFamily = isRecord(record.defaultFontFamily)
+        ? record.defaultFontFamily
+        : {};
 
     return {
         schemaVersion: 1,
@@ -112,7 +119,10 @@ export const normalizeSettings = (value: unknown): AppSettings => {
             sansSerif: toNullableString(defaultFontFamily.sansSerif),
             monospace: toNullableString(defaultFontFamily.monospace),
         },
-        defaultFontSize: typeof record.defaultFontSize === "number" ? record.defaultFontSize : null,
+        defaultFontSize:
+            typeof record.defaultFontSize === "number"
+                ? record.defaultFontSize
+                : null,
         homeUrl: toNullableString(record.homeUrl),
     };
 };
@@ -128,7 +138,10 @@ export const cloneSettings = (settings: AppSettings): AppSettings => ({
     homeUrl: settings.homeUrl,
 });
 
-export const mergeSettings = (current: AppSettings, patch: Partial<AppSettings>): AppSettings => {
+export const mergeSettings = (
+    current: AppSettings,
+    patch: Partial<AppSettings>,
+): AppSettings => {
     return normalizeSettings({
         ...current,
         ...patch,

@@ -26,7 +26,9 @@ export default function TabBar() {
     const isAgentPanelOpen = useShellStore((state) => state.isAgentPanelOpen);
     const isWindowMaximized = useShellStore((state) => state.isWindowMaximized);
     const toggleAgentPanel = useShellStore((state) => state.toggleAgentPanel);
-    const showTabContextMenu = useShellStore((state) => state.showTabContextMenu);
+    const showTabContextMenu = useShellStore(
+        (state) => state.showTabContextMenu,
+    );
     const fallbackTabTitle = t("tabs.newTab");
 
     const showContextMenu = (event: React.MouseEvent, tabId: number) => {
@@ -53,7 +55,9 @@ export default function TabBar() {
                         title={tab.title?.trim() || fallbackTabTitle}
                         className={[
                             "tab-bar-tab",
-                            activeTabId === tab.id ? "tab-bar-tab-active" : "tab-bar-tab-inactive",
+                            activeTabId === tab.id
+                                ? "tab-bar-tab-active"
+                                : "tab-bar-tab-inactive",
                         ].join(" ")}
                         onContextMenu={(e) => {
                             showContextMenu(e, tab.id);
@@ -100,8 +104,12 @@ export default function TabBar() {
                 <button
                     type="button"
                     onClick={toggleAgentPanel}
-                    title={isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")}
-                    aria-label={isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")}
+                    title={
+                        isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")
+                    }
+                    aria-label={
+                        isAgentPanelOpen ? t("chat.collapse") : t("chat.expand")
+                    }
                     className={[
                         "tab-bar-agent-toggle",
                         isAgentPanelOpen
@@ -129,7 +137,10 @@ export default function TabBar() {
 
                 <div tag="tab-window-divider" className="tab-bar-divider" />
 
-                <div tag="tab-window-controls" className="tab-bar-window-controls">
+                <div
+                    tag="tab-window-controls"
+                    className="tab-bar-window-controls"
+                >
                     <button
                         onClick={minimizeWindow}
                         title={t("window.minimize")}
@@ -139,11 +150,21 @@ export default function TabBar() {
                     </button>
 
                     <button
-                        onClick={isWindowMaximized ? restoreWindow : maximizeWindow}
-                        title={isWindowMaximized ? t("window.restore") : t("window.maximize")}
+                        onClick={
+                            isWindowMaximized ? restoreWindow : maximizeWindow
+                        }
+                        title={
+                            isWindowMaximized
+                                ? t("window.restore")
+                                : t("window.maximize")
+                        }
                         className="tab-bar-window-button"
                     >
-                        {isWindowMaximized ? <WinRestoreIcon /> : <WinMaximizeIcon />}
+                        {isWindowMaximized ? (
+                            <WinRestoreIcon />
+                        ) : (
+                            <WinMaximizeIcon />
+                        )}
                     </button>
 
                     <button

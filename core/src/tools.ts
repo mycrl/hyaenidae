@@ -7,7 +7,10 @@ import { createModelWithModelProvider } from "./helper";
  * Shared tab-target schema used by browser tools.
  */
 export const optionalTabIdSchema = zod.object({
-    tabId: zod.number().nullable().describe("Optional tab id. Use null to target the focused tab."),
+    tabId: zod
+        .number()
+        .nullable()
+        .describe("Optional tab id. Use null to target the focused tab."),
 });
 
 /**
@@ -36,7 +39,9 @@ export const createTools = (askOptions: AskOptions) => ({
             url: zod
                 .string()
                 .nullable()
-                .describe("Optional URL to load in the new tab. Use null for a blank tab."),
+                .describe(
+                    "Optional URL to load in the new tab. Use null for a blank tab.",
+                ),
         }),
         execute: async ({ url }) => ({
             tab: await askOptions.browserRuntime.openTab(url ?? undefined),
@@ -114,7 +119,9 @@ export const createTools = (askOptions: AskOptions) => ({
         inputSchema: withOptional(
             optionalTabIdSchema,
             zod.object({
-                action: zod.enum(["click", "type", "scroll"]).describe("The action to perform."),
+                action: zod
+                    .enum(["click", "type", "scroll"])
+                    .describe("The action to perform."),
                 selector: zod
                     .string()
                     .nullable()
@@ -124,15 +131,21 @@ export const createTools = (askOptions: AskOptions) => ({
                 text: zod
                     .string()
                     .nullable()
-                    .describe("Text to type when action is type. Use null otherwise."),
+                    .describe(
+                        "Text to type when action is type. Use null otherwise.",
+                    ),
                 direction: zod
                     .enum(["up", "down"])
                     .nullable()
-                    .describe("Scroll direction when action is scroll. Use null otherwise."),
+                    .describe(
+                        "Scroll direction when action is scroll. Use null otherwise.",
+                    ),
                 amount: zod
                     .number()
                     .nullable()
-                    .describe("Optional scroll amount in pixels. Use null for the default amount."),
+                    .describe(
+                        "Optional scroll amount in pixels. Use null for the default amount.",
+                    ),
             }),
         ),
         execute: async ({ tabId, action, selector, text, direction, amount }) =>
@@ -151,9 +164,15 @@ export const createTools = (askOptions: AskOptions) => ({
         inputSchema: withOptional(
             optionalTabIdSchema,
             zod.object({
-                action: zod.enum(["click", "type"]).describe("The fallback action to perform."),
-                x: zod.number().describe("Viewport x coordinate in CSS pixels."),
-                y: zod.number().describe("Viewport y coordinate in CSS pixels."),
+                action: zod
+                    .enum(["click", "type"])
+                    .describe("The fallback action to perform."),
+                x: zod
+                    .number()
+                    .describe("Viewport x coordinate in CSS pixels."),
+                y: zod
+                    .number()
+                    .describe("Viewport y coordinate in CSS pixels."),
                 text: zod
                     .string()
                     .nullable()
@@ -175,7 +194,8 @@ export const createTools = (askOptions: AskOptions) => ({
         description:
             "Read the current page using a compact DOM snapshot plus accessibility data. Good for selectors and semantic structure, but it may miss visually obvious answer cards or rich widgets. If the snapshot does not answer the question and the missing information may be visible on screen but underrepresented in DOM mode, use inspect_vision.",
         inputSchema: optionalTabIdSchema,
-        execute: async ({ tabId }) => askOptions.browserRuntime.snapshotDom(tabId ?? undefined),
+        execute: async ({ tabId }) =>
+            askOptions.browserRuntime.snapshotDom(tabId ?? undefined),
     }),
     inspect_vision: tool({
         description:
@@ -191,7 +211,9 @@ export const createTools = (askOptions: AskOptions) => ({
             }),
         ),
         execute: async ({ tabId, prompt }) => {
-            const snapshot = await askOptions.browserRuntime.captureScreenshot(tabId ?? undefined);
+            const snapshot = await askOptions.browserRuntime.captureScreenshot(
+                tabId ?? undefined,
+            );
 
             const response = await generateText({
                 model: createModelWithModelProvider(askOptions.modelProvider),
@@ -226,7 +248,8 @@ export const createTools = (askOptions: AskOptions) => ({
         },
     }),
     capture_vision: tool({
-        description: "Capture a raw screenshot for debugging or external inspection.",
+        description:
+            "Capture a raw screenshot for debugging or external inspection.",
         inputSchema: optionalTabIdSchema,
         execute: async ({ tabId }) =>
             askOptions.browserRuntime.captureScreenshot(tabId ?? undefined),

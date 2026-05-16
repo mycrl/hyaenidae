@@ -10,12 +10,17 @@ const TOOL_UNFRIENDLY_MODEL_PATTERN =
     /embed|embedding|rerank|moderation|whisper|tts|stt|transcribe|vision-preview|omni-moderation/i;
 
 const filterAgentModels = (models: string[]) => {
-    const filteredModels = models.filter((model) => !TOOL_UNFRIENDLY_MODEL_PATTERN.test(model));
+    const filteredModels = models.filter(
+        (model) => !TOOL_UNFRIENDLY_MODEL_PATTERN.test(model),
+    );
 
     return filteredModels.length > 0 ? filteredModels : models;
 };
 
-const toModelProvider = (provider: AgentProviderItem, model: string): ModelProvider => {
+const toModelProvider = (
+    provider: AgentProviderItem,
+    model: string,
+): ModelProvider => {
     switch (provider.type) {
         case "google":
             return {
@@ -41,7 +46,9 @@ const toModelProvider = (provider: AgentProviderItem, model: string): ModelProvi
     }
 };
 
-const isConfiguredProvider = (provider: ApiProviderSettings): provider is AgentProviderItem => {
+const isConfiguredProvider = (
+    provider: ApiProviderSettings,
+): provider is AgentProviderItem => {
     switch (provider.type) {
         case "custom":
         case "local-runner":
@@ -82,7 +89,9 @@ export const filterConfiguredProviders = (
     return providers.filter(isConfiguredProvider);
 };
 
-export const getProviderModels = async (provider: AgentProviderItem): Promise<string[]> => {
+export const getProviderModels = async (
+    provider: AgentProviderItem,
+): Promise<string[]> => {
     const result = await hyaenidae.bridge.request(
         "agent:provider-get-models",
         toModelProvider(provider, ""),
@@ -97,7 +106,9 @@ export const listAgentSessions = async (): Promise<AgentSession[]> => {
     return result.sessions;
 };
 
-export const createAgentSession = async (name?: string): Promise<AgentSession> => {
+export const createAgentSession = async (
+    name?: string,
+): Promise<AgentSession> => {
     return await hyaenidae.bridge.request("agent:session-create", { name });
 };
 
@@ -126,6 +137,8 @@ export const onAgentChatResponse = (
     onAgentEvent("agent:chat-response", handler);
 };
 
-export const onAddToChat = (handler: (payload: AddToChatOptions) => Promise<void> | void) => {
+export const onAddToChat = (
+    handler: (payload: AddToChatOptions) => Promise<void> | void,
+) => {
     onAgentEvent("shell:add-to-chat", handler);
 };

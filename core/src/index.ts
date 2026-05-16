@@ -87,11 +87,17 @@ export class Hyaenidae {
         return {
             askId,
             askTask: async () => {
-                const { options, nextTurns } = this.sessionManager.turnAskOptions(askOptions);
+                const { options, nextTurns } =
+                    this.sessionManager.turnAskOptions(askOptions);
                 const response = new AskResponse(
                     streamText({
-                        model: createModelWithModelProvider(options.modelProvider),
-                        system: MAIN_AGENT_PROMPT.replace(/{{LOCALE}}/g, options.locale),
+                        model: createModelWithModelProvider(
+                            options.modelProvider,
+                        ),
+                        system: MAIN_AGENT_PROMPT.replace(
+                            /{{LOCALE}}/g,
+                            options.locale,
+                        ),
                         prompt: buildConversationInput(
                             options.conversation?.summary,
                             options.conversation?.turns ?? [],

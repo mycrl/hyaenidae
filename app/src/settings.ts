@@ -16,7 +16,10 @@ export class SettingsManager {
     private settings: AppSettings | null = null;
 
     constructor() {
-        console.info("SettingsManager initialized with path:", CONFIG.settingsFilePath);
+        console.info(
+            "SettingsManager initialized with path:",
+            CONFIG.settingsFilePath,
+        );
     }
 
     /**
@@ -31,7 +34,9 @@ export class SettingsManager {
 
         try {
             this.settings = JSON.parse(
-                safeStorage.decryptString(readFileSync(CONFIG.settingsFilePath)),
+                safeStorage.decryptString(
+                    readFileSync(CONFIG.settingsFilePath),
+                ),
             );
 
             console.info("Loaded settings:", this.settings);
@@ -43,7 +48,9 @@ export class SettingsManager {
                 defaultFontFamily: {},
             } as unknown as AppSettings;
 
-            console.warn("No existing settings found, starting with empty settings.");
+            console.warn(
+                "No existing settings found, starting with empty settings.",
+            );
         }
 
         return this.settings!!;

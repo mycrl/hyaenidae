@@ -1,10 +1,17 @@
 import { Bridge } from "@hyaenidae/bridge";
-import { WebContentsView, WebContentsViewConstructorOptions, WebPreferences } from "electron";
+import {
+    WebContentsView,
+    WebContentsViewConstructorOptions,
+    WebPreferences,
+} from "electron";
 import type { Browser } from ".";
 import type { SettingsManager } from "../settings";
 import type { ModelRunnerCounter } from "../model-runner";
 import { registerContextMenu } from "./context-menu";
-import { LocalModelsManager, RemoteModelsManager } from "../model-runner/models";
+import {
+    LocalModelsManager,
+    RemoteModelsManager,
+} from "../model-runner/models";
 
 export enum TabType {
     Shell = "shell",
@@ -95,41 +102,42 @@ export class Tab extends WebContentsView {
                 })
                 .setWindowOpenHandler(({ url }) => {
                     browser.create(url).catch((error) => {
-                        console.error("Failed to open new tab for URL:", url, error);
+                        console.error(
+                            "Failed to open new tab for URL:",
+                            url,
+                            error,
+                        );
                     });
 
                     return { action: "deny" };
                 });
 
             tab.bridge
-                .handle("shell:settings-get", async () => {
-                    return {
-                        settings: await settingsManager.load(),
-                    };
-                })
+                .handle("shell:settings-get", async () => ({
+                    settings: await settingsManager.load(),
+                }))
                 .handle("shell:settings-set", async ({ settings }) => {
                     await settingsManager.restore(settings as any);
 
                     shellBridge.send("shell:settings-changed");
                 })
-                .handle("model:search", async ({ query, limit }) => {
-                    return {
-                        models: await RemoteModelsManager.search(query, limit),
-                    };
-                })
-                .handle("model:get-files", async ({ model }) => {
-                    return {
-                        files: await RemoteModelsManager.getFiles(model),
-                    };
-                })
+                .handle("model:search", async ({ query, limit }) => ({
+                    models: await RemoteModelsManager.search(query, limit),
+                }))
+                .handle("model:get-files", async ({ model }) => ({
+                    files: await RemoteModelsManager.getFiles(model),
+                }))
                 .on("model:download", (options) => {
-                    RemoteModelsManager.download(options, ({ path, progress }) => {
-                        tab.bridge.send("model:download-progress", {
-                            name: options.name,
-                            path,
-                            progress,
-                        });
-                    }).catch((error) => {
+                    RemoteModelsManager.download(
+                        options,
+                        ({ path, progress }) => {
+                            tab.bridge.send("model:download-progress", {
+                                name: options.name,
+                                path,
+                                progress,
+                            });
+                        },
+                    ).catch((error) => {
                         const path =
                             error instanceof Error &&
                             "path" in error &&
@@ -147,32 +155,25 @@ export class Tab extends WebContentsView {
                         });
                     });
                 })
-                .handle("model:get-local-models", async () => {
-                    return {
-                        models: await LocalModelsManager.list(),
-                    };
-                })
-                .handle("model:get-local-model-files", async ({ model }) => {
-                    return {
-                        files: await LocalModelsManager.getFiles(model),
-                    };
-                })
+                .handle("model:get-local-models", async () => ({
+                    models: await LocalModelsManager.list(),
+                }))
+                .handle("model:get-local-model-files", async ({ model }) => ({
+                    files: await LocalModelsManager.getFiles(model),
+                }))
                 .handle("model:remove-local-model", async ({ model }) => {
                     await LocalModelsManager.remove(model);
                 })
-                .handle("model:get-runners", async () => {
-                    return {
-                        runners: await modelRunnerCounter.getRunners(),
-                    };
-                })
-                .handle("model:get-runner-status", async () => {
-                    return {
-                        running: modelRunnerCounter.isRunning,
-                    };
-                })
-                .handle("model:start-runner", async (options) => {
-                    return await modelRunnerCounter.start(options);
-                })
+                .handle("model:get-runners", async () => ({
+                    runners: await modelRunnerCounter.getRunners(),
+                }))
+                .handle("model:get-runner-status", async () => ({
+                    running: modelRunnerCounter.isRunning,
+                }))
+                .handle(
+                    "model:start-runner",
+                    async (options) => await modelRunnerCounter.start(options),
+                )
                 .handle("model:stop-runner", async () => {
                     await modelRunnerCounter.stop();
                 });

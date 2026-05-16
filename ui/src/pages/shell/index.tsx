@@ -22,9 +22,13 @@ export default function Shell() {
     const layoutChanged = useShellStore((state) => state.layoutChanged);
     const initializeAgentRpc = useAgentStore((state) => state.initializeRpc);
     const refreshProviders = useAgentStore((state) => state.refreshProviders);
-    const initializeSettingsRpc = useSettingsStore((state) => state.initializeRpc);
+    const initializeSettingsRpc = useSettingsStore(
+        (state) => state.initializeRpc,
+    );
     const settings = useSettingsStore((state) => state.settings);
-    const [agentPanelWidth, setAgentPanelWidth] = useState(AGENT_PANEL_DEFAULT_WIDTH);
+    const [agentPanelWidth, setAgentPanelWidth] = useState(
+        AGENT_PANEL_DEFAULT_WIDTH,
+    );
     const tabBarRef = useRef<HTMLDivElement | null>(null);
     const navigationBarRef = useRef<HTMLDivElement | null>(null);
     const rpcInitializedRef = useRef(false);
@@ -33,7 +37,8 @@ export default function Shell() {
         (width: number) => {
             const tabBarHeight =
                 (tabBarRef.current?.offsetHeight ?? DEFAULT_TAB_BAR_HEIGHT) +
-                (navigationBarRef.current?.offsetHeight ?? DEFAULT_NAVIGATION_BAR_HEIGHT) +
+                (navigationBarRef.current?.offsetHeight ??
+                    DEFAULT_NAVIGATION_BAR_HEIGHT) +
                 1;
 
             void layoutChanged({

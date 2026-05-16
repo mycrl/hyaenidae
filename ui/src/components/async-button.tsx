@@ -8,7 +8,9 @@ import {
     type ReactNode,
 } from "react";
 
-type AsyncClickHandler = (event: MouseEvent<HTMLButtonElement>) => void | Promise<unknown>;
+type AsyncClickHandler = (
+    event: MouseEvent<HTMLButtonElement>,
+) => void | Promise<unknown>;
 
 function isPromiseLike(value: unknown): value is Promise<unknown> {
     return typeof value === "object" && value !== null && "then" in value;
@@ -18,7 +20,9 @@ function LoadingSpinner({ className }: { className?: string }) {
     return (
         <span
             aria-hidden="true"
-            className={["async-button-spinner", className].filter(Boolean).join(" ")}
+            className={["async-button-spinner", className]
+                .filter(Boolean)
+                .join(" ")}
         />
     );
 }
@@ -70,8 +74,13 @@ export default function AsyncButton({
     };
 
     const content = isLoading && loadingContent ? loadingContent : children;
-    const leadingVisual = isLoading ? <LoadingSpinner className={spinnerClassName} /> : icon;
-    const shouldRenderLeadingVisual = leadingVisual !== undefined && leadingVisual !== null;
+    const leadingVisual = isLoading ? (
+        <LoadingSpinner className={spinnerClassName} />
+    ) : (
+        icon
+    );
+    const shouldRenderLeadingVisual =
+        leadingVisual !== undefined && leadingVisual !== null;
 
     return (
         <button
@@ -86,7 +95,10 @@ export default function AsyncButton({
         >
             <span className="async-button-content">
                 {shouldRenderLeadingVisual ? (
-                    <span aria-hidden="true" className="async-button-leading-visual">
+                    <span
+                        aria-hidden="true"
+                        className="async-button-leading-visual"
+                    >
                         {leadingVisual}
                     </span>
                 ) : null}

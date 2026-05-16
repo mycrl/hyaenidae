@@ -15,7 +15,9 @@ import type { AppSettings } from "@hyaenidae/bridge";
 type SectionId = "providers" | "local-models" | "browser";
 
 const getErrorMessage = (error: unknown, fallbackMessage: string) =>
-    error instanceof Error && error.message.trim() ? error.message : fallbackMessage;
+    error instanceof Error && error.message.trim()
+        ? error.message
+        : fallbackMessage;
 
 export default function SettingsPage() {
     const { t } = useTranslation();
@@ -23,7 +25,9 @@ export default function SettingsPage() {
     const settings = useSettingsStore((state) => state.settings);
     const save = useSettingsStore((state) => state.save);
     const [activeSection, setActiveSection] = useState<SectionId>("providers");
-    const [draft, setDraft] = useState<AppSettings>(() => cloneSettings(DEFAULT_SETTINGS));
+    const [draft, setDraft] = useState<AppSettings>(() =>
+        cloneSettings(DEFAULT_SETTINGS),
+    );
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     const applyDraftPatch = (patch: Partial<AppSettings>) => {
@@ -83,17 +87,24 @@ export default function SettingsPage() {
                     subtitle={t("settings.subtitle")}
                     sections={sections}
                     activeSection={activeSection}
-                    onSectionChange={(sectionId) => setActiveSection(sectionId as SectionId)}
+                    onSectionChange={(sectionId) =>
+                        setActiveSection(sectionId as SectionId)
+                    }
                 />
 
                 <section className="settings-page-content">
                     {errorMessage ? (
-                        <div className="settings-page-error-banner" role="alert">
+                        <div
+                            className="settings-page-error-banner"
+                            role="alert"
+                        >
                             <div className="settings-page-error-copy">
                                 <div className="settings-page-error-title">
                                     {t("settings.errorTitle")}
                                 </div>
-                                <div className="settings-page-error-message">{errorMessage}</div>
+                                <div className="settings-page-error-message">
+                                    {errorMessage}
+                                </div>
                             </div>
 
                             <button
@@ -110,7 +121,9 @@ export default function SettingsPage() {
                     {activeSection === "providers" ? (
                         <ProviderSection
                             providers={draft.providers}
-                            onProvidersChange={(providers) => applyDraftPatch({ providers })}
+                            onProvidersChange={(providers) =>
+                                applyDraftPatch({ providers })
+                            }
                         />
                     ) : null}
 
@@ -123,7 +136,10 @@ export default function SettingsPage() {
                     ) : null}
 
                     {activeSection === "browser" ? (
-                        <BrowserSection settings={draft} onSettingsChange={applyDraftPatch} />
+                        <BrowserSection
+                            settings={draft}
+                            onSettingsChange={applyDraftPatch}
+                        />
                     ) : null}
 
                     <div className="settings-page-actions">
@@ -138,7 +154,10 @@ export default function SettingsPage() {
                         <AsyncButton
                             onClick={() =>
                                 save(draft).catch((error) => {
-                                    reportError(error, t("settings.saveFailed"));
+                                    reportError(
+                                        error,
+                                        t("settings.saveFailed"),
+                                    );
                                 })
                             }
                             // loading={isSaving}

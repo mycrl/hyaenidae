@@ -9,7 +9,8 @@ interface AgentPanelResizeHandleProps {
     onResize: (width: number) => void;
 }
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+const clamp = (value: number, min: number, max: number) =>
+    Math.min(Math.max(value, min), max);
 
 export default function AgentPanelResizeHandle({
     width,

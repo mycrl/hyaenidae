@@ -1,4 +1,9 @@
-import type { AddToChatOptions, Api, DownloadEvent, Layout } from "@hyaenidae/bridge";
+import type {
+    AddToChatOptions,
+    Api,
+    DownloadEvent,
+    Layout,
+} from "@hyaenidae/bridge";
 
 export interface Tab {
     id: number;
@@ -35,9 +40,14 @@ const handleShellRpcEvent = <
     map?: (payload: ShellHandledEventMap[TEvent]) => TOutput,
 ) => {
     hyaenidae.bridge.handle(event, async (payload: Api[TEvent][0]) => {
-        const normalizedPayload = payload as unknown as ShellHandledEventMap[TEvent];
+        const normalizedPayload =
+            payload as unknown as ShellHandledEventMap[TEvent];
 
-        await handler(map ? map(normalizedPayload) : (normalizedPayload as unknown as TOutput));
+        await handler(
+            map
+                ? map(normalizedPayload)
+                : (normalizedPayload as unknown as TOutput),
+        );
 
         return undefined as Api[TEvent][1];
     });
@@ -52,9 +62,14 @@ const listenShellEvent = <
     map?: (payload: ShellListenedEventMap[TEvent]) => TOutput,
 ) => {
     hyaenidae.bridge.on(event, async (payload: Api[TEvent][0]) => {
-        const normalizedPayload = payload as unknown as ShellListenedEventMap[TEvent];
+        const normalizedPayload =
+            payload as unknown as ShellListenedEventMap[TEvent];
 
-        await handler(map ? map(normalizedPayload) : (normalizedPayload as unknown as TOutput));
+        await handler(
+            map
+                ? map(normalizedPayload)
+                : (normalizedPayload as unknown as TOutput),
+        );
     });
 };
 
@@ -64,35 +79,52 @@ export const onTabCreated = (
     handleShellRpcEvent("shell:tab-created", handler);
 };
 
-export const onTabFocused = (handler: (input: { id: number }) => Promise<void> | void) => {
+export const onTabFocused = (
+    handler: (input: { id: number }) => Promise<void> | void,
+) => {
     handleShellRpcEvent("shell:tab-focused", handler);
 };
 
-export const onTabDestroyed = (handler: (input: { id: number }) => Promise<void> | void) => {
+export const onTabDestroyed = (
+    handler: (input: { id: number }) => Promise<void> | void,
+) => {
     handleShellRpcEvent("shell:tab-destroyed", handler);
 };
 
-export const onTabStartLoading = (handler: (input: { id: number }) => Promise<void> | void) => {
+export const onTabStartLoading = (
+    handler: (input: { id: number }) => Promise<void> | void,
+) => {
     handleShellRpcEvent("shell:tab-start-loading", handler);
 };
 
-export const onTabStopLoading = (handler: (input: { id: number }) => Promise<void> | void) => {
+export const onTabStopLoading = (
+    handler: (input: { id: number }) => Promise<void> | void,
+) => {
     handleShellRpcEvent("shell:tab-stop-loading", handler);
 };
 
 export const onTabUrlUpdated = (
     handler: (input: { id: number; url?: string }) => Promise<void> | void,
 ) => {
-    handleShellRpcEvent("shell:tab-url-updated", handler, ({ id, url }) => ({ id, url }));
+    handleShellRpcEvent("shell:tab-url-updated", handler, ({ id, url }) => ({
+        id,
+        url,
+    }));
 };
 
 export const onTabTitleChanged = (
     handler: (input: { id: number; title?: string }) => Promise<void> | void,
 ) => {
-    handleShellRpcEvent("shell:tab-title-changed", handler, ({ id, title }) => ({ id, title }));
+    handleShellRpcEvent(
+        "shell:tab-title-changed",
+        handler,
+        ({ id, title }) => ({ id, title }),
+    );
 };
 
-export const onAddToChat = (handler: (input: AddToChatOptions) => Promise<void> | void) => {
+export const onAddToChat = (
+    handler: (input: AddToChatOptions) => Promise<void> | void,
+) => {
     listenShellEvent("shell:add-to-chat", handler);
 };
 
@@ -173,10 +205,16 @@ export const sendLayoutChanged = (layout: Layout) => {
     hyaenidae.bridge.send("shell:layout-changed", layout);
 };
 
-export const showContextMenu = (input: { x: number; y: number; tabId: number }) => {
+export const showContextMenu = (input: {
+    x: number;
+    y: number;
+    tabId: number;
+}) => {
     hyaenidae.bridge.send("shell:show-context-menu", input);
 };
 
-export const onDownloadEvent = (handler: (event: DownloadEvent) => Promise<void> | void) => {
+export const onDownloadEvent = (
+    handler: (event: DownloadEvent) => Promise<void> | void,
+) => {
     listenShellEvent("shell:download-event", handler);
 };

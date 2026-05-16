@@ -11,7 +11,10 @@ export class WebContentsDebugger {
         }
 
         try {
-            return await this.webContents.debugger.sendCommand(method, commandParams);
+            return await this.webContents.debugger.sendCommand(
+                method,
+                commandParams,
+            );
         } finally {
             if (shouldDetach && this.webContents.debugger.isAttached()) {
                 this.webContents.debugger.detach();

@@ -57,15 +57,25 @@ const sanitizeUrl = (value: string) => {
     }
 };
 
-const sanitizeString = (value: string, parentKey?: string, forceRedact = false) => {
+const sanitizeString = (
+    value: string,
+    parentKey?: string,
+    forceRedact = false,
+) => {
     if (forceRedact || looksSensitiveHint(parentKey)) {
         return REDACTED_TEXT;
     }
 
-    return /^(https?:\/\/)/i.test(value) ? sanitizeUrl(value) : sanitizeVisibleText(value);
+    return /^(https?:\/\/)/i.test(value)
+        ? sanitizeUrl(value)
+        : sanitizeVisibleText(value);
 };
 
-const sanitizeUnknown = (value: unknown, parentKey?: string, forceRedact = false): unknown => {
+const sanitizeUnknown = (
+    value: unknown,
+    parentKey?: string,
+    forceRedact = false,
+): unknown => {
     if (forceRedact || looksSensitiveHint(parentKey)) {
         return REDACTED_TEXT;
     }
@@ -96,7 +106,9 @@ const sanitizeAccessibilityNode = (
 ): BrowserElementNode => {
     const localSensitive =
         inheritedSensitive ||
-        looksSensitiveHint([node.role, node.name, node.description].filter(Boolean).join(" "));
+        looksSensitiveHint(
+            [node.role, node.name, node.description].filter(Boolean).join(" "),
+        );
 
     return {
         role: node.role,
@@ -107,7 +119,9 @@ const sanitizeAccessibilityNode = (
         ...(node.value === undefined
             ? {}
             : {
-                  value: localSensitive ? REDACTED_TEXT : sanitizeString(node.value),
+                  value: localSensitive
+                      ? REDACTED_TEXT
+                      : sanitizeString(node.value),
               }),
         ...(node.selector === undefined ? {} : { selector: node.selector }),
         ...(node.children === undefined
@@ -168,7 +182,9 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
 
     async snapshotDom(tabId?: number): Promise<BrowserDomSnapshot> {
         const tab = this.requireTab(tabId);
-        const accessibility = await this.accessibilityReader.read(tab.webContents);
+        const accessibility = await this.accessibilityReader.read(
+            tab.webContents,
+        );
 
         return {
             tabId: tab.webContents.id,
@@ -224,7 +240,9 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
 
         return {
             tabId: tab.webContents.id,
-            result: sanitizeUnknown(await tab.webContents.executeJavaScript(script, true)),
+            result: sanitizeUnknown(
+                await tab.webContents.executeJavaScript(script, true),
+            ),
         };
     }
 
@@ -260,7 +278,10 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
             const domClickResult = await this.tryDomClick(tab, input.selector);
 
             if (!domClickResult.ok) {
-                const point = await this.resolveInteractionPoint(tab, input.selector);
+                const point = await this.resolveInteractionPoint(
+                    tab,
+                    input.selector,
+                );
                 await this.dispatchClick(tab.webContents, point);
             }
 
@@ -274,10 +295,17 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
             };
         }
 
-        const domTypeResult = await this.tryDomType(tab, input.selector, input.text ?? "");
+        const domTypeResult = await this.tryDomType(
+            tab,
+            input.selector,
+            input.text ?? "",
+        );
 
         if (!domTypeResult.ok) {
-            const point = await this.resolveInteractionPoint(tab, input.selector);
+            const point = await this.resolveInteractionPoint(
+                tab,
+                input.selector,
+            );
             await this.dispatchClick(tab.webContents, point);
             await this.focusElementForTyping(tab, input.selector);
             await tab.webContents.insertText(input.text ?? "");
@@ -335,10 +363,15 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
     }
 
     private requireTab(tabId?: number) {
-        const tab = tabId === undefined ? this.browser.getFocusedTab() : this.browser.getTab(tabId);
+        const tab =
+            tabId === undefined
+                ? this.browser.getFocusedTab()
+                : this.browser.getTab(tabId);
         if (!tab) {
             throw new Error(
-                tabId === undefined ? "No focused tab available." : `Tab not found: ${tabId}`,
+                tabId === undefined
+                    ? "No focused tab available."
+                    : `Tab not found: ${tabId}`,
             );
         }
 
@@ -498,7 +531,10 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         );
     }
 
-    private async dispatchClick(webContents: WebContents, point: { x: number; y: number }) {
+    private async dispatchClick(
+        webContents: WebContents,
+        point: { x: number; y: number },
+    ) {
         const x = Math.round(point.x);
         const y = Math.round(point.y);
 

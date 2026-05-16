@@ -18,10 +18,16 @@ import { Tab, TabType } from "./tab";
  * 4. Treat all other inputs as search queries and use the default search
  *    engine.
  */
-function smartParseURL(input: string, searchEngine = "https://www.google.com/search?q=") {
+function smartParseURL(
+    input: string,
+    searchEngine = "https://www.google.com/search?q=",
+) {
     const trimmedInput = input.trim();
 
-    if (trimmedInput.startsWith("http://") || trimmedInput.startsWith("https://")) {
+    if (
+        trimmedInput.startsWith("http://") ||
+        trimmedInput.startsWith("https://")
+    ) {
         return trimmedInput;
     }
 
@@ -54,7 +60,10 @@ function isApplicationRegisteredUrl(url: string) {
 }
 
 async function loadUrl(webContents: WebContents, uri: string) {
-    const url = isApplicationRegisteredUrl(uri) || uri == "about:blank" ? uri : smartParseURL(uri);
+    const url =
+        isApplicationRegisteredUrl(uri) || uri == "about:blank"
+            ? uri
+            : smartParseURL(uri);
 
     console.info("Loading URL:", url);
 
@@ -86,12 +95,18 @@ export class Browser extends EventEmitter {
             titleBarStyle: "hidden",
         });
 
-        this.shell = new Tab(TabType.Shell, this, this.settingsManager, this.modelRunnerCounter, {
-            webPreferences: {
-                preload: CONFIG.preloadScriptPath,
-                contextIsolation: true,
+        this.shell = new Tab(
+            TabType.Shell,
+            this,
+            this.settingsManager,
+            this.modelRunnerCounter,
+            {
+                webPreferences: {
+                    preload: CONFIG.preloadScriptPath,
+                    contextIsolation: true,
+                },
             },
-        });
+        );
 
         // Create the window frame content view
         {
@@ -152,16 +167,22 @@ export class Browser extends EventEmitter {
     async create(url: string = "about:blank") {
         const isHyaenidaeUrl = isApplicationRegisteredUrl(url);
 
-        const tab = new Tab(TabType.Other, this, this.settingsManager, this.modelRunnerCounter, {
-            webPreferences: isHyaenidaeUrl
-                ? {
-                      preload: CONFIG.preloadScriptPath,
-                      contextIsolation: true,
-                  }
-                : {
-                      backgroundThrottling: true,
-                  },
-        });
+        const tab = new Tab(
+            TabType.Other,
+            this,
+            this.settingsManager,
+            this.modelRunnerCounter,
+            {
+                webPreferences: isHyaenidaeUrl
+                    ? {
+                          preload: CONFIG.preloadScriptPath,
+                          contextIsolation: true,
+                      }
+                    : {
+                          backgroundThrottling: true,
+                      },
+            },
+        );
 
         if (isHyaenidaeUrl && CONFIG.openDevTools) {
             tab.webContents.openDevTools({
@@ -232,7 +253,9 @@ export class Browser extends EventEmitter {
              * view before adding the new one
              */
             if (this.focusedId != null) {
-                const focustab = this.tabs.find((t) => t.webContents.id === this.focusedId);
+                const focustab = this.tabs.find(
+                    (t) => t.webContents.id === this.focusedId,
+                );
 
                 if (focustab) {
                     this.baseWindow.contentView.removeChildView(focustab);
@@ -320,6 +343,7 @@ export class Browser extends EventEmitter {
      * Get the navigation history of the tab with the given ID.
      */
     getNavigationHistory(id: number) {
-        return this.tabs.find((t) => t.webContents.id === id)?.webContents.navigationHistory;
+        return this.tabs.find((t) => t.webContents.id === id)?.webContents
+            .navigationHistory;
     }
 }

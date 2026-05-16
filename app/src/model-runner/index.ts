@@ -27,7 +27,12 @@ export class ModelRunnerCounter {
      * @param runnersDir Root path where runner binary directories live. Defaults
      * to `resources/runners`.
      */
-    constructor(private readonly runnersDir = path.join(CONFIG.resourcesDir, "./runners")) {}
+    constructor(
+        private readonly runnersDir = path.join(
+            CONFIG.resourcesDir,
+            "./runners",
+        ),
+    ) {}
 
     /**
      * List available runner directories.
@@ -62,7 +67,10 @@ export class ModelRunnerCounter {
 
         this.runner = await Loader.create({
             apiKey: CONFIG.defaultLocalApiKey,
-            binaryDir: path.join(CONFIG.resourcesDir, `./runners/${options.runner}`),
+            binaryDir: path.join(
+                CONFIG.resourcesDir,
+                `./runners/${options.runner}`,
+            ),
             model: {
                 path: modelPath,
                 mmproj: mmprojPath,

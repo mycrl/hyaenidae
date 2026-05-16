@@ -1,7 +1,15 @@
-import type { ModelFileInfo, ModelInfo, StartRunnerOptions } from "@hyaenidae/bridge";
+import type {
+    ModelFileInfo,
+    ModelInfo,
+    StartRunnerOptions,
+} from "@hyaenidae/bridge";
 
 export const onModelDownloadProgress = (
-    handler: (payload: { name: string; path: string; progress: number }) => void,
+    handler: (payload: {
+        name: string;
+        path: string;
+        progress: number;
+    }) => void,
 ) => {
     hyaenidae.bridge.on("model:download-progress", handler);
 };
@@ -12,13 +20,21 @@ export const onModelDownloadFail = (
     hyaenidae.bridge.on("model:download-fail", handler);
 };
 
-export const searchModels = async (query: string, limit = 10): Promise<ModelInfo[]> => {
-    const result = await hyaenidae.bridge.request("model:search", { query, limit });
+export const searchModels = async (
+    query: string,
+    limit = 10,
+): Promise<ModelInfo[]> => {
+    const result = await hyaenidae.bridge.request("model:search", {
+        query,
+        limit,
+    });
 
     return Array.isArray(result.models) ? result.models : [];
 };
 
-export const getModelFiles = async (model: string): Promise<ModelFileInfo[]> => {
+export const getModelFiles = async (
+    model: string,
+): Promise<ModelFileInfo[]> => {
     const result = await hyaenidae.bridge.request("model:get-files", { model });
 
     return Array.isArray(result.files) ? result.files : [];
@@ -37,8 +53,13 @@ export const getLocalModels = async (): Promise<string[]> => {
     return Array.isArray(result.models) ? result.models : [];
 };
 
-export const getLocalModelFiles = async (model: string): Promise<ModelFileInfo[]> => {
-    const result = await hyaenidae.bridge.request("model:get-local-model-files", { model });
+export const getLocalModelFiles = async (
+    model: string,
+): Promise<ModelFileInfo[]> => {
+    const result = await hyaenidae.bridge.request(
+        "model:get-local-model-files",
+        { model },
+    );
 
     return Array.isArray(result.files) ? result.files : [];
 };
@@ -60,7 +81,9 @@ export const getRunnerStatus = async (): Promise<boolean> => {
 };
 
 export const startRunner = async (options: StartRunnerOptions) => {
-    return await hyaenidae.bridge.request("model:start-runner", options, { timeout: 60000 });
+    return await hyaenidae.bridge.request("model:start-runner", options, {
+        timeout: 60000,
+    });
 };
 
 export const stopRunner = async () => {

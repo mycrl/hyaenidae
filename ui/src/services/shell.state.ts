@@ -46,7 +46,11 @@ interface ShellState {
     setTabLoading: (id: number, isLoading: boolean) => void;
     setTabUrl: (id: number, url?: string) => void;
     setTabTitle: (id: number, title?: string) => void;
-    setTabNavState: (id: number, canGoBack: boolean, canGoForward: boolean) => void;
+    setTabNavState: (
+        id: number,
+        canGoBack: boolean,
+        canGoForward: boolean,
+    ) => void;
     refreshTabNavState: (id: number) => Promise<void>;
     initializeRpc: () => Promise<void>;
     createTab: (url?: string) => Promise<void>;
@@ -64,7 +68,11 @@ interface ShellState {
     toggleAgentPanel: () => Promise<void>;
     openAgentPanel: () => void;
     layoutChanged: (layout: Layout) => Promise<void>;
-    showTabContextMenu: (input: { x: number; y: number; tabId: number }) => void;
+    showTabContextMenu: (input: {
+        x: number;
+        y: number;
+        tabId: number;
+    }) => void;
 }
 
 export const useShellStore = create<ShellState>((set, get) => ({
@@ -170,7 +178,10 @@ export const useShellStore = create<ShellState>((set, get) => ({
         })),
     setTabLoading: (id, isLoading) =>
         set((state) => ({
-            tabs: updateTabList(state.tabs, id, (tab) => ({ ...tab, isLoading })),
+            tabs: updateTabList(state.tabs, id, (tab) => ({
+                ...tab,
+                isLoading,
+            })),
         })),
     setTabUrl: (id, url) =>
         set((state) => ({
@@ -191,7 +202,11 @@ export const useShellStore = create<ShellState>((set, get) => ({
     refreshTabNavState: async (id) => {
         const navigationState = await getTabNavigationState(id);
 
-        get().setTabNavState(id, navigationState.canGoBack, navigationState.canGoForward);
+        get().setTabNavState(
+            id,
+            navigationState.canGoBack,
+            navigationState.canGoForward,
+        );
     },
     createTab: async (url) => {
         await createTab(url);
@@ -240,7 +255,8 @@ export const useShellStore = create<ShellState>((set, get) => ({
 
         await loadTab(
             activeTabId,
-            useSettingsStore.getState().settings.homeUrl ?? __APP_CONFIG__.defaultTabUrl,
+            useSettingsStore.getState().settings.homeUrl ??
+                __APP_CONFIG__.defaultTabUrl,
         );
     },
     navigateTo: async (url) => {

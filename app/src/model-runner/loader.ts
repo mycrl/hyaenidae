@@ -1,4 +1,7 @@
-import { ChildProcessWithoutNullStreams, spawn as spawnSubProcess } from "node:child_process";
+import {
+    ChildProcessWithoutNullStreams,
+    spawn as spawnSubProcess,
+} from "node:child_process";
 import { EventEmitter } from "node:events";
 
 export const DEFAULT_LOAD_TIMEOUT_MS = 15000;
@@ -32,7 +35,9 @@ export class Loader extends EventEmitter {
             [
                 "-m",
                 options.model.path,
-                ...(options.model.mmproj ? ["--mmproj", options.model.mmproj] : []),
+                ...(options.model.mmproj
+                    ? ["--mmproj", options.model.mmproj]
+                    : []),
                 "--host",
                 "127.0.0.1",
                 "--port",
@@ -64,8 +69,14 @@ export class Loader extends EventEmitter {
                 if (char === "\n") {
                     // Check if the line contains the "server is listening"
                     // message
-                    if (lineBuffer.includes("main: server is listening on http://127.0.0.1:")) {
-                        this.port = Number(lineBuffer.trim().split("127.0.0.1:")[1]!);
+                    if (
+                        lineBuffer.includes(
+                            "main: server is listening on http://127.0.0.1:",
+                        )
+                    ) {
+                        this.port = Number(
+                            lineBuffer.trim().split("127.0.0.1:")[1]!,
+                        );
 
                         this.emit("listening");
                     }
@@ -103,7 +114,11 @@ export class Loader extends EventEmitter {
             // Set up a timeout to reject the promise if the loader doesn't
             // emit 'listening' within the specified time
             const timer = setTimeout(() => {
-                reject(new Error("LlmLauncher timed out while waiting for listening event"));
+                reject(
+                    new Error(
+                        "LlmLauncher timed out while waiting for listening event",
+                    ),
+                );
             }, options.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS);
 
             runner.once("listening", () => {

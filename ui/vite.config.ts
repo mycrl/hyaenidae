@@ -6,7 +6,9 @@ import tailwindcss from "@tailwindcss/vite";
 let globalConfig: any = null;
 
 try {
-    globalConfig = JSON.parse(readFileSync(new URL("../config.json", import.meta.url), "utf-8"));
+    globalConfig = JSON.parse(
+        readFileSync(new URL("../config.json", import.meta.url), "utf-8"),
+    );
 } catch (error) {
     globalConfig = {};
 }
@@ -17,7 +19,8 @@ export default defineConfig({
     define: {
         __APP_CONFIG__: {
             settingsUrl: globalConfig.settingsUrl || "hyaenidae://settings",
-            defaultTabUrl: globalConfig.defaultTabUrl || "https://online.bonjourr.fr",
+            defaultTabUrl:
+                globalConfig.defaultTabUrl || "https://online.bonjourr.fr",
         },
     },
 });

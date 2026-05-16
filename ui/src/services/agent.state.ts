@@ -29,9 +29,11 @@ export interface AgentInputContext {
     payload: BrowserContextPayload;
 }
 
-const getTabTitle = (payload: BrowserContextPayload) => payload.tab.title?.trim() || null;
+const getTabTitle = (payload: BrowserContextPayload) =>
+    payload.tab.title?.trim() || null;
 
-const getTabUrl = (payload: BrowserContextPayload) => payload.tab.url?.trim() || null;
+const getTabUrl = (payload: BrowserContextPayload) =>
+    payload.tab.url?.trim() || null;
 
 const buildBrowserContextPayload = (
     input: AddToChatOptions,
@@ -67,7 +69,10 @@ const truncateLabel = (value: string, maxLength = 36) => {
     return `${trimmed.slice(0, maxLength - 1).trimEnd()}…`;
 };
 
-const formatAddToChatLabel = (selected: AddToChatSelection, payload: BrowserContextPayload) => {
+const formatAddToChatLabel = (
+    selected: AddToChatSelection,
+    payload: BrowserContextPayload,
+) => {
     if (!selected) {
         return truncateLabel(
             `Tab: ${getTabTitle(payload) ?? getTabUrl(payload) ?? "Current page"}`,
@@ -113,14 +118,17 @@ Rules:
 [/USER_MESSAGE]
 `;
 
-const buildAskMessage = (message: string, contexts: AgentInputContext[] | undefined) => {
+const buildAskMessage = (
+    message: string,
+    contexts: AgentInputContext[] | undefined,
+) => {
     if (!contexts || contexts.length === 0) {
         return message.trim();
     } else {
-        return INJECT_CONTEXT_PROMPT.replace("[INPUT_CONTEXT]", JSON.stringify(contexts)).replace(
-            "[USER_MESSAGE]",
-            message.trim(),
-        );
+        return INJECT_CONTEXT_PROMPT.replace(
+            "[INPUT_CONTEXT]",
+            JSON.stringify(contexts),
+        ).replace("[USER_MESSAGE]", message.trim());
     }
 };
 
@@ -156,7 +164,8 @@ export const AGENT_ERROR_CODE = {
     FAILED_TO_STOP: "failed_to_stop",
 } as const;
 
-export type AgentErrorCode = (typeof AGENT_ERROR_CODE)[keyof typeof AGENT_ERROR_CODE];
+export type AgentErrorCode =
+    (typeof AGENT_ERROR_CODE)[keyof typeof AGENT_ERROR_CODE];
 
 export interface AgentErrorState {
     code: AgentErrorCode | null;
@@ -246,9 +255,15 @@ const getConversation = (
     sessionId: number,
     fallbackTitle?: string,
 ) => {
-    const sessionName = state.sessions.find((item) => item.id === sessionId)?.name;
+    const sessionName = state.sessions.find(
+        (item) => item.id === sessionId,
+    )?.name;
 
-    return ensureConversation(state.conversations, sessionId, fallbackTitle ?? sessionName);
+    return ensureConversation(
+        state.conversations,
+        sessionId,
+        fallbackTitle ?? sessionName,
+    );
 };
 
 const updateConversationMap = (
@@ -280,30 +295,45 @@ const updateAssistantMessage = (
     }
 
     return conversation.messages.map((item) =>
-        item.id === messageId && item.role === "assistant" ? update(item) : item,
+        item.id === messageId && item.role === "assistant"
+            ? update(item)
+            : item,
     );
 };
 
-const persistAgentDefaults = async (providerId: string | null, modelId: string | null) => {
+const persistAgentDefaults = async (
+    providerId: string | null,
+    modelId: string | null,
+) => {
     await useSettingsStore.getState().save({
         defaultProviderId: providerId,
         defaultModelId: modelId,
     });
 };
 
-const toAgentError = (error: unknown, code: AgentErrorCode): AgentErrorState => ({
+const toAgentError = (
+    error: unknown,
+    code: AgentErrorCode,
+): AgentErrorState => ({
     code,
-    message: error instanceof Error && error.message.trim() ? error.message : null,
+    message:
+        error instanceof Error && error.message.trim() ? error.message : null,
 });
 
-const createErrorMessage = (code: AgentErrorCode, error: unknown): AgentMessage => ({
+const createErrorMessage = (
+    code: AgentErrorCode,
+    error: unknown,
+): AgentMessage => ({
     id: Date.now(),
     role: "assistant",
     content: "",
     timestamp: getTimestamp(),
     status: "error",
     errorCode: code,
-    error: error instanceof Error && error.message.trim() ? error.message : undefined,
+    error:
+        error instanceof Error && error.message.trim()
+            ? error.message
+            : undefined,
 });
 
 const applyResponseChunk = (
@@ -338,7 +368,9 @@ const applyActivityChunk = (
     payload: AgentActivityItem,
 ): Pick<AgentState, "sessions" | "conversations"> => {
     const upsertActivities = (activities: AgentActivity[] = []) => {
-        const existingIndex = activities.findIndex((item) => item.key === payload.key);
+        const existingIndex = activities.findIndex(
+            (item) => item.key === payload.key,
+        );
         if (existingIndex === -1) {
             return [...activities, payload];
         }
@@ -363,31 +395,37 @@ const applyActivityChunk = (
             nextTitle === null
                 ? state.sessions
                 : state.sessions.map((session) =>
-                      session.id === payload.sessionId ? { ...session, name: nextTitle } : session,
+                      session.id === payload.sessionId
+                          ? { ...session, name: nextTitle }
+                          : session,
                   ),
-        conversations: updateConversationMap(state, payload.sessionId, (conversation) => ({
-            ...conversation,
-            ...(nextTitle === null ? {} : { title: nextTitle }),
-            messages: updateAssistantMessage(
-                conversation,
-                payload.askId,
-                (message) => ({
-                    ...message,
-                    status: "streaming",
-                    activities: upsertActivities(message.activities),
-                }),
-                () => ({
-                    id: payload.askId,
-                    role: "assistant",
-                    content: "",
-                    timestamp: getTimestamp(),
-                    status: "streaming",
-                    activities: [payload],
-                }),
-            ),
-            activeResponseId: payload.askId,
-            isResponding: true,
-        })),
+        conversations: updateConversationMap(
+            state,
+            payload.sessionId,
+            (conversation) => ({
+                ...conversation,
+                ...(nextTitle === null ? {} : { title: nextTitle }),
+                messages: updateAssistantMessage(
+                    conversation,
+                    payload.askId,
+                    (message) => ({
+                        ...message,
+                        status: "streaming",
+                        activities: upsertActivities(message.activities),
+                    }),
+                    () => ({
+                        id: payload.askId,
+                        role: "assistant",
+                        content: "",
+                        timestamp: getTimestamp(),
+                        status: "streaming",
+                        activities: [payload],
+                    }),
+                ),
+                activeResponseId: payload.askId,
+                isResponding: true,
+            }),
+        ),
     };
 };
 
@@ -403,7 +441,10 @@ const applyResponseDone = (
             {
                 ...conversation,
                 messages: conversation.messages.map((message) => {
-                    if (message.role !== "assistant" || message.status !== "streaming") {
+                    if (
+                        message.role !== "assistant" ||
+                        message.status !== "streaming"
+                    ) {
                         return message;
                     }
 
@@ -412,7 +453,9 @@ const applyResponseDone = (
                         status: terminalStatus,
                         error: payload.error,
                         content:
-                            payload.error && !message.content ? payload.error : message.content,
+                            payload.error && !message.content
+                                ? payload.error
+                                : message.content,
                     };
                 }),
             },
@@ -421,7 +464,10 @@ const applyResponseDone = (
                 ...message,
                 status: terminalStatus,
                 error: payload.error,
-                content: payload.error && !message.content ? payload.error : message.content,
+                content:
+                    payload.error && !message.content
+                        ? payload.error
+                        : message.content,
             }),
             () => ({
                 id: payload.askId,
@@ -474,7 +520,11 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         onAddToChat(async (input) => {
             const shellState = useShellStore.getState();
             const tab = shellState.tabs.find((item) => item.id === input.tabId);
-            const contextPayload = buildBrowserContextPayload(input, tab?.title, tab?.url);
+            const contextPayload = buildBrowserContextPayload(
+                input,
+                tab?.title,
+                tab?.url,
+            );
 
             shellState.openAgentPanel();
             get().queueComposerInsertion({
@@ -498,7 +548,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
             set((state) => ({
                 sessions,
-                conversations: sessions.reduce<Record<number, AgentConversation>>(
+                conversations: sessions.reduce<
+                    Record<number, AgentConversation>
+                >(
                     (accumulator, session) => ({
                         ...accumulator,
                         [session.id]: ensureConversation(
@@ -509,14 +561,18 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                     }),
                     state.conversations,
                 ),
-                activeSessionId: state.activeSessionId ?? sessions[0]?.id ?? null,
+                activeSessionId:
+                    state.activeSessionId ?? sessions[0]?.id ?? null,
                 error: null,
                 isLoadingSessions: false,
             }));
         } catch (error) {
             set({
                 isLoadingSessions: false,
-                error: toAgentError(error, AGENT_ERROR_CODE.FAILED_TO_LOAD_SESSIONS),
+                error: toAgentError(
+                    error,
+                    AGENT_ERROR_CODE.FAILED_TO_LOAD_SESSIONS,
+                ),
             });
         }
     },
@@ -528,7 +584,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                 (provider) => provider.id === settings.defaultProviderId,
             )
                 ? settings.defaultProviderId
-                : providers.some((provider) => provider.id === get().selectedProviderId)
+                : providers.some(
+                        (provider) => provider.id === get().selectedProviderId,
+                    )
                   ? get().selectedProviderId
                   : (providers[0]?.id ?? null);
 
@@ -546,8 +604,18 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                 set({ models: [], selectedModel: null });
             }
         } catch (error) {
-            set({ error: toAgentError(error, AGENT_ERROR_CODE.FAILED_TO_LOAD_MODELS) });
-            set({ providers: [], selectedProviderId: null, models: [], selectedModel: null });
+            set({
+                error: toAgentError(
+                    error,
+                    AGENT_ERROR_CODE.FAILED_TO_LOAD_MODELS,
+                ),
+            });
+            set({
+                providers: [],
+                selectedProviderId: null,
+                models: [],
+                selectedModel: null,
+            });
         }
     },
     selectProvider: async (id, options) => {
@@ -582,7 +650,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                 await persistAgentDefaults(id, nextSelectedModel);
             }
         } catch (error) {
-            set({ error: toAgentError(error, AGENT_ERROR_CODE.FAILED_TO_LOAD_MODELS) });
+            set({
+                error: toAgentError(
+                    error,
+                    AGENT_ERROR_CODE.FAILED_TO_LOAD_MODELS,
+                ),
+            });
             set({ models: [], selectedModel: null });
             if (persist) {
                 await persistAgentDefaults(id, null);
@@ -616,7 +689,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
             return session.id;
         } catch (error) {
-            set({ error: toAgentError(error, AGENT_ERROR_CODE.FAILED_TO_CREATE_SESSION) });
+            set({
+                error: toAgentError(
+                    error,
+                    AGENT_ERROR_CODE.FAILED_TO_CREATE_SESSION,
+                ),
+            });
             return null;
         }
     },
@@ -670,7 +748,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             return;
         }
 
-        const providerConfig = get().providers.find((item) => item.id === provider);
+        const providerConfig = get().providers.find(
+            (item) => item.id === provider,
+        );
         if (!providerConfig) {
             return;
         }
@@ -754,7 +834,10 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                             isResponding: false,
                             messages: [
                                 ...conversation.messages,
-                                createErrorMessage(AGENT_ERROR_CODE.FAILED_TO_SEND, error),
+                                createErrorMessage(
+                                    AGENT_ERROR_CODE.FAILED_TO_SEND,
+                                    error,
+                                ),
                             ],
                         }),
                         session?.name,
@@ -779,13 +862,20 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             await stopAgentResponse(conversation.activeResponseId);
         } catch (error) {
             set((state) => ({
-                conversations: updateConversationMap(state, sessionId, (currentConversation) => ({
-                    ...currentConversation,
-                    messages: [
-                        ...currentConversation.messages,
-                        createErrorMessage(AGENT_ERROR_CODE.FAILED_TO_STOP, error),
-                    ],
-                })),
+                conversations: updateConversationMap(
+                    state,
+                    sessionId,
+                    (currentConversation) => ({
+                        ...currentConversation,
+                        messages: [
+                            ...currentConversation.messages,
+                            createErrorMessage(
+                                AGENT_ERROR_CODE.FAILED_TO_STOP,
+                                error,
+                            ),
+                        ],
+                    }),
+                ),
                 error: null,
             }));
         }

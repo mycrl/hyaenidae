@@ -6,7 +6,11 @@ import {
     PlayIcon,
     TrashIcon,
 } from "@heroicons/react/24/outline";
-import type { StartRunnerOptions, AppSettings, LocalRunnerSettings } from "@hyaenidae/bridge";
+import type {
+    StartRunnerOptions,
+    AppSettings,
+    LocalRunnerSettings,
+} from "@hyaenidae/bridge";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import AsyncButton from "../../../components/async-button";
@@ -128,10 +132,16 @@ function RunnerSection({
             const modelName = settings.localRunner.model;
 
             try {
-                const files = (await getLocalModelFiles(modelName)).map((item) => item.path);
+                const files = (await getLocalModelFiles(modelName)).map(
+                    (item) => item.path,
+                );
 
-                setModelFiles(files.filter((item) => !item.startsWith("mmproj")));
-                setMmprojFiles(files.filter((item) => item.startsWith("mmproj")));
+                setModelFiles(
+                    files.filter((item) => !item.startsWith("mmproj")),
+                );
+                setMmprojFiles(
+                    files.filter((item) => item.startsWith("mmproj")),
+                );
             } catch (error) {
                 onError(error, t("settings.localModels.modelFilesLoadFailed"));
             }
@@ -140,7 +150,10 @@ function RunnerSection({
         void loadFiles();
     }, [onError, settings.localRunner.model, t]);
 
-    const updateLocalRunner = (key: keyof LocalRunnerSettings, value: string) => {
+    const updateLocalRunner = (
+        key: keyof LocalRunnerSettings,
+        value: string,
+    ) => {
         onSettingsChange({
             localRunner: {
                 ...settings.localRunner,
@@ -198,7 +211,9 @@ function RunnerSection({
                 settings.localRunner as StartRunnerOptions,
             );
             const providers = settings.providers.map((provider) =>
-                provider.type === "local-runner" ? { ...provider, baseUrl, apiKey } : provider,
+                provider.type === "local-runner"
+                    ? { ...provider, baseUrl, apiKey }
+                    : provider,
             );
 
             setIsRunnerRunning(true);
@@ -233,7 +248,9 @@ function RunnerSection({
                 <div className="local-models-runner-actions">
                     <AsyncButton
                         onClick={clearLocalRunnerSelection}
-                        icon={<ArrowPathIcon className="local-models-action-icon" />}
+                        icon={
+                            <ArrowPathIcon className="local-models-action-icon" />
+                        }
                         className="local-models-runner-refresh-button"
                     >
                         {t("settings.localModels.refresh")}
@@ -301,7 +318,9 @@ function RunnerSelectField({
             <select
                 className="local-models-select"
                 value={value ?? ""}
-                onChange={({ target: { value: nextValue } }) => onChange(nextValue)}
+                onChange={({ target: { value: nextValue } }) =>
+                    onChange(nextValue)
+                }
             >
                 <option value="">{defaultValue}</option>
                 {values.map((optionValue) => (
@@ -342,7 +361,10 @@ function InstalledModelsSection({
                     <span>{t("settings.localModels.openSearch")}</span>
                 </button>
 
-                <AsyncButton onClick={reloadLocalModels} className="local-models-refresh-button">
+                <AsyncButton
+                    onClick={reloadLocalModels}
+                    className="local-models-refresh-button"
+                >
                     {t("settings.localModels.refreshLocal")}
                 </AsyncButton>
             </div>
@@ -357,12 +379,16 @@ function InstalledModelsSection({
                 {models.map((model) => (
                     <div key={model} className="local-models-item">
                         <div className="local-models-item-body">
-                            <div className="local-models-item-title">{model}</div>
+                            <div className="local-models-item-title">
+                                {model}
+                            </div>
                         </div>
 
                         <AsyncButton
                             onClick={() => removeModel(model)}
-                            icon={<TrashIcon className="local-models-action-icon" />}
+                            icon={
+                                <TrashIcon className="local-models-action-icon" />
+                            }
                             className="local-models-delete-button"
                         >
                             {t("settings.localModels.delete")}

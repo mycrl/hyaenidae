@@ -15,7 +15,8 @@ import { useShellStore } from "../../services/shell.state";
 export default function NavigationBar() {
     const { t } = useTranslation();
     const activeTab = useShellStore(
-        (state) => state.tabs.find((tab) => tab.id === state.activeTabId) ?? null,
+        (state) =>
+            state.tabs.find((tab) => tab.id === state.activeTabId) ?? null,
     );
     const goBack = useShellStore((state) => state.goBack);
     const goForward = useShellStore((state) => state.goForward);
@@ -46,11 +47,19 @@ export default function NavigationBar() {
 
     return (
         <div tag="navigation-bar" className="navigation-bar-root">
-            <NavIconButton title={t("nav.back")} onClick={goBack} disabled={!canGoBack}>
+            <NavIconButton
+                title={t("nav.back")}
+                onClick={goBack}
+                disabled={!canGoBack}
+            >
                 <ArrowLeftIcon className="w-4 h-4" />
             </NavIconButton>
 
-            <NavIconButton title={t("nav.forward")} onClick={goForward} disabled={!canGoForward}>
+            <NavIconButton
+                title={t("nav.forward")}
+                onClick={goForward}
+                disabled={!canGoForward}
+            >
                 <ArrowRightIcon className="w-4 h-4" />
             </NavIconButton>
 
@@ -69,7 +78,10 @@ export default function NavigationBar() {
                 <HomeIcon className="w-4 h-4" />
             </NavIconButton>
 
-            <div tag="nav-location-shell" className="navigation-bar-location-shell">
+            <div
+                tag="nav-location-shell"
+                className="navigation-bar-location-shell"
+            >
                 <LockClosedIcon className="navigation-bar-location-icon" />
                 <input
                     type="text"

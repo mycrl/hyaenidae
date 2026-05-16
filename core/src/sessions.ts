@@ -77,11 +77,17 @@ export class SessionCompressor {
             .slice(0, MAX_SESSION_TITLE_LENGTH);
     }
 
-    private static parseCompressionResult(text: string): SessionCompressionResult {
+    private static parseCompressionResult(
+        text: string,
+    ): SessionCompressionResult {
         const normalized = text.trim();
         const titleMatch = normalized.match(/(^|\n)Title:\s*([^\n]*)/i);
-        const title = titleMatch?.[2] ? this.normalizeTitle(titleMatch[2]) : null;
-        const summary = normalized.replace(/(^|\n)Title:\s*([^\n]*)\n?/i, "$1").trim();
+        const title = titleMatch?.[2]
+            ? this.normalizeTitle(titleMatch[2])
+            : null;
+        const summary = normalized
+            .replace(/(^|\n)Title:\s*([^\n]*)\n?/i, "$1")
+            .trim();
 
         return {
             title: title && title.length > 0 ? title : null,
@@ -110,7 +116,8 @@ export class SessionCompressor {
                     : "Previous compressed context: none",
                 "Recent conversation turns:",
                 ...turns.map(
-                    (turn) => `${turn.role === "user" ? "User" : "Assistant"}: ${turn.content}`,
+                    (turn) =>
+                        `${turn.role === "user" ? "User" : "Assistant"}: ${turn.content}`,
                 ),
             ].join("\n\n"),
         });
@@ -148,7 +155,9 @@ export class SessionManager {
      * Returns the lightweight session list used by callers and UI state.
      */
     list(): Session[] {
-        return Object.values(this.sessions).map(({ id, name }) => ({ id, name }) as Session);
+        return Object.values(this.sessions).map(
+            ({ id, name }) => ({ id, name }) as Session,
+        );
     }
 
     /**
@@ -194,7 +203,9 @@ export class SessionManager {
             throw new Error(`Session with id ${askOptions.session} not found`);
         }
 
-        const historicalTurns = trimTurns(sessionState.conversation.turns ?? []);
+        const historicalTurns = trimTurns(
+            sessionState.conversation.turns ?? [],
+        );
         const nextTurns = [
             ...historicalTurns,
             {
@@ -229,7 +240,10 @@ export class SessionManager {
         abortSignal: AbortSignal,
     ) {
         response.start().catch((error) => {
-            response.emit("error", error instanceof Error ? error : new Error(String(error)));
+            response.emit(
+                "error",
+                error instanceof Error ? error : new Error(String(error)),
+            );
         });
 
         response.once("response-end", async () => {
@@ -268,14 +282,19 @@ export class SessionManager {
 
                 response.emit(
                     "activity",
-                    createAskReponseResult(AskResponseResultEvent.SESSION_COMPRESSION_RUNNING),
+                    createAskReponseResult(
+                        AskResponseResultEvent.SESSION_COMPRESSION_RUNNING,
+                    ),
                 );
 
                 const { summary, title } = await SessionCompressor.compress({
                     ...options,
                     ...(activeSession.conversation.summary === undefined
                         ? {}
-                        : { previousSummary: activeSession.conversation.summary }),
+                        : {
+                              previousSummary:
+                                  activeSession.conversation.summary,
+                          }),
                     turns: completedTurns,
                 });
 
@@ -289,7 +308,9 @@ export class SessionManager {
 
                 response.emit(
                     "activity",
-                    createAskReponseResult(AskResponseResultEvent.SESSION_COMPRESSION_COMPLETED),
+                    createAskReponseResult(
+                        AskResponseResultEvent.SESSION_COMPRESSION_COMPLETED,
+                    ),
                 );
 
                 if (title && activeSession.name !== title) {
@@ -297,17 +318,26 @@ export class SessionManager {
 
                     response.emit(
                         "activity",
-                        createAskReponseResult(AskResponseResultEvent.SESSION_RENAMED_COMPLETED, {
-                            title,
-                        }),
+                        createAskReponseResult(
+                            AskResponseResultEvent.SESSION_RENAMED_COMPLETED,
+                            {
+                                title,
+                            },
+                        ),
                     );
                 }
             } catch (error: any) {
                 response.emit(
                     "activity",
-                    createAskReponseResult(AskResponseResultEvent.SESSION_COMPRESSION_COMPLETED, {
-                        error: error instanceof Error ? error.message : String(error),
-                    }),
+                    createAskReponseResult(
+                        AskResponseResultEvent.SESSION_COMPRESSION_COMPLETED,
+                        {
+                            error:
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error),
+                        },
+                    ),
                 );
             } finally {
                 response.finish();

@@ -32,13 +32,15 @@ export interface File {
 /**
  * Heuristic to identify GGUF files by extension, case-insensitive.
  */
-const isGgufFile = (filePath: string) => filePath.toLowerCase().endsWith(".gguf");
+const isGgufFile = (filePath: string) =>
+    filePath.toLowerCase().endsWith(".gguf");
 
 /**
  * Heuristic to identify mmproj files by name, case-insensitive, allowing
  * for flexible naming conventions but ensuring the key substring is present.
  */
-const isMmprojFile = (filePath: string) => path.basename(filePath).toLowerCase().includes("mmproj");
+const isMmprojFile = (filePath: string) =>
+    path.basename(filePath).toLowerCase().includes("mmproj");
 
 /**
  * Classify a file as either the main model file or an optional mmproj companion
@@ -53,7 +55,9 @@ const classifyModelFile = (filePath: string): File["type"] =>
  * is used to gather results from the Hugging Face Hub API, which may return
  * paginated async iterables for models and files.
  */
-const collectAsyncIterator = async <T>(iter: AsyncIterable<T>): Promise<T[]> => {
+const collectAsyncIterator = async <T>(
+    iter: AsyncIterable<T>,
+): Promise<T[]> => {
     const results: T[] = [];
 
     for await (const item of iter) {
@@ -97,7 +101,9 @@ export namespace RemoteModelsManager {
                 },
             }),
         ).then((items) =>
-            items.filter((item) => item.type === "file" && isGgufFile(item.path)),
+            items.filter(
+                (item) => item.type === "file" && isGgufFile(item.path),
+            ),
         )) as unknown as File[];
     };
 
@@ -114,7 +120,10 @@ export namespace RemoteModelsManager {
             throw new Error(`Invalid model name: ${name}`);
         }
 
-        const modelDir = path.join(CONFIG.resourcesDir, `./models/${username}/${model}`);
+        const modelDir = path.join(
+            CONFIG.resourcesDir,
+            `./models/${username}/${model}`,
+        );
 
         // Ensure the local model directory exists before downloading files into
         // it. This prevents potential race conditions where multiple files are
@@ -161,7 +170,10 @@ export namespace RemoteModelsManager {
 
                                     onProgress({
                                         path: item,
-                                        progress: Math.min(downloadedSize / size, 1),
+                                        progress: Math.min(
+                                            downloadedSize / size,
+                                            1,
+                                        ),
                                     });
                                 }
 
@@ -182,7 +194,9 @@ export namespace RemoteModelsManager {
                         throw fileError;
                     }
 
-                    const fileError = new Error("Failed to download model file.") as Error & {
+                    const fileError = new Error(
+                        "Failed to download model file.",
+                    ) as Error & {
                         path?: string;
                     };
                     fileError.path = item;
@@ -240,12 +254,18 @@ export namespace LocalModelsManager {
      * and its optional mmproj file. These can be used directly as loader inputs
      * without redownloading from Hugging Face.
      */
-    export const resolvePaths = async (name: string, modelFile: string, mmprojFile?: string) => {
+    export const resolvePaths = async (
+        name: string,
+        modelFile: string,
+        mmprojFile?: string,
+    ) => {
         const modelDir = path.join(CONFIG.resourcesDir, `./models/${name}`);
 
         return {
             modelPath: path.join(modelDir, modelFile),
-            mmprojPath: mmprojFile ? path.join(modelDir, mmprojFile) : undefined,
+            mmprojPath: mmprojFile
+                ? path.join(modelDir, mmprojFile)
+                : undefined,
         };
     };
 
