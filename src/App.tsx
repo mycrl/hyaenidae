@@ -1,13 +1,12 @@
 import BrowserDemo from "./components/BrowserDemo/BrowserDemo.tsx";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { FaGithub } from "react-icons/fa6";
-import logo from "../public/logo.svg";
 
 export default function App() {
     return (
         <div className="app">
             <header className="hero">
-                <img src={logo} alt="Hyaenidae Logo" width={70} />
+                <img src="/logo.svg" alt="Hyaenidae Logo" width={70} />
                 <p className="hero-eyebrow">Hyaenidae</p>
                 <h1 className="hero-title">
                     Reimagine your conversation with the internet.
