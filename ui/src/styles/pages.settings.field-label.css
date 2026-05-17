@@ -1,9 +1,0 @@
-@reference "tailwindcss";
-
-.field-label-root {
-    @apply block space-y-1;
-}
-
-.field-label-text {
-    @apply text-[11px] font-medium text-slate-700;
-}

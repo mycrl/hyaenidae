@@ -1,5 +1,0 @@
-@reference "tailwindcss";
-
-.agent-panel-resize-handle {
-    @apply w-1 cursor-col-resize bg-slate-200/80 transition-colors hover:bg-blue-400;
-}

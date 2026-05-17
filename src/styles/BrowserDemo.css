@@ -1,0 +1,46 @@
+.browser-demo {
+    width: 100%;
+}
+
+.browser-window {
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    box-shadow:
+        0 24px 48px rgba(2, 6, 23, 0.35),
+        0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+
+.browser-body {
+    display: flex;
+    height: 480px;
+    min-height: 380px;
+}
+
+@media (max-width: 900px) {
+    .browser-body {
+        flex-direction: column;
+        height: auto;
+        min-height: 640px;
+    }
+
+    .page-content {
+        min-height: 280px;
+    }
+}
+
+@media (max-width: 640px) {
+    .browser-window {
+        border-radius: 8px;
+    }
+
+    .tab {
+        min-width: 100px;
+        max-width: 160px;
+    }
+
+    .agent-panel {
+        width: 100%;
+    }
+}

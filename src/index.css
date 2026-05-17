@@ -1,0 +1,127 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body,
+#root {
+    min-height: 100%;
+}
+
+body {
+    font-family:
+        Inter,
+        "Segoe UI",
+        system-ui,
+        -apple-system,
+        sans-serif;
+    background: linear-gradient(165deg, #0b1220 0%, #111827 45%, #0f172a 100%);
+    color: #e2e8f0;
+    -webkit-font-smoothing: antialiased;
+}
+
+.app {
+    min-height: 100vh;
+    padding: 48px 24px 80px;
+}
+
+.hero {
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
+.hero-eyebrow {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: #60a5fa;
+    margin-bottom: 12px;
+}
+
+.hero-title {
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+}
+
+.hero-subtitle {
+    max-width: 560px;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #94a3b8;
+    margin-bottom: 32px;
+}
+
+.content {
+    max-width: 1120px;
+    margin: 0 auto;
+    margin-top: 5vh;
+}
+
+.get-browse-button {
+    padding: 12px 24px;
+    font-size: 16px;
+    color: #e2e8f0;
+    background-color: #1b3465;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 5vh;
+    width: 200px;
+    border-radius: 10px;
+    text-decoration: none;
+}
+
+.get-browse-button-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.site-footer {
+    display: flex;
+    justify-content: center;
+    margin-top: 10vh;
+    padding-top: 24px;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.site-footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 999px;
+    color: #cbd5e1;
+    text-decoration: none;
+    background: rgba(15, 23, 42, 0.35);
+    transition:
+        transform 0.18s ease,
+        background-color 0.18s ease,
+        color 0.18s ease;
+}
+
+.site-footer-link:hover {
+    transform: translateY(-1px);
+    background: rgba(30, 41, 59, 0.7);
+    color: #f8fafc;
+}
+
+.site-footer-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.window-control-icon {
+    width: 10px;
+    height: 10px;
+}
