@@ -19,6 +19,7 @@ export default function App() {
             </header>
             <div className="content">
                 <BrowserDemo />
+                <p className="content-tips">Currently under development...</p>
                 <a
                     className="get-browse-button"
                     href="https://github.com/mycrl/hyaenidae/releases"

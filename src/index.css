@@ -64,17 +64,23 @@ body {
     margin-top: 5vh;
 }
 
+.content-tips {
+    text-align: center;
+    font-size: 12px;
+    margin-top: 5vh;
+}
+
 .get-browse-button {
     padding: 12px 24px;
     font-size: 16px;
     color: #e2e8f0;
     background-color: #1b3465;
     margin: 0 auto;
+    margin-top: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-top: 5vh;
     width: 200px;
     border-radius: 10px;
     text-decoration: none;
@@ -90,8 +96,6 @@ body {
     display: flex;
     justify-content: center;
     margin-top: 10vh;
-    padding-top: 24px;
-    border-top: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .site-footer-link {
