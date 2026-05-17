@@ -21,6 +21,7 @@ lerna-debug.log*
 # Node.js
 node_modules
 dist
+out
 dist-ssr
 *.local
 *.env

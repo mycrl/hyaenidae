@@ -1,26 +1,28 @@
-import { CONFIG } from "../config";
-import { URL } from "node:url";
+import { net, protocol } from "electron";
+import url, { URL } from "node:url";
+import path from "node:path";
+import { ProgramSettings } from "../settings";
 
 export class UriProcessor {
     /**
      * Checks if the given URL is a registered download URL.
      */
     static isDownloadRegisteredUrl(url: string) {
-        return url == CONFIG.downloadsUrl;
+        return url == ProgramSettings.downloadsUrl;
     }
 
     /**
      * Checks if the given URL is a registered shell URL.
      */
     static isShellRegisteredUrl(url: string) {
-        return url == CONFIG.shellUrl;
+        return url == ProgramSettings.shellUrl;
     }
 
     /**
      * Checks if the given URL is a registered settings URL.
      */
     static isSettingsRegisteredUrl(url: string) {
-        return url == CONFIG.settingsUrl;
+        return url == ProgramSettings.settingsUrl;
     }
 
     /**
@@ -87,3 +89,41 @@ export class UriProcessor {
         return searchEngine + encodeURIComponent(source);
     }
 }
+
+/**
+ * Registers custom protocol handlers for application-specific URLs (such as
+ * hyaenidae://shell) to enable loading internal application pages and resources.
+ */
+export const registerApplicationProtocolHooks = () => {
+    protocol.handle("hyaenidae", (request) => {
+        let { pathname } = new URL(request.url);
+
+        /**
+         * example: hyaenidae://shell -> /index.html`
+         */
+        if (pathname == "" || pathname == "/") {
+            pathname = "index.html";
+        }
+
+        /**
+         * example: /assets/index-BlNWZCvO.css -> ./assets/index-BlNWZCvO.css
+         */
+        if (pathname.startsWith("/")) {
+            pathname = "." + pathname;
+        }
+
+        console.log(
+            `Loading application resource: `,
+            pathname,
+            new URL(path.join(ProgramSettings.webviewDir, pathname), "file:")
+                .toString()
+                .replace(/\\/g, "/"),
+        );
+
+        return net.fetch(
+            new URL(path.join(ProgramSettings.webviewDir, pathname), "file:")
+                .toString()
+                .replace(/\\/g, "/"),
+        );
+    });
+};

@@ -1,24 +1,72 @@
 import { safeStorage } from "electron";
 import { writeFile } from "node:fs/promises";
-import { readFileSync } from "node:fs";
-import { CONFIG } from "./config";
 import { AppSettings } from "@hyaenidae/bridge";
+import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import path from "node:path";
+
+const WorkDir = path.dirname(process.execPath);
+
+export let ProgramSettings = {
+    webviewDir: path.join(WorkDir, "./webview"),
+    defaultTabUrl: "https://google.com",
+    shellUrl: "hyaenidae://shell",
+    settingsUrl: "hyaenidae://settings",
+    downloadsUrl: "hyaenidae://downloads",
+    defaultWidth: 1280,
+    defaultHeight: 760,
+    openDevTools: false,
+    preloadScriptPath: require.resolve("../dist/preload.js"),
+    settingsFilePath: path.join(WorkDir, "./settings.dat"),
+    resourcesDir: path.join(WorkDir, "./resources"),
+    defaultLocalApiKey: randomUUID(),
+};
 
 /**
- * SettingsManager is responsible for reading and writing application settings
+ * Initializes the application configuration by reading from a JSON file. If the
+ * file cannot be read or parsed, it falls back to default configuration values.
+ *
+ * @param path - The file path to the configuration JSON file.
+ * Defaults to "../../config.json".
+ */
+export function initProgramSettings() {
+    for (const filePath of [
+        process.env.CONFIG_FILE_PATH ??
+            path.join(__dirname, "../../config.json"),
+        path.join(WorkDir, "./config.json"),
+    ]) {
+        console.info("Initializing program settings from", filePath);
+
+        try {
+            ProgramSettings = Object.assign(
+                ProgramSettings,
+                JSON.parse(readFileSync(filePath, "utf-8")),
+            );
+
+            break;
+        } catch {
+            console.warn(`Failed to read program settings ${filePath}`);
+        }
+    }
+
+    console.info("Program settings initialized:", ProgramSettings);
+}
+
+/**
+ * SettingsController is responsible for reading and writing application settings
  * to a JSON file in the user's data directory. It provides methods to read the
  * current settings and to write new settings, merging them with existing ones.
  *
  * The settings are stored in a file named "settings.json" within a "hyaenidae"
  * subdirectory of the user's data path.
  */
-export class SettingsManager {
+export class SettingsController {
     private settings: AppSettings | null = null;
 
     constructor() {
         console.info(
-            "SettingsManager initialized with path:",
-            CONFIG.settingsFilePath,
+            "SettingsController initialized with path:",
+            ProgramSettings.settingsFilePath,
         );
     }
 
@@ -35,7 +83,7 @@ export class SettingsManager {
         try {
             this.settings = JSON.parse(
                 safeStorage.decryptString(
-                    readFileSync(CONFIG.settingsFilePath),
+                    readFileSync(ProgramSettings.settingsFilePath),
                 ),
             );
 
@@ -90,7 +138,7 @@ export class SettingsManager {
         this.settings = Object.assign(this.settings as any, settings);
 
         await writeFile(
-            CONFIG.settingsFilePath,
+            ProgramSettings.settingsFilePath,
             safeStorage.encryptString(JSON.stringify(this.settings)),
         );
     }

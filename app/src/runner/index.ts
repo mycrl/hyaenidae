@@ -1,8 +1,8 @@
 import { readdir } from "node:fs/promises";
 import path from "node:path";
-import { CONFIG } from "../config";
 import { Loader } from "./loader";
 import { LocalModelsManager } from "./models";
+import { ProgramSettings } from "../settings";
 
 export interface StartRunnerOptions {
     model: string;
@@ -29,7 +29,7 @@ export class ModelRunnerController {
      */
     constructor(
         private readonly runnersDir = path.join(
-            CONFIG.resourcesDir,
+            ProgramSettings.resourcesDir,
             "./runners",
         ),
     ) {}
@@ -66,9 +66,9 @@ export class ModelRunnerController {
         );
 
         this.runner = await Loader.create({
-            apiKey: CONFIG.defaultLocalApiKey,
+            apiKey: ProgramSettings.defaultLocalApiKey,
             binaryDir: path.join(
-                CONFIG.resourcesDir,
+                ProgramSettings.resourcesDir,
                 `./runners/${options.runner}`,
             ),
             model: {
@@ -91,7 +91,7 @@ export class ModelRunnerController {
 
         return {
             baseUrl: this.runner.baseUrl,
-            apiKey: CONFIG.defaultLocalApiKey,
+            apiKey: ProgramSettings.defaultLocalApiKey,
         };
     }
 

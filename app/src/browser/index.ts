@@ -1,19 +1,19 @@
 import { BaseWindow } from "electron";
 import EventEmitter from "node:events";
 import { Layout } from "@hyaenidae/bridge";
-import { CONFIG } from "../config";
-import { SettingsManager } from "../settings";
+import { ProgramSettings, SettingsController } from "../settings";
 import { ModelRunnerController } from "../runner";
 import { Tab, TabType } from "./tab";
-import { UriProcessor } from "./uri";
+import { UriProcessor } from "./loader";
 import { DownloadController } from "./download";
+
+export { registerApplicationProtocolHooks } from "./loader";
 
 /**
  * Manages the shell UI view and all tab content views inside a single BaseWindow.
  */
 export class Browser extends EventEmitter {
     public baseWindow: BaseWindow;
-    public downloadController = new DownloadController();
 
     /**
      * The ID of the currently focused tab, or null if no tab is focused
@@ -38,14 +38,15 @@ export class Browser extends EventEmitter {
     };
 
     constructor(
-        public readonly settingsManager: SettingsManager,
-        public readonly modelRunnerController: ModelRunnerController,
+        public readonly settings: SettingsController,
+        public readonly downloador: DownloadController,
+        public readonly modelRunner: ModelRunnerController,
     ) {
         super();
 
         this.baseWindow = new BaseWindow({
-            width: CONFIG.defaultWidth,
-            height: CONFIG.defaultHeight,
+            width: ProgramSettings.defaultWidth,
+            height: ProgramSettings.defaultHeight,
             title: "Hyaenidae",
             frame: false,
             autoHideMenuBar: true,
@@ -61,16 +62,16 @@ export class Browser extends EventEmitter {
         {
             this.shell = new Tab(TabType.Shell, this, {
                 webPreferences: {
-                    preload: CONFIG.preloadScriptPath,
+                    preload: ProgramSettings.preloadScriptPath,
                     contextIsolation: true,
                 },
             });
 
-            this.shell.loadUrl(CONFIG.shellUrl);
+            this.shell.loadUrl(ProgramSettings.shellUrl);
             this.syncBounds();
             this.baseWindow.contentView.addChildView(this.shell);
 
-            if (CONFIG.openDevTools) {
+            if (ProgramSettings.openDevTools) {
                 this.shell.webContents.openDevTools({
                     mode: "detach",
                 });
@@ -82,7 +83,7 @@ export class Browser extends EventEmitter {
             this.syncBounds();
         });
 
-        this.downloadController.on("progressing-change", (progressing) => {
+        this.downloador.on("progressing-change", (progressing) => {
             this.shell.bridge.send("download:progressing-changed", progressing);
         });
     }
@@ -133,7 +134,7 @@ export class Browser extends EventEmitter {
             {
                 webPreferences: isApplicationUrl
                     ? {
-                          preload: CONFIG.preloadScriptPath,
+                          preload: ProgramSettings.preloadScriptPath,
                           contextIsolation: true,
                       }
                     : {
@@ -142,7 +143,7 @@ export class Browser extends EventEmitter {
             },
         );
 
-        if (isApplicationUrl && CONFIG.openDevTools) {
+        if (isApplicationUrl && ProgramSettings.openDevTools) {
             tab.webContents.openDevTools({
                 mode: "detach",
             });

@@ -1,14 +1,12 @@
 {
     "name": "@hyaenidae/bridge",
     "version": "1.0.0",
-    "description": "",
+    "private": true,
     "license": "GPL-3.0-only",
-    "author": "",
     "main": "dist/index.js",
     "types": "src/index.ts",
     "scripts": {
         "build": "tsc",
         "preinstall": "tsc"
-    },
-    "dependencies": {}
+    }
 }

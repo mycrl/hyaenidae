@@ -9,7 +9,7 @@
 }
 
 .settings-sidebar-title {
-    @apply text-base font-semibold text-slate-900;
+    @apply text-sm font-semibold text-slate-900;
 }
 
 .settings-sidebar-subtitle {

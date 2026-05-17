@@ -4,7 +4,7 @@ import { pipeline } from "node:stream/promises";
 import { createWriteStream } from "node:fs";
 import { Transform } from "node:stream";
 import path from "node:path";
-import { CONFIG } from "../config";
+import { ProgramSettings } from "../settings";
 
 /**
  * Model metadata returned from Hugging Face for the search result list.
@@ -121,7 +121,7 @@ export namespace RemoteModelsManager {
         }
 
         const modelDir = path.join(
-            CONFIG.resourcesDir,
+            ProgramSettings.resourcesDir,
             `./models/${username}/${model}`,
         );
 
@@ -215,7 +215,7 @@ export namespace LocalModelsManager {
     export const list = async (): Promise<string[]> => {
         let models: string[] = [];
 
-        const modelsDir = path.join(CONFIG.resourcesDir, `./models`);
+        const modelsDir = path.join(ProgramSettings.resourcesDir, `./models`);
 
         for (const username of await readdir(modelsDir)) {
             for (const model of await readdir(path.join(modelsDir, username))) {
@@ -230,7 +230,10 @@ export namespace LocalModelsManager {
      * Enumerate downloaded GGUF files for a cached repository.
      */
     export const getFiles = async (name: string): Promise<File[]> => {
-        const modelDir = path.join(CONFIG.resourcesDir, `./models/${name}`);
+        const modelDir = path.join(
+            ProgramSettings.resourcesDir,
+            `./models/${name}`,
+        );
 
         return (await readdir(modelDir))
             .filter(isGgufFile)
@@ -259,7 +262,10 @@ export namespace LocalModelsManager {
         modelFile: string,
         mmprojFile?: string,
     ) => {
-        const modelDir = path.join(CONFIG.resourcesDir, `./models/${name}`);
+        const modelDir = path.join(
+            ProgramSettings.resourcesDir,
+            `./models/${name}`,
+        );
 
         return {
             modelPath: path.join(modelDir, modelFile),
@@ -273,7 +279,7 @@ export namespace LocalModelsManager {
      * Remove the cached directory for a single model repo.
      */
     export const remove = async (name: string) => {
-        await rm(path.join(CONFIG.resourcesDir, `./models/${name}`), {
+        await rm(path.join(ProgramSettings.resourcesDir, `./models/${name}`), {
             recursive: true,
             force: true,
         });

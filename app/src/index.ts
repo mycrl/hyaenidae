@@ -4,21 +4,27 @@ import {
     Hyaenidae,
     getModelsWithModelProvider,
 } from "@hyaenidae/core";
+import {
+    SettingsController,
+    initProgramSettings,
+    ProgramSettings,
+} from "./settings";
 import { ElectronBrowserRuntime } from "./runtime";
-import { Browser } from "./browser";
-import { CONFIG, initConfig } from "./config";
-import { SettingsManager } from "./settings";
+import { Browser, registerApplicationProtocolHooks } from "./browser";
 import { registerLogger } from "./logger";
 import { ModelRunnerController } from "./runner";
 import { BaseTabInfo } from "@hyaenidae/bridge";
+import { DownloadController } from "./browser/download";
 
 registerLogger();
-initConfig();
+initProgramSettings();
+registerApplicationProtocolHooks();
 
 const coreService = new Hyaenidae();
-const settingsManager = new SettingsManager();
-const modelRunnerController = new ModelRunnerController();
-const browser = new Browser(settingsManager, modelRunnerController);
+const settings = new SettingsController();
+const downloador = new DownloadController();
+const modelRunner = new ModelRunnerController();
+const browser = new Browser(settings, downloador, modelRunner);
 const browserRuntime = new ElectronBrowserRuntime(browser);
 
 let isReady = false;
@@ -30,12 +36,12 @@ browser.shell.bridge
 
             isReady = true;
 
-            await browser.create(CONFIG.defaultTabUrl);
+            await browser.create(ProgramSettings.defaultTabUrl);
         }
     })
-    .handle("settings:get", async () => settingsManager.load())
-    .handle("settings:set", async (settings) => {
-        await settingsManager.restore(settings as any);
+    .handle("settings:get", async () => settings.load())
+    .handle("settings:set", async (item) => {
+        await settings.restore(item);
     })
     .handle("shell:minimize", async () => {
         browser.baseWindow.minimize();

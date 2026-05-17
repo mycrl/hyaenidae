@@ -1,5 +1,5 @@
 {
-    "package": "hyaenidae",
+    "name": "hyaenidae",
     "private": true,
     "license": "GPL-3.0-only",
     "workspaces": [
@@ -8,10 +8,6 @@
         "core",
         "bridge"
     ],
-    "dependencies": {
-        "electron": "41.3.0",
-        "pino": "10.3.1"
-    },
     "devDependencies": {
         "prettier": "3.8.3",
         "typescript": "6.0.3"

@@ -7,7 +7,7 @@ import type { Browser } from ".";
 import { Bridge, DownloadEvent } from "@hyaenidae/bridge";
 import { registerContextMenu } from "./menu";
 import { LocalModelsManager, RemoteModelsManager } from "../runner/models";
-import { UriProcessor } from "./uri";
+import { UriProcessor } from "./loader";
 
 export enum TabType {
     Shell = "shell",
@@ -46,7 +46,7 @@ export class Tab extends WebContentsView {
         public readonly browser: Browser,
         public readonly options: WebContentsViewConstructorOptions,
     ) {
-        const settings = browser.settingsManager.load();
+        const settings = browser.settings.load();
         super({
             ...options,
             webPreferences: {
@@ -145,18 +145,13 @@ export class Tab extends WebContentsView {
                     }
                 };
 
-                browser.downloadController.on(
-                    "change",
-                    this.downloadEventHandler,
-                );
+                browser.downloador.on("change", this.downloadEventHandler);
             }
 
             this.bridge
-                .handle("settings:get", async () =>
-                    browser.settingsManager.load(),
-                )
+                .handle("settings:get", async () => browser.settings.load())
                 .handle("settings:set", async (settings) => {
-                    await browser.settingsManager.restore(settings as any);
+                    await browser.settings.restore(settings);
 
                     /**
                      * Send setting update notifications from the settings page
@@ -165,16 +160,16 @@ export class Tab extends WebContentsView {
                     browser.shell.bridge.send("settings:changed");
                 })
                 .handle("download:get-items", async () =>
-                    browser.downloadController.getItems(),
+                    browser.downloador.getItems(),
                 )
                 .handle("download:pause", async (id) => {
-                    browser.downloadController.pause(id);
+                    browser.downloador.pause(id);
                 })
                 .handle("download:resume", async (id) => {
-                    browser.downloadController.resume(id);
+                    browser.downloador.resume(id);
                 })
                 .handle("download:cancel", async (id) => {
-                    browser.downloadController.cancel(id);
+                    browser.downloador.cancel(id);
                 })
                 .handle("model:search", async ({ query, limit }) =>
                     RemoteModelsManager.search(query, limit),
@@ -220,19 +215,18 @@ export class Tab extends WebContentsView {
                     await LocalModelsManager.remove(model);
                 })
                 .handle("model:get-runners", async () =>
-                    browser.modelRunnerController.getRunners(),
+                    browser.modelRunner.getRunners(),
                 )
                 .handle(
                     "model:get-runner-status",
-                    async () => browser.modelRunnerController.isRunning,
+                    async () => browser.modelRunner.isRunning,
                 )
                 .handle(
                     "model:start-runner",
-                    async (options) =>
-                        await browser.modelRunnerController.start(options),
+                    async (options) => await browser.modelRunner.start(options),
                 )
                 .handle("model:stop-runner", async () => {
-                    await browser.modelRunnerController.stop();
+                    await browser.modelRunner.stop();
                 });
         }
     }
@@ -253,10 +247,7 @@ export class Tab extends WebContentsView {
      */
     destroy() {
         if (this.downloadEventHandler) {
-            this.browser.downloadController.off(
-                "change",
-                this.downloadEventHandler,
-            );
+            this.browser.downloador.off("change", this.downloadEventHandler);
         }
 
         this.webContents.close();

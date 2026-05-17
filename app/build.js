@@ -1,11 +1,9 @@
-const esbuild = require("esbuild");
-
-esbuild
+require("esbuild")
     .build({
-        entryPoints: ["./src/browser/preload.ts"],
+        entryPoints: ["./src/browser/inject.ts"],
         bundle: true,
         platform: "node",
-        outdir: "./dist",
+        outfile: "./dist/preload.js",
         external: ["electron"],
         format: "cjs",
     })

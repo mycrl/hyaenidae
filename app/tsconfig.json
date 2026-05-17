@@ -42,5 +42,6 @@
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
         "moduleResolution": "nodenext"
-    }
+    },
+    "exclude": ["./out", "./dist", "./node_modules"]
 }
