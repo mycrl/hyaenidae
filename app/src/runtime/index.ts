@@ -2,7 +2,6 @@ import type {
     BrowserActionResult,
     BrowserDomSnapshot,
     BrowserElementNode,
-    BrowserGroundingTarget,
     BrowserRuntime,
     BrowserScriptResult,
     BrowserTabSummary,
@@ -12,7 +11,6 @@ import type { WebContents } from "electron";
 import type { Browser } from "../browser";
 import type { Tab } from "../browser/tab";
 import { AccessibilityTreeReader } from "./accessibility";
-import { VisionGrounder } from "./vision";
 
 const REDACTED_TEXT = "[redacted sensitive value]";
 
@@ -136,7 +134,6 @@ const sanitizeAccessibilityNode = (
 
 export class ElectronBrowserRuntime implements BrowserRuntime {
     private readonly accessibilityReader = new AccessibilityTreeReader();
-    private readonly visionGrounder = new VisionGrounder();
 
     constructor(private readonly browser: Browser) {}
 
@@ -213,14 +210,6 @@ export class ElectronBrowserRuntime implements BrowserRuntime {
         } finally {
             await this.clearSensitiveOverlays(tab, overlayIds);
         }
-    }
-
-    async groundFromVision(input: {
-        tabId?: number;
-        description: string;
-    }): Promise<BrowserGroundingTarget[]> {
-        const snapshot = await this.snapshotDom(input.tabId);
-        return this.visionGrounder.ground(snapshot, input.description);
     }
 
     async runScript(input: {

@@ -47,41 +47,6 @@ export interface BrowserDomSnapshot {
     url: string;
     // Document title at capture time.
     title: string;
-    // Optional compact document summary with visible text and actionable candidates.
-    document?: {
-        // Raw document title, preserved separately so the agent can compare it with the tab title.
-        title: string;
-        // Document URL after any in-page navigation or redirects.
-        url: string;
-        // Small text sample from the document body for cheap reasoning.
-        textSample: string;
-        // Candidate elements that are likely to be interacted with.
-        elements: Array<{
-            // Screen-space rectangle used for hit testing and fallback mouse actions.
-            bounds: {
-                x: number;
-                y: number;
-                width: number;
-                height: number;
-            };
-            // DOM tag name for the candidate element.
-            tag: string;
-            // Stable selector string used by DOM-first actions.
-            selector: string;
-            // Optional accessibility role if the DOM reader could resolve it.
-            role?: string;
-            // Visible text content or label text extracted for matching.
-            text?: string;
-            // Accessible label attribute when text content is not enough.
-            ariaLabel?: string;
-            // Current control value for inputs and similar form elements.
-            value?: string;
-            // Link destination for anchors and similar navigation targets.
-            href?: string;
-            // Placeholder text for empty inputs, useful for form filling.
-            placeholder?: string;
-        }>;
-    };
     // Optional accessibility tree when the DOM summary alone is not enough.
     accessibility?: BrowserElementNode;
 }
@@ -100,31 +65,6 @@ export interface BrowserImageSnapshot {
     width: number;
     // Screenshot height in pixels.
     height: number;
-}
-
-/**
- * Candidate interaction target grounded from visual inspection.
- */
-export interface BrowserGroundingTarget {
-    // The tab this grounded target belongs to.
-    tabId: number;
-    // DOM selector when grounding can identify a reliable selector.
-    selector?: string;
-    // Accessibility role when role-based matching is the safest choice.
-    role?: string;
-    // Visible text or label that the agent can use for confirmation.
-    text?: string;
-    // URL target when the grounded result is navigation-oriented.
-    url?: string;
-    // Physical screen point for fallback click or type actions.
-    point?: {
-        x: number;
-        y: number;
-    };
-    // Human-readable explanation for why this target was selected.
-    reason: string;
-    // Confidence level for choosing this target.
-    confidence: "low" | "medium" | "high";
 }
 
 /**
@@ -209,14 +149,6 @@ export interface BrowserRuntime {
      * Captures a screenshot of the visible page for visual inspection.
      */
     captureScreenshot(tabId?: number): Promise<BrowserImageSnapshot>;
-
-    /**
-     * Resolves a textual visual description into likely page targets.
-     */
-    groundFromVision(input: {
-        tabId?: number;
-        description: string;
-    }): Promise<BrowserGroundingTarget[]>;
 
     /**
      * Executes JavaScript inside the tab context.

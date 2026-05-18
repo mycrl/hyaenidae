@@ -25,7 +25,7 @@ export const withOptional = <T extends ZodRawShape, U extends ZodRawShape>(
 /**
  * Creates the browser tool set exposed to the AI SDK runtime.
  */
-export const createTools = (askOptions: AskOptions) => ({
+export const createBrowserUseTools = (askOptions: AskOptions) => ({
     list_tabs: tool({
         description: "List all open browser tabs with focus and loading state.",
         inputSchema: zod.object({}),
@@ -253,25 +253,6 @@ export const createTools = (askOptions: AskOptions) => ({
         inputSchema: optionalTabIdSchema,
         execute: async ({ tabId }) =>
             askOptions.browserRuntime.captureScreenshot(tabId ?? undefined),
-    }),
-    ground_from_vision: tool({
-        description:
-            "Resolve a visual description to likely DOM selectors or targets before clicking or typing. The returned point is only a backup when DOM selectors fail.",
-        inputSchema: withOptional(
-            optionalTabIdSchema,
-            zod.object({
-                description: zod
-                    .string()
-                    .describe(
-                        "Human description of the visual target, such as 'blue Sign in button in header'.",
-                    ),
-            }),
-        ),
-        execute: async ({ tabId, description }) => ({
-            matches: await askOptions.browserRuntime.groundFromVision(
-                tabId == null ? { description } : { tabId, description },
-            ),
-        }),
     }),
     run_tab_script: tool({
         description:

@@ -3,7 +3,7 @@ import { isLoopFinished, streamText } from "ai";
 import { SessionManager } from "./sessions";
 import { buildConversationInput, createModelWithModelProvider } from "./helper";
 import { BrowserRuntime } from "./runtime";
-import { createTools } from "./tools";
+import { createBrowserUseTools } from "./tools";
 
 export { getModelsWithModelProvider } from "./helper";
 export * from "./runtime";
@@ -103,7 +103,9 @@ export class Hyaenidae {
                             options.conversation?.turns ?? [],
                             options.message,
                         ),
-                        tools: createTools(options),
+                        tools: {
+                            ...createBrowserUseTools(options),
+                        },
                         abortSignal: abortController.signal,
                         stopWhen: isLoopFinished(),
                     }),
