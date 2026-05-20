@@ -59,6 +59,27 @@ const getAgentErrorTitle = (
 const getAgentErrorDetail = (message: AgentMessage) =>
     message.error || message.content || "";
 
+const getReasoningText = (activities: AgentMessage["activities"]) => {
+    let text = "";
+
+    for (const activity of activities ?? []) {
+        if (activity.kind !== "reasoning") {
+            continue;
+        }
+
+        if (
+            typeof activity.data === "object" &&
+            activity.data !== null &&
+            "text" in activity.data &&
+            typeof activity.data.text === "string"
+        ) {
+            text += activity.data.text;
+        }
+    }
+
+    return text;
+};
+
 const getAssistantContent = (
     message: AgentMessage,
     t: ReturnType<typeof useTranslation>["t"],
@@ -67,8 +88,15 @@ const getAssistantContent = (
         return message.content;
     }
 
-    if (message.status === "streaming" || message.status === "error") {
+    if (message.status === "error") {
         return "";
+    }
+
+    if (message.status === "streaming") {
+        const reasoning = getReasoningText(message.activities).trim();
+        const reply = message.content.trim();
+
+        return [reasoning, reply].filter(Boolean).join("\n\n");
     }
 
     return (
@@ -569,17 +597,27 @@ function MessageItem({
 }) {
     const { t } = useTranslation();
     const hasActivities = Boolean(message.activities?.length);
+    const hasOperationalActivities = Boolean(
+        message.activities?.some((activity) => activity.kind !== "reasoning"),
+    );
     const isStreamingAssistant =
         message.role === "assistant" && message.status === "streaming";
     const isErrorAssistant =
         message.role === "assistant" && message.status === "error";
     const shouldShowActivityPanel =
-        message.role === "assistant" && (hasActivities || isStreamingAssistant);
-    const isPanelExpanded = isStreamingAssistant || isActivityExpanded;
+        message.role === "assistant" &&
+        (hasOperationalActivities ||
+            (!isStreamingAssistant && hasActivities));
+    const isPanelExpanded = isStreamingAssistant
+        ? hasOperationalActivities
+        : isActivityExpanded;
     const messageContent = getAssistantContent(message, t);
     const errorDetail = isErrorAssistant ? getAgentErrorDetail(message) : "";
     const shouldRenderMessageBody =
-        isErrorAssistant || message.role === "user" || Boolean(messageContent);
+        isErrorAssistant ||
+        message.role === "user" ||
+        Boolean(messageContent) ||
+        isStreamingAssistant;
 
     return (
         <div className={getMessageClassName(message)}>
@@ -592,8 +630,6 @@ function MessageItem({
                     onToggle={onToggleActivities}
                     showActivityLabel={t("chat.showActivity")}
                     hideActivityLabel={t("chat.hideActivity")}
-                    activityLabel={t("chat.activity")}
-                    thinkingLabel={t("chat.thinking")}
                 />
             ) : null}
 
@@ -609,14 +645,20 @@ function MessageItem({
                     ) : null}
                 </div>
             ) : shouldRenderMessageBody ? (
-                <div
-                    className="agent-markdown"
-                    dangerouslySetInnerHTML={renderMarkdown(
-                        message.role === "assistant"
-                            ? messageContent
-                            : message.content,
-                    )}
-                />
+                messageContent ? (
+                    <div
+                        className="agent-markdown"
+                        dangerouslySetInnerHTML={renderMarkdown(
+                            message.role === "assistant"
+                                ? messageContent
+                                : message.content,
+                        )}
+                    />
+                ) : isStreamingAssistant ? (
+                    <p className="agent-streaming-placeholder">
+                        {t("chat.thinking")}
+                    </p>
+                ) : null
             ) : null}
 
             <p className={getTimestampClassName(message)}>
@@ -638,8 +680,6 @@ function ActivityPanel({
     onToggle,
     showActivityLabel,
     hideActivityLabel,
-    activityLabel,
-    thinkingLabel,
 }: {
     message: AgentMessage;
     isStreamingAssistant: boolean;
@@ -648,8 +688,6 @@ function ActivityPanel({
     onToggle: () => void;
     showActivityLabel: string;
     hideActivityLabel: string;
-    activityLabel: string;
-    thinkingLabel: string;
 }) {
     const { t } = useTranslation();
 
@@ -667,27 +705,10 @@ function ActivityPanel({
 
             {isExpanded ? (
                 <div className="agent-activity-panel">
-                    {isStreamingAssistant ? (
-                        <div className="agent-streaming-activity">
-                            <div className="agent-streaming-activity-label">
-                                {activityLabel}
-                            </div>
-                            {message.content ? (
-                                <div
-                                    className="agent-markdown agent-markdown-activity"
-                                    dangerouslySetInnerHTML={renderMarkdown(
-                                        message.content,
-                                    )}
-                                />
-                            ) : (
-                                <p className="agent-streaming-activity-placeholder">
-                                    {thinkingLabel}
-                                </p>
-                            )}
-                        </div>
-                    ) : null}
-
                     {message.activities?.map((activity) => {
+                        if (activity.kind === "reasoning") {
+                            return null;
+                        }
                         const formatted = formatAgentActivity(activity, t);
 
                         return (

@@ -388,6 +388,41 @@ const applyResponseChunk = (
     }));
 };
 
+const mergeActivityItem = (
+    existing: AgentActivity,
+    incoming: AgentActivityItem,
+): AgentActivity => {
+    const merged: AgentActivity = { ...existing, ...incoming };
+
+    if (
+        incoming.kind === "reasoning" &&
+        typeof incoming.data === "object" &&
+        incoming.data !== null &&
+        "text" in incoming.data &&
+        typeof incoming.data.text === "string"
+    ) {
+        const previousText =
+            typeof existing.data === "object" &&
+            existing.data !== null &&
+            "text" in existing.data &&
+            typeof existing.data.text === "string"
+                ? existing.data.text
+                : "";
+
+        return {
+            ...merged,
+            data: {
+                ...(typeof existing.data === "object" && existing.data !== null
+                    ? existing.data
+                    : {}),
+                text: previousText + incoming.data.text,
+            },
+        };
+    }
+
+    return merged;
+};
+
 const applyActivityChunk = (
     state: AgentState,
     payload: AgentActivityItem,
@@ -401,7 +436,9 @@ const applyActivityChunk = (
         }
 
         return activities.map((item, index) =>
-            index === existingIndex ? { ...item, ...payload } : item,
+            index === existingIndex
+                ? mergeActivityItem(item, payload)
+                : item,
         );
     };
 

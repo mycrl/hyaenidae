@@ -156,6 +156,10 @@
     @apply text-slate-400;
 }
 
+.agent-streaming-placeholder {
+    @apply text-xs text-slate-400;
+}
+
 .agent-activity-item {
     @apply text-[11px] leading-5 text-slate-500;
 }
