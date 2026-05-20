@@ -34,13 +34,6 @@ export default function ProviderSection({
     onProvidersChange: (providers: ApiProviderSettings[]) => void;
 }) {
     const { t } = useTranslation();
-    const localRunnerProvider = providers.find(
-        (provider) => provider.type === "local-runner",
-    );
-
-    const editableProviders = providers.filter(
-        (provider) => provider.type !== "local-runner",
-    );
 
     const updateProvider = (
         id: string,
@@ -79,11 +72,7 @@ export default function ProviderSection({
             </div>
 
             <div className="provider-settings-list">
-                {localRunnerProvider ? (
-                    <LocalRunnerCard provider={localRunnerProvider} />
-                ) : null}
-
-                {editableProviders.map((provider, index) => (
+                {providers.map((provider, index) => (
                     <EditableProviderCard
                         key={provider.id}
                         provider={provider}
@@ -220,29 +209,5 @@ function ProviderTextField({
                 className="provider-settings-control"
             />
         </FieldLabel>
-    );
-}
-
-function LocalRunnerCard({ provider }: { provider: ApiProviderSettings }) {
-    const { t } = useTranslation();
-
-    return (
-        <div className="local-runner-provider-card">
-            <div className="local-runner-provider-card-header">
-                <div>
-                    <div className="local-runner-provider-card-title">
-                        {t(`settings.providerTypes.${provider.type}`)}
-                    </div>
-                    <div className="local-runner-provider-card-description">
-                        {t("settings.localRunnerProvider.description")}
-                    </div>
-                </div>
-
-                <div className="local-runner-provider-card-badge">
-                    {provider.name ??
-                        t(`settings.providerTypes.${provider.type}`)}
-                </div>
-            </div>
-        </div>
     );
 }

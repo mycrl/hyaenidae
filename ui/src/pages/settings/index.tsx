@@ -6,13 +6,12 @@ import { useTranslation } from "react-i18next";
 import AsyncButton from "../../components/async-button";
 import { DEFAULT_SETTINGS, cloneSettings } from "../../services/settings";
 import { useSettingsStore } from "../../services/settings.state";
-import LocalModelSection from "./local-model";
 import ProviderSection from "./provider";
 import BrowserSection from "./browser";
 import Sidebar, { type SettingsSection } from "./components/sidebar";
 import type { AppSettings } from "@hyaenidae/bridge";
 
-type SectionId = "providers" | "local-models" | "browser";
+type SectionId = "providers" | "browser";
 
 const getErrorMessage = (error: unknown, fallbackMessage: string) =>
     error instanceof Error && error.message.trim()
@@ -64,11 +63,6 @@ export default function SettingsPage() {
                 id: "providers",
                 title: t("settings.sections.providers.title"),
                 description: t("settings.sections.providers.description"),
-            },
-            {
-                id: "local-models",
-                title: t("settings.sections.localModels.title"),
-                description: t("settings.sections.localModels.description"),
             },
             {
                 id: "browser",
@@ -124,14 +118,6 @@ export default function SettingsPage() {
                             onProvidersChange={(providers) =>
                                 applyDraftPatch({ providers })
                             }
-                        />
-                    ) : null}
-
-                    {activeSection === "local-models" ? (
-                        <LocalModelSection
-                            settings={draft}
-                            onSettingsChange={applyDraftPatch}
-                            onError={reportError}
                         />
                     ) : null}
 

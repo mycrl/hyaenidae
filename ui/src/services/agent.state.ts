@@ -193,8 +193,8 @@ type AgentConversationSlice = Pick<AgentState, "sessions" | "conversations">;
 interface AgentState {
     sessions: AgentSessionItem[];
     providers: AgentProviderItem[];
-    selectedProviderId: string | null;
-    selectedModel: string | null;
+    selectedProviderId?: string;
+    selectedModel?: string;
     models: string[];
     conversations: Record<number, AgentConversation>;
     activeSessionId: number | null;
@@ -208,7 +208,7 @@ interface AgentState {
     refreshProviders: () => Promise<void>;
     selectProvider: (
         id: string,
-        options?: { persist?: boolean; preferredModelId?: string | null },
+        options?: { persist?: boolean; preferredModelId?: string },
     ) => Promise<void>;
     setSelectedModel: (model: string) => void;
     createSession: (name?: string) => Promise<number | null>;
@@ -327,8 +327,8 @@ const updateAssistantMessage = (
 };
 
 const persistAgentDefaults = async (
-    providerId: string | null,
-    modelId: string | null,
+    providerId: string | undefined,
+    modelId: string | undefined,
 ) => {
     await useSettingsStore.getState().save({
         defaultProviderId: providerId,
@@ -408,7 +408,7 @@ const applyActivityChunk = (
     const nextTitle =
         payload.name === "session_renamed" &&
         typeof payload.data === "object" &&
-        payload.data !== null &&
+        payload.data != null &&
         "title" in payload.data &&
         typeof payload.data.title === "string" &&
         payload.data.title.trim()
@@ -522,8 +522,8 @@ const applyResponseEvent = (state: AgentState, payload: AgentResponseEvent) => {
 export const useAgentStore = create<AgentState>((set, get) => ({
     sessions: [],
     providers: [],
-    selectedProviderId: null,
-    selectedModel: null,
+    selectedProviderId: undefined,
+    selectedModel: undefined,
     models: [],
     conversations: {},
     activeSessionId: null,
@@ -618,7 +618,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                 error: null,
             });
 
-            if (activeSessionId !== null) {
+            if (activeSessionId != null) {
                 await get().loadSessionConversation(activeSessionId);
             }
 
@@ -636,7 +636,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     refreshProviders: async () => {
         try {
             const settings = await getSettings();
-            const providers = filterConfiguredProviders(settings.providers);
+            const providers = filterConfiguredProviders(
+                settings.providers ?? [],
+            );
             const selectedProviderId = providers.some(
                 (provider) => provider.id === settings.defaultProviderId,
             )
@@ -645,20 +647,20 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                         (provider) => provider.id === get().selectedProviderId,
                     )
                   ? get().selectedProviderId
-                  : (providers[0]?.id ?? null);
+                  : (providers[0]?.id ?? undefined);
 
             set({ providers, selectedProviderId });
 
-            if (selectedProviderId !== null) {
+            if (selectedProviderId != null) {
                 await get().selectProvider(selectedProviderId, {
                     persist: false,
                     preferredModelId:
                         settings.defaultProviderId === selectedProviderId
                             ? settings.defaultModelId
-                            : null,
+                            : undefined,
                 });
             } else {
-                set({ models: [], selectedModel: null });
+                set({ models: [], selectedModel: undefined });
             }
         } catch (error) {
             set({
@@ -669,9 +671,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             });
             set({
                 providers: [],
-                selectedProviderId: null,
+                selectedProviderId: undefined,
                 models: [],
-                selectedModel: null,
+                selectedModel: undefined,
             });
         }
     },
@@ -680,10 +682,16 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         const provider = get().providers.find((item) => item.id === id);
 
         if (!provider) {
-            set({ selectedProviderId: null, models: [], selectedModel: null });
+            set({
+                selectedProviderId: undefined,
+                models: [],
+                selectedModel: undefined,
+            });
+
             if (persist) {
-                await persistAgentDefaults(null, null);
+                await persistAgentDefaults(undefined, undefined);
             }
+
             return;
         }
 
@@ -691,15 +699,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
         try {
             const models = await getProviderModels(provider);
-            const preferredModelId = options?.preferredModelId ?? null;
+            const preferredModelId = options?.preferredModelId;
             const currentSelectedModel = get().selectedModel;
             const nextSelectedModel = preferredModelId
                 ? models.includes(preferredModelId)
                     ? preferredModelId
-                    : null
+                    : undefined
                 : currentSelectedModel && models.includes(currentSelectedModel)
                   ? currentSelectedModel
-                  : null;
+                  : undefined;
 
             set({ models, selectedModel: nextSelectedModel, error: null });
 
@@ -713,18 +721,18 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                     AGENT_ERROR_CODE.FAILED_TO_LOAD_MODELS,
                 ),
             });
-            set({ models: [], selectedModel: null });
+            set({ models: [], selectedModel: undefined });
             if (persist) {
-                await persistAgentDefaults(id, null);
+                await persistAgentDefaults(id, undefined);
             }
         }
     },
     setSelectedModel: (model) => {
-        const nextModel = model.trim() ? model : null;
+        const nextModel = model.trim() ? model : undefined;
         set({ selectedModel: nextModel });
 
         const selectedProviderId = get().selectedProviderId;
-        if (selectedProviderId !== null) {
+        if (selectedProviderId != null) {
             void persistAgentDefaults(selectedProviderId, nextModel);
         }
     },
@@ -788,12 +796,12 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     ensureActiveSession: async () => {
         const { activeSessionId, sessions } = get();
 
-        if (activeSessionId !== null) {
+        if (activeSessionId != null) {
             return activeSessionId;
         }
 
         const firstSessionId = sessions[0]?.id ?? null;
-        if (firstSessionId !== null) {
+        if (firstSessionId != null) {
             set({ activeSessionId: firstSessionId });
             return firstSessionId;
         }

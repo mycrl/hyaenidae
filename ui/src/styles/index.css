@@ -10,6 +10,41 @@ body {
     margin: 0;
 }
 
+/* Native <select> popup list (Chromium / Electron) */
+select {
+    color-scheme: light;
+}
+
+select option,
+select optgroup {
+    background-color: #ffffff;
+    color: #334155;
+    font-size: 12px;
+    line-height: 1.25rem;
+    padding: 8px 12px;
+}
+
+select optgroup {
+    color: #64748b;
+    font-weight: 600;
+}
+
+select option:checked {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+}
+
+select option:hover,
+select option:focus {
+    background-color: #f8fafc;
+    color: #0f172a;
+}
+
+select option:disabled {
+    background-color: #f8fafc;
+    color: #94a3b8;
+}
+
 .agent-markdown {
     word-break: break-word;
 }

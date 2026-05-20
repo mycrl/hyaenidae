@@ -269,7 +269,7 @@ export interface BrowserContextPayload {
 /**
  * Supported API provider type string literals.
  */
-export type ApiProviderType = "google" | "openai" | "custom" | "local-runner";
+export type ApiProviderType = "google" | "openai" | "custom";
 
 /**
  * API provider configuration including identification and connection fields.
@@ -299,16 +299,6 @@ export interface ApiProviderSettings {
      * API key if required by the provider.
      */
     apiKey?: string;
-}
-
-/**
- * Local runner settings and selected model information.
- */
-export interface LocalRunnerSettings {
-    runner?: string;
-    model?: string;
-    modelFile?: string;
-    mmprojFile?: string;
 }
 
 /**
@@ -346,11 +336,6 @@ export interface AppSettings {
      * Configured API providers.
      */
     providers?: ApiProviderSettings[];
-
-    /**
-     * Settings related to the local runner.
-     */
-    localRunner?: LocalRunnerSettings;
 
     /**
      * Default font family settings for semantic slots.

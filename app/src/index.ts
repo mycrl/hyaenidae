@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { AgentActivityEvent, Mavis, ModelProvider } from "@hyaenidae/mavis";
+import { Mavis, ModelProvider } from "@hyaenidae/mavis";
 import {
     SettingsController,
     initProgramSettings,
@@ -8,7 +8,6 @@ import {
 import { ElectronBrowserRuntime } from "./runtime";
 import { Browser, registerApplicationProtocolHooks } from "./browser";
 import { registerLogger } from "./logger";
-import { ModelRunnerController } from "./runner";
 import { BaseTabInfo } from "@hyaenidae/bridge";
 import { DownloadController } from "./browser/download";
 
@@ -19,8 +18,7 @@ registerApplicationProtocolHooks();
 const mavis = new Mavis();
 const settings = new SettingsController();
 const downloador = new DownloadController();
-const modelRunner = new ModelRunnerController();
-const browser = new Browser(settings, downloador, modelRunner);
+const browser = new Browser(settings, downloador);
 const browserRuntime = new ElectronBrowserRuntime(browser);
 
 let isReady = false;

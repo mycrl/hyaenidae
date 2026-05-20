@@ -30,11 +30,10 @@ const toModelProvider = (
                 apiKey: provider.apiKey ?? undefined,
             };
         case "custom":
-        case "local-runner":
             return {
                 type: "custom",
                 model,
-                baseUrl: provider.baseUrl ?? "",
+                baseUrl: provider.baseUrl?.trim() ?? "",
                 apiKey: provider.apiKey ?? undefined,
             };
         case "openai":
@@ -52,8 +51,7 @@ const isConfiguredProvider = (
 ): provider is AgentProviderItem => {
     switch (provider.type) {
         case "custom":
-        case "local-runner":
-            return provider.baseUrl !== null;
+            return Boolean(provider.baseUrl?.trim());
         case "google":
         case "openai":
             return true;
@@ -64,10 +62,10 @@ const isConfiguredProvider = (
 
 export interface AgentProviderItem {
     id: string;
-    name: string | null;
+    name?: string;
     type: ApiProviderSettings["type"];
-    apiKey: string | null;
-    baseUrl: string | null;
+    apiKey?: string;
+    baseUrl?: string;
 }
 
 interface AgentEventMap {
@@ -84,10 +82,22 @@ const onAgentEvent = <TEvent extends keyof AgentEventMap>(
     });
 };
 
+const normalizeLegacyProvider = (
+    provider: ApiProviderSettings,
+): ApiProviderSettings => {
+    if ((provider.type as string) === "local-runner") {
+        return { ...provider, type: "custom" };
+    }
+
+    return provider;
+};
+
 export const filterConfiguredProviders = (
     providers: ApiProviderSettings[],
 ): AgentProviderItem[] => {
-    return providers.filter(isConfiguredProvider);
+    return providers
+        .map(normalizeLegacyProvider)
+        .filter(isConfiguredProvider);
 };
 
 export const getProviderModels = async (

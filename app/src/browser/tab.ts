@@ -6,7 +6,6 @@ import {
 import type { Browser } from ".";
 import { Bridge, DownloadEvent } from "@hyaenidae/bridge";
 import { registerContextMenu } from "./menu";
-import { LocalModelsManager, RemoteModelsManager } from "../runner/models";
 import { UriProcessor } from "./loader";
 
 export enum TabType {
@@ -170,63 +169,6 @@ export class Tab extends WebContentsView {
                 })
                 .handle("download:cancel", async (id) => {
                     browser.downloador.cancel(id);
-                })
-                .handle("model:search", async ({ query, limit }) =>
-                    RemoteModelsManager.search(query, limit),
-                )
-                .handle("model:get-files", async (model) =>
-                    RemoteModelsManager.getFiles(model),
-                )
-                .on("model:download", (options) => {
-                    RemoteModelsManager.download(
-                        options,
-                        ({ path, progress }) => {
-                            this.bridge.send("model:download-progress", {
-                                name: options.name,
-                                path,
-                                progress,
-                            });
-                        },
-                    ).catch((error) => {
-                        const path =
-                            error instanceof Error &&
-                            "path" in error &&
-                            typeof error.path === "string"
-                                ? error.path
-                                : "";
-
-                        this.bridge.send("model:download-failed", {
-                            name: options.name,
-                            path,
-                            error:
-                                error instanceof Error
-                                    ? error.message
-                                    : "Failed to download model.",
-                        });
-                    });
-                })
-                .handle("model:get-local-models", async () =>
-                    LocalModelsManager.list(),
-                )
-                .handle("model:get-local-model-files", async (model) =>
-                    LocalModelsManager.getFiles(model),
-                )
-                .handle("model:remove-local-model", async (model) => {
-                    await LocalModelsManager.remove(model);
-                })
-                .handle("model:get-runners", async () =>
-                    browser.modelRunner.getRunners(),
-                )
-                .handle(
-                    "model:get-runner-status",
-                    async () => browser.modelRunner.isRunning,
-                )
-                .handle(
-                    "model:start-runner",
-                    async (options) => await browser.modelRunner.start(options),
-                )
-                .handle("model:stop-runner", async () => {
-                    await browser.modelRunner.stop();
                 });
         }
     }

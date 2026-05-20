@@ -252,7 +252,7 @@ export default function AgentPanel() {
         if (
             (!trimmed && contexts.length === 0) ||
             isResponding ||
-            selectedProviderId === null ||
+            selectedProviderId == null ||
             !selectedModel
         ) {
             return;

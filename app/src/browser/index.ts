@@ -2,7 +2,6 @@ import { BaseWindow } from "electron";
 import EventEmitter from "node:events";
 import { Layout } from "@hyaenidae/bridge";
 import { ProgramSettings, SettingsController } from "../settings";
-import { ModelRunnerController } from "../runner";
 import { Tab, TabType } from "./tab";
 import { UriProcessor } from "./loader";
 import { DownloadController } from "./download";
@@ -40,7 +39,6 @@ export class Browser extends EventEmitter {
     constructor(
         public readonly settings: SettingsController,
         public readonly downloador: DownloadController,
-        public readonly modelRunner: ModelRunnerController,
     ) {
         super();
 
