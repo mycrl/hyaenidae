@@ -144,6 +144,14 @@
                     "sansSerif": "Sans-serif",
                     "monospace": "Monospace"
                 }
+            },
+            "languageOptions": {
+                "zh-CN": "简体中文",
+                "en-US": "English"
+            },
+            "language": {
+                "title": "Language",
+                "description": "Set browser default display language."
             }
         },
         "localRunnerProvider": {

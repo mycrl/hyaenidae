@@ -1,9 +1,4 @@
 /**
- * Optional type: either T or null or undefined. Used to represent nullable fields.
- */
-export type Optional<T> = T | null;
-
-/**
  * Layout information used by the UI shell to size different regions.
  */
 export interface Layout {
@@ -288,7 +283,7 @@ export interface ApiProviderSettings {
     /**
      * Display name (optional).
      */
-    name: Optional<string>;
+    name?: string;
 
     /**
      * Provider type.
@@ -298,22 +293,22 @@ export interface ApiProviderSettings {
     /**
      * Base URL for custom providers (only applicable when type === 'custom').
      */
-    baseUrl: Optional<string>;
+    baseUrl?: string;
 
     /**
      * API key if required by the provider.
      */
-    apiKey: Optional<string>;
+    apiKey?: string;
 }
 
 /**
  * Local runner settings and selected model information.
  */
 export interface LocalRunnerSettings {
-    runner: Optional<string>;
-    model: Optional<string>;
-    modelFile: Optional<string>;
-    mmprojFile: Optional<string>;
+    runner?: string;
+    model?: string;
+    modelFile?: string;
+    mmprojFile?: string;
 }
 
 /**
@@ -321,10 +316,10 @@ export interface LocalRunnerSettings {
  * monospace).
  */
 export interface FontSettings {
-    standard: Optional<string>;
-    serif: Optional<string>;
-    sansSerif: Optional<string>;
-    monospace: Optional<string>;
+    standard?: string;
+    serif?: string;
+    sansSerif?: string;
+    monospace?: string;
 }
 
 /**
@@ -340,37 +335,42 @@ export interface AppSettings {
     /**
      * Default provider id used by agent UI.
      */
-    defaultProviderId: Optional<string>;
+    defaultProviderId?: string;
 
     /**
      * Default model id for local/remote model selection.
      */
-    defaultModelId: Optional<string>;
+    defaultModelId?: string;
 
     /**
      * Configured API providers.
      */
-    providers: ApiProviderSettings[];
+    providers?: ApiProviderSettings[];
 
     /**
      * Settings related to the local runner.
      */
-    localRunner: LocalRunnerSettings;
+    localRunner?: LocalRunnerSettings;
 
     /**
      * Default font family settings for semantic slots.
      */
-    defaultFontFamily: FontSettings;
+    defaultFontFamily?: FontSettings;
 
     /**
      * Default font size in pixels, or null to use the system/app default.
      */
-    defaultFontSize: Optional<number>;
+    defaultFontSize?: number;
 
     /**
      * Homepage URL; when null the app default is used.
      */
-    homeUrl: Optional<string>;
+    homeUrl?: string;
+
+    /**
+     * Language setting for the application.
+     */
+    language?: string;
 }
 
 export type DownloadEventType =

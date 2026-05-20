@@ -1,24 +1,25 @@
 import "../../styles/pages.settings.browser-section.css";
 
 import { useEffect, useState } from "react";
-import type { AppSettings, Optional } from "@hyaenidae/bridge";
+import type { AppSettings, FontSettings } from "@hyaenidae/bridge";
 import { useTranslation } from "react-i18next";
 import Card from "./components/card";
 import FieldLabel from "./components/field-label";
+import i18n, { languages } from "../../i18n";
 
 type HomepageMode = "new-tab" | "custom-url";
-type FontFamilyKey = keyof AppSettings["defaultFontFamily"];
+type FontFamilyKey = keyof FontSettings;
 type FontSizeOption = "x-small" | "small" | "medium" | "large" | "x-large";
 
-const fontSizeValueMap: Record<FontSizeOption, number | null> = {
+const fontSizeValueMap: Record<FontSizeOption, number | undefined> = {
     "x-small": 12,
     small: 14,
-    medium: null,
+    medium: undefined,
     large: 18,
     "x-large": 20,
 };
 
-const getFontSizeOption = (fontSize: Optional<number>): FontSizeOption => {
+const getFontSizeOption = (fontSize: number | undefined): FontSizeOption => {
     switch (fontSize) {
         case 12:
             return "x-small";
@@ -52,9 +53,9 @@ const fontFamilyFields: Array<{ key: FontFamilyKey; labelKey: string }> = [
     },
 ];
 
-const toNullableInputValue = (value: string): Optional<string> => {
+const toNullableInputValue = (value: string): string | undefined => {
     const trimmedValue = value.trim();
-    return trimmedValue ? trimmedValue : null;
+    return trimmedValue ? trimmedValue : undefined;
 };
 
 export default function BrowserSection({
@@ -69,6 +70,7 @@ export default function BrowserSection({
     const [homepageMode, setHomepageMode] = useState<HomepageMode>(
         settings.homeUrl ? "custom-url" : "new-tab",
     );
+
     const selectedFontSize = getFontSizeOption(settings.defaultFontSize);
 
     useEffect(() => {
@@ -95,6 +97,39 @@ export default function BrowserSection({
                 <section className="browser-settings-group">
                     <div className="browser-settings-group-header">
                         <h3 className="browser-settings-group-title">
+                            {t("settings.browser.language.title")}
+                        </h3>
+                        <p className="browser-settings-group-description">
+                            {t("settings.browser.language.description")}
+                        </p>
+                    </div>
+
+                    <div className="browser-settings-homepage-options">
+                        <select
+                            value={settings.language ?? "en-US"}
+                            onChange={(event) => {
+                                onSettingsChange({
+                                    language: event.target.value,
+                                });
+
+                                i18n.changeLanguage(event.target.value);
+                            }}
+                            className="browser-settings-select-control"
+                        >
+                            {languages.map((lang) => (
+                                <option key={lang} value={lang}>
+                                    {t(
+                                        `settings.browser.languageOptions.${lang}`,
+                                    )}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                </section>
+
+                <section className="browser-settings-group">
+                    <div className="browser-settings-group-header">
+                        <h3 className="browser-settings-group-title">
                             {t("settings.browser.homepage.title")}
                         </h3>
                         <p className="browser-settings-group-description">
@@ -112,7 +147,7 @@ export default function BrowserSection({
                                 setHomepageMode(nextMode);
 
                                 if (nextMode === "new-tab") {
-                                    onSettingsChange({ homeUrl: null });
+                                    onSettingsChange({ homeUrl: undefined });
                                 }
                             }}
                             className="browser-settings-select-control"
@@ -206,8 +241,9 @@ export default function BrowserSection({
                             >
                                 <select
                                     value={
-                                        settings.defaultFontFamily[item.key] ??
-                                        "system"
+                                        settings.defaultFontFamily?.[
+                                            item.key
+                                        ] ?? "system"
                                     }
                                     onChange={(event) =>
                                         onSettingsChange({
@@ -216,7 +252,7 @@ export default function BrowserSection({
                                                 [item.key]:
                                                     event.target.value ===
                                                     "system"
-                                                        ? null
+                                                        ? undefined
                                                         : event.target.value,
                                             },
                                         })
@@ -241,12 +277,10 @@ export default function BrowserSection({
                                     className="text-sample"
                                     style={{
                                         fontFamily:
-                                            settings.defaultFontFamily[
+                                            settings.defaultFontFamily?.[
                                                 item.key
                                             ] ?? "system",
-                                        fontSize: settings.defaultFontSize
-                                            ? `${settings.defaultFontSize}px`
-                                            : undefined,
+                                        fontSize: `${(settings.defaultFontSize || 16) - 2}px`,
                                     }}
                                 >
                                     {settings.defaultFontSize || "default"}: The

@@ -144,6 +144,14 @@
                     "sansSerif": "无衬线体",
                     "monospace": "等宽字体"
                 }
+            },
+            "languageOptions": {
+                "zh-CN": "简体中文",
+                "en-US": "English"
+            },
+            "language": {
+                "title": "语言设置",
+                "description": "设置浏览器的默认显示语言"
             }
         },
         "localRunnerProvider": {

@@ -120,7 +120,7 @@ export default function SettingsPage() {
 
                     {activeSection === "providers" ? (
                         <ProviderSection
-                            providers={draft.providers}
+                            providers={draft.providers || []}
                             onProvidersChange={(providers) =>
                                 applyDraftPatch({ providers })
                             }

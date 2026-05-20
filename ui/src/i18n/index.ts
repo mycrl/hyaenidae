@@ -4,6 +4,8 @@ import { initReactI18next } from "react-i18next";
 import localesZhCn from "./locales/zh-CN.json";
 import localesEnUs from "./locales/en-US.json";
 
+export const languages = ["zh-CN", "en-US"] as const;
+
 i18n.use(initReactI18next).init({
     resources: {
         "zh-CN": {

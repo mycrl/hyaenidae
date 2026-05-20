@@ -123,9 +123,10 @@ function RunnerSection({
 
     useEffect(() => {
         const loadFiles = async () => {
-            if (!settings.localRunner.model) {
+            if (!settings.localRunner?.model) {
                 setModelFiles([]);
                 setMmprojFiles([]);
+
                 return;
             }
 
@@ -139,6 +140,7 @@ function RunnerSection({
                 setModelFiles(
                     files.filter((item) => !item.startsWith("mmproj")),
                 );
+
                 setMmprojFiles(
                     files.filter((item) => item.startsWith("mmproj")),
                 );
@@ -148,7 +150,7 @@ function RunnerSection({
         };
 
         void loadFiles();
-    }, [onError, settings.localRunner.model, t]);
+    }, [onError, settings.localRunner?.model, t]);
 
     const updateLocalRunner = (
         key: keyof LocalRunnerSettings,
@@ -156,7 +158,7 @@ function RunnerSection({
     ) => {
         onSettingsChange({
             localRunner: {
-                ...settings.localRunner,
+                ...(settings.localRunner || {}),
                 [key]: value === "" ? null : value,
             },
         });
@@ -196,12 +198,7 @@ function RunnerSection({
 
     const clearLocalRunnerSelection = () => {
         onSettingsChange({
-            localRunner: {
-                runner: null,
-                model: null,
-                modelFile: null,
-                mmprojFile: null,
-            },
+            localRunner: {},
         });
     };
 
@@ -210,7 +207,8 @@ function RunnerSection({
             const { baseUrl, apiKey } = await startRunner(
                 settings.localRunner as StartRunnerOptions,
             );
-            const providers = settings.providers.map((provider) =>
+
+            const providers = settings.providers?.map((provider) =>
                 provider.type === "local-runner"
                     ? { ...provider, baseUrl, apiKey }
                     : provider,
@@ -218,6 +216,7 @@ function RunnerSection({
 
             setIsRunnerRunning(true);
             onSettingsChange({ providers });
+
             await saveSettings({ providers });
         } catch (error) {
             onError(error, t("settings.localModels.startRunnerFailed"));
@@ -227,6 +226,7 @@ function RunnerSection({
     const stopLocalRunner = async () => {
         try {
             await stopRunner();
+
             setIsRunnerRunning(false);
         } catch (error) {
             onError(error, t("settings.localModels.stopRunnerFailed"));
@@ -271,7 +271,7 @@ function RunnerSection({
                     <RunnerSelectField
                         key={key}
                         label={label}
-                        value={settings.localRunner[key]}
+                        value={settings.localRunner?.[key] ?? null}
                         values={values}
                         defaultValue={defaultValue}
                         onChange={(value) => updateLocalRunner(key, value)}
@@ -285,6 +285,7 @@ function RunnerSection({
                         onClick={startLocalRunner}
                         icon={<PlayIcon className="local-models-action-icon" />}
                         disabled={
+                            !settings.localRunner ||
                             !settings.localRunner.runner ||
                             !settings.localRunner.model ||
                             !settings.localRunner.modelFile ||

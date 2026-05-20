@@ -61,7 +61,10 @@ export function initProgramSettings() {
  * subdirectory of the user's data path.
  */
 export class SettingsController {
-    private settings: AppSettings | null = null;
+    private isReady: boolean = false;
+    private settings: AppSettings = {
+        schemaVersion: 1,
+    };
 
     constructor() {
         console.info(
@@ -76,54 +79,29 @@ export class SettingsController {
      * decrypted using Electron's safeStorage API and parsed from JSON.
      */
     load() {
-        if (this.settings) {
+        if (this.isReady) {
             return this.settings;
         }
 
-        try {
-            this.settings = JSON.parse(
-                safeStorage.decryptString(
-                    readFileSync(ProgramSettings.settingsFilePath),
-                ),
-            );
+        {
+            try {
+                this.settings = JSON.parse(
+                    safeStorage.decryptString(
+                        readFileSync(ProgramSettings.settingsFilePath),
+                    ),
+                );
 
-            console.info("Loaded settings:", this.settings);
-        } catch {
-            this.settings = {
-                schemaVersion: 1,
-                providers: [
-                    {
-                        id: "provider-local",
-                        name: "local-runner",
-                        type: "local-runner",
-                        baseUrl: null,
-                        apiKey: null,
-                    },
-                ],
-                localRunner: {
-                    runner: null,
-                    model: null,
-                    modelFile: null,
-                    mmprojFile: null,
-                },
-                defaultProviderId: null,
-                defaultModelId: null,
-                defaultFontFamily: {
-                    standard: null,
-                    serif: null,
-                    sansSerif: null,
-                    monospace: null,
-                },
-                defaultFontSize: null,
-                homeUrl: null,
-            };
+                console.info("Loaded settings:", this.settings);
+            } catch {
+                console.warn(
+                    "No existing settings found, starting with empty settings.",
+                );
+            }
 
-            console.warn(
-                "No existing settings found, starting with empty settings.",
-            );
+            this.isReady = true;
         }
 
-        return this.settings!!;
+        return this.settings;
     }
 
     /**

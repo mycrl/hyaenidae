@@ -37,6 +37,7 @@ export default function ProviderSection({
     const localRunnerProvider = providers.find(
         (provider) => provider.type === "local-runner",
     );
+
     const editableProviders = providers.filter(
         (provider) => provider.type !== "local-runner",
     );
@@ -146,8 +147,8 @@ function EditableProviderCard({
             <div className="provider-settings-fields">
                 <ProviderTextField
                     label={t("settings.providerName")}
-                    value={provider.name}
-                    onChange={(value) => onUpdate({ name: value })}
+                    value={provider.name ?? null}
+                    onChange={(value) => onUpdate({ name: value ?? undefined })}
                 />
 
                 <FieldLabel label={t("settings.providerType")}>
@@ -161,7 +162,7 @@ function EditableProviderCard({
                                 baseUrl:
                                     nextType === "custom"
                                         ? provider.baseUrl
-                                        : null,
+                                        : undefined,
                             });
                         }}
                         className="provider-settings-control"
@@ -177,16 +178,20 @@ function EditableProviderCard({
                 {provider.type === "custom" ? (
                     <ProviderTextField
                         label={t("settings.providerBaseURL")}
-                        value={provider.baseUrl}
+                        value={provider.baseUrl ?? null}
                         placeholder={t("settings.providerBaseURLPlaceholder")}
-                        onChange={(value) => onUpdate({ baseUrl: value })}
+                        onChange={(value) =>
+                            onUpdate({ baseUrl: value ?? undefined })
+                        }
                     />
                 ) : null}
 
                 <ProviderTextField
                     label={t("settings.providerApiKey")}
-                    value={provider.apiKey}
-                    onChange={(value) => onUpdate({ apiKey: value })}
+                    value={provider.apiKey ?? null}
+                    onChange={(value) =>
+                        onUpdate({ apiKey: value ?? undefined })
+                    }
                 />
             </div>
         </div>

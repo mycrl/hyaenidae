@@ -1,50 +1,22 @@
-import type {
-    ApiProviderSettings,
-    AppSettings,
-    LocalRunnerSettings,
-} from "@hyaenidae/bridge";
-
-export function createLocalRunnerSettings(): LocalRunnerSettings {
-    return {
-        runner: null,
-        model: null,
-        modelFile: null,
-        mmprojFile: null,
-    };
-}
+import type { ApiProviderSettings, AppSettings } from "@hyaenidae/bridge";
+import i18n from "../i18n";
 
 export function createLocalRunnerProvider(): ApiProviderSettings {
     return {
         id: "provider-local",
         name: "local-runner",
         type: "local-runner",
-        baseUrl: null,
-        apiKey: null,
     };
 }
 
 export const createProviderSettings = (): ApiProviderSettings => ({
     id: `provider-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    name: null,
     type: "openai",
-    baseUrl: null,
-    apiKey: null,
 });
 
 export const DEFAULT_SETTINGS: AppSettings = {
     schemaVersion: 1,
     providers: [createLocalRunnerProvider()],
-    localRunner: createLocalRunnerSettings(),
-    defaultProviderId: null,
-    defaultModelId: null,
-    defaultFontFamily: {
-        standard: null,
-        serif: null,
-        sansSerif: null,
-        monospace: null,
-    },
-    defaultFontSize: null,
-    homeUrl: null,
 };
 
 export const cloneSettings = (settings: AppSettings): AppSettings => {
@@ -69,7 +41,17 @@ export const mergeSettings = (
 };
 
 export const getSettings = async (): Promise<AppSettings> => {
-    return await hyaenidae.bridge.request("settings:get");
+    let settings = await hyaenidae.bridge.request("settings:get");
+
+    if (!settings.providers || settings.providers.length === 0) {
+        settings.providers = DEFAULT_SETTINGS.providers;
+    }
+
+    if (!settings.language) {
+        settings.language = i18n.language;
+    }
+
+    return settings;
 };
 
 export const setSettings = async (settings: AppSettings) => {
