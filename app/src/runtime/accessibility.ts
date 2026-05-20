@@ -1,4 +1,4 @@
-import { BrowserElementNode } from "@hyaenidae/core";
+import { BrowserElementNode } from "@hyaenidae/mavis";
 import { WebContents } from "electron";
 import { WebContentsDebugger } from "./debugger";
 

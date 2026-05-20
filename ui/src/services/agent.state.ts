@@ -11,6 +11,7 @@ import {
     askAgent,
     createAgentSession,
     filterConfiguredProviders,
+    getAgentSession,
     getProviderModels,
     listAgentSessions,
     onAddToChat,
@@ -158,6 +159,7 @@ export interface AgentActivity {
 
 export const AGENT_ERROR_CODE = {
     FAILED_TO_LOAD_SESSIONS: "failed_to_load_sessions",
+    FAILED_TO_LOAD_SESSION: "failed_to_load_session",
     FAILED_TO_CREATE_SESSION: "failed_to_create_session",
     FAILED_TO_LOAD_MODELS: "failed_to_load_models",
     FAILED_TO_SEND: "failed_to_send",
@@ -200,7 +202,9 @@ interface AgentState {
     error: AgentErrorState | null;
     initialized: boolean;
     isLoadingSessions: boolean;
+    isLoadingConversation: boolean;
     initializeRpc: () => Promise<void>;
+    loadSessionConversation: (sessionId: number) => Promise<void>;
     refreshProviders: () => Promise<void>;
     selectProvider: (
         id: string,
@@ -208,7 +212,7 @@ interface AgentState {
     ) => Promise<void>;
     setSelectedModel: (model: string) => void;
     createSession: (name?: string) => Promise<number | null>;
-    selectSession: (id: number) => void;
+    selectSession: (id: number) => Promise<void>;
     queueComposerInsertion: (input: {
         label: string;
         context: AgentInputContext;
@@ -221,7 +225,7 @@ interface AgentState {
         message: string;
         provider: string;
         model: string;
-        locale: string;
+        language: string;
         contexts?: AgentInputContext[];
     }) => Promise<void>;
     stopActiveResponse: () => Promise<void>;
@@ -232,6 +236,27 @@ const getTimestamp = () =>
         hour: "2-digit",
         minute: "2-digit",
     }).format(new Date());
+
+const mapChatsToMessages = (
+    sessionId: number,
+    chats: { role: "user" | "assistant"; content: string }[],
+): AgentMessage[] =>
+    chats.map((chat, index) => ({
+        id: sessionId * 10_000 + index,
+        role: chat.role,
+        content: chat.content,
+        timestamp: getTimestamp(),
+        status: "done",
+    }));
+
+const sessionToConversation = (
+    session: NonNullable<Awaited<ReturnType<typeof getAgentSession>>>,
+): AgentConversation => ({
+    title: session.name,
+    messages: mapChatsToMessages(session.id, session.chats),
+    activeResponseId: null,
+    isResponding: false,
+});
 
 const ensureConversation = (
     conversations: Record<number, AgentConversation>,
@@ -506,6 +531,44 @@ export const useAgentStore = create<AgentState>((set, get) => ({
     error: null,
     initialized: false,
     isLoadingSessions: false,
+    isLoadingConversation: false,
+    loadSessionConversation: async (sessionId) => {
+        const existing = get().conversations[sessionId];
+        if (existing?.isResponding) {
+            return;
+        }
+
+        set({ isLoadingConversation: true });
+
+        try {
+            const session = await getAgentSession(sessionId);
+            if (!session) {
+                return;
+            }
+
+            set((state) => ({
+                sessions: state.sessions.map((item) =>
+                    item.id === sessionId
+                        ? { id: session.id, name: session.name }
+                        : item,
+                ),
+                conversations: {
+                    ...state.conversations,
+                    [sessionId]: sessionToConversation(session),
+                },
+                error: null,
+            }));
+        } catch (error) {
+            set({
+                error: toAgentError(
+                    error,
+                    AGENT_ERROR_CODE.FAILED_TO_LOAD_SESSION,
+                ),
+            });
+        } finally {
+            set({ isLoadingConversation: false });
+        }
+    },
     initializeRpc: async () => {
         if (get().initialized) {
             return;
@@ -546,26 +609,20 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                 sessions = [session];
             }
 
-            set((state) => ({
+            const activeSessionId =
+                get().activeSessionId ?? sessions[0]?.id ?? null;
+
+            set({
                 sessions,
-                conversations: sessions.reduce<
-                    Record<number, AgentConversation>
-                >(
-                    (accumulator, session) => ({
-                        ...accumulator,
-                        [session.id]: ensureConversation(
-                            state.conversations,
-                            session.id,
-                            session.name,
-                        ),
-                    }),
-                    state.conversations,
-                ),
-                activeSessionId:
-                    state.activeSessionId ?? sessions[0]?.id ?? null,
+                activeSessionId,
                 error: null,
-                isLoadingSessions: false,
-            }));
+            });
+
+            if (activeSessionId !== null) {
+                await get().loadSessionConversation(activeSessionId);
+            }
+
+            set({ isLoadingSessions: false });
         } catch (error) {
             set({
                 isLoadingSessions: false,
@@ -677,12 +734,15 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
             set((state) => ({
                 sessions: [...state.sessions, session],
-                conversations: updateConversationMap(
-                    state,
-                    session.id,
-                    (conversation) => conversation,
-                    session.name,
-                ),
+                conversations: {
+                    ...state.conversations,
+                    [session.id]: {
+                        title: session.name,
+                        messages: [],
+                        activeResponseId: null,
+                        isResponding: false,
+                    },
+                },
                 activeSessionId: session.id,
                 error: null,
             }));
@@ -698,8 +758,9 @@ export const useAgentStore = create<AgentState>((set, get) => ({
             return null;
         }
     },
-    selectSession: (id) => {
+    selectSession: async (id) => {
         set({ activeSessionId: id });
+        await get().loadSessionConversation(id);
     },
     queueComposerInsertion: ({ label, context, dedupeKey }) => {
         const nextLabel = label.trim();
@@ -739,7 +800,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
 
         return get().createSession();
     },
-    sendMessage: async ({ message, provider, model, locale, contexts }) => {
+    sendMessage: async ({ message, provider, model, language, contexts }) => {
         const trimmed = message.trim();
         const nextContexts = contexts?.length ? contexts : undefined;
         const nextMessage = buildAskMessage(trimmed, nextContexts);
@@ -791,7 +852,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
                 provider: providerConfig,
                 model,
                 message: nextMessage,
-                locale,
+                language,
             });
 
             set((state) => {

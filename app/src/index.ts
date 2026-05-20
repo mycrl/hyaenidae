@@ -1,9 +1,5 @@
 import { app } from "electron";
-import {
-    AgentActivityEvent,
-    Hyaenidae,
-    getModelsWithModelProvider,
-} from "@hyaenidae/core";
+import { AgentActivityEvent, Mavis, ModelProvider } from "@hyaenidae/mavis";
 import {
     SettingsController,
     initProgramSettings,
@@ -20,7 +16,7 @@ registerLogger();
 initProgramSettings();
 registerApplicationProtocolHooks();
 
-const coreService = new Hyaenidae();
+const mavis = new Mavis();
 const settings = new SettingsController();
 const downloador = new DownloadController();
 const modelRunner = new ModelRunnerController();
@@ -101,70 +97,60 @@ browser.shell.bridge
     .on("shell:layout-changed", (layout) => {
         browser.updateLayout(layout);
     })
-    .handle("agent:provider-get-models", async (modelProvider) =>
-        getModelsWithModelProvider(modelProvider),
+    .handle(
+        "agent:provider-get-models",
+        async (modelProvider) =>
+            await new ModelProvider(modelProvider).listModels(),
     )
-    .handle("agent:session-list", async () => coreService.sessionManager.list())
+    .handle("agent:session-list", async () => mavis.sessionManager.list())
+    .handle(
+        "agent:session-get",
+        async (id) => await mavis.sessionManager.get(id, false),
+    )
     .handle("agent:session-create", async (name) =>
-        coreService.sessionManager.create(name),
+        mavis.sessionManager.create(name),
     )
     .handle("agent:session-remove", async (id) => {
-        coreService.sessionManager.remove(id);
+        mavis.sessionManager.remove(id);
     })
     .handle("agent:chat-ask", async (options) => {
-        const { askId, askTask } = coreService.ask({
-            ...options,
-            browserRuntime,
-        });
-
-        const baseResponse = {
-            sessionId: options.session,
-            askId,
-        };
-
-        askTask()
-            .then((response) => {
-                response
-                    .on("error", (error: Error) => {
-                        browser.shell.bridge.send("agent:chat-response", {
-                            ...baseResponse,
-                            type: "done",
-                            error: error.message,
-                        });
-                    })
-                    .on("text", (message: string) => {
-                        browser.shell.bridge.send("agent:chat-response", {
-                            ...baseResponse,
-                            type: "text",
-                            message,
-                        });
-                    })
-                    .on("activity", (activity: AgentActivityEvent) => {
-                        browser.shell.bridge.send("agent:chat-response", {
-                            ...baseResponse,
-                            type: "activity",
-                            ...activity,
-                        });
-                    })
-                    .on("end", () => {
-                        browser.shell.bridge.send("agent:chat-response", {
-                            ...baseResponse,
-                            type: "done",
-                        });
-                    });
-            })
-            .catch((error: any) => {
+        const sessionId = options.session;
+        const { askId, task } = mavis.ask(
+            options.message,
+            {
+                session: options.session,
+                language: options.language,
+                modelProvider: new ModelProvider(options.modelProvider),
+                browserRuntime,
+            },
+            (event) => {
                 browser.shell.bridge.send("agent:chat-response", {
-                    ...baseResponse,
+                    sessionId,
+                    type: event.type as any, // pass through the event type
+                    askId,
+                    ...(event.type === "text"
+                        ? { message: event.message }
+                        : event.activity),
+                });
+            },
+        );
+
+        task()
+            .then(() => null)
+            .catch((error: Error) => error)
+            .then((error) => {
+                browser.shell.bridge.send("agent:chat-response", {
+                    sessionId,
+                    askId,
                     type: "done",
-                    error: error.message,
+                    ...(error != null ? { error: error.message } : {}),
                 });
             });
 
         return askId;
     })
     .handle("agent:chat-stop", async (askId) => {
-        await coreService.cancelAsk(askId);
+        await mavis.cancelAsk(askId);
     });
 
 browser.on("all-tabs-closed", () => {

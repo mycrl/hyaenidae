@@ -5,7 +5,7 @@
     "workspaces": [
         "app",
         "ui",
-        "core",
+        "mavis",
         "bridge"
     ],
     "devDependencies": {

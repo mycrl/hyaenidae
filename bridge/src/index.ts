@@ -328,6 +328,11 @@ export interface Events {
     "agent:session-list": [void, Types.AgentSession[]];
 
     /**
+     * Get agent chat session with session id.
+     */
+    "agent:session-get": [number, Types.AgentSessionWithState | null];
+
+    /**
      * Creates a new agent conversation session.
      *
      * @param name - Optional display name; omit for a default title.

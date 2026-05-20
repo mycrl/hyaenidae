@@ -109,6 +109,7 @@ const AGENT_ERROR_TRANSLATION_KEYS: Record<
     string
 > = {
     [AGENT_ERROR_CODE.FAILED_TO_LOAD_SESSIONS]: "chat.failedToLoadSessions",
+    [AGENT_ERROR_CODE.FAILED_TO_LOAD_SESSION]: "chat.failedToLoadSession",
     [AGENT_ERROR_CODE.FAILED_TO_CREATE_SESSION]: "chat.failedToCreateSession",
     [AGENT_ERROR_CODE.FAILED_TO_LOAD_MODELS]: "chat.failedToLoadModels",
     [AGENT_ERROR_CODE.FAILED_TO_SEND]: "chat.failedToSend",
@@ -131,6 +132,10 @@ export default function AgentPanel() {
     const initialized = useAgentStore((state) => state.initialized);
     const activeSessionId = useAgentStore((state) => state.activeSessionId);
     const isLoadingSessions = useAgentStore((state) => state.isLoadingSessions);
+    const isLoadingConversation = useAgentStore(
+        (state) => state.isLoadingConversation,
+    );
+    const isLoadingChat = isLoadingSessions || isLoadingConversation;
     const createSession = useAgentStore((state) => state.createSession);
     const ensureActiveSession = useAgentStore(
         (state) => state.ensureActiveSession,
@@ -183,7 +188,7 @@ export default function AgentPanel() {
     }, [messages]);
 
     useEffect(() => {
-        if (!initialized || isLoadingSessions) {
+        if (!initialized || isLoadingChat) {
             return;
         }
 
@@ -196,7 +201,7 @@ export default function AgentPanel() {
         activeSessionId,
         ensureActiveSession,
         initialized,
-        isLoadingSessions,
+        isLoadingChat,
         sessions.length,
     ]);
 
@@ -259,7 +264,7 @@ export default function AgentPanel() {
             message: trimmed,
             provider: selectedProviderId,
             model: selectedModel,
-            locale: i18n.resolvedLanguage ?? i18n.language,
+            language: i18n.resolvedLanguage ?? i18n.language,
             ...(contexts.length > 0 ? { contexts } : {}),
         });
     };
@@ -281,7 +286,7 @@ export default function AgentPanel() {
     };
 
     const isComposerDisabled =
-        isLoadingSessions || providers.length === 0 || !selectedModel;
+        isLoadingChat || providers.length === 0 || !selectedModel;
     const agentErrorTitle = error?.code
         ? t(AGENT_ERROR_TRANSLATION_KEYS[error.code])
         : null;
@@ -331,7 +336,7 @@ export default function AgentPanel() {
                         activeSessionId={activeSessionId}
                         fallbackConversationTitle={fallbackConversationTitle}
                         onSelectSession={(sessionId) => {
-                            selectSession(sessionId);
+                            void selectSession(sessionId);
                             setIsHistoryOpen(false);
                         }}
                         emptyText={t("chat.emptyHistory")}
@@ -364,7 +369,7 @@ export default function AgentPanel() {
                     </div>
                 ) : null}
 
-                {isLoadingSessions && (
+                {isLoadingChat && (
                     <div
                         tag="agent-stream-banner"
                         className="agent-stream-banner"
@@ -433,7 +438,7 @@ export default function AgentPanel() {
                     ref={composerRef}
                     rows={5}
                     value={inputValue}
-                    disabled={isLoadingSessions}
+                    disabled={isLoadingChat}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {

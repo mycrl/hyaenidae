@@ -47,6 +47,7 @@
         "emptyHistory": "还没有任何对话",
         "loadingSessions": "正在加载对话...",
         "failedToLoadSessions": "加载对话失败",
+        "failedToLoadSession": "加载对话记录失败",
         "failedToCreateSession": "创建对话失败",
         "failedToSend": "发送消息失败",
         "failedToStop": "停止响应失败",

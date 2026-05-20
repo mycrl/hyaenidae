@@ -2,6 +2,7 @@ import type {
     AddToChatOptions,
     AgentResponseEvent,
     AgentSession,
+    AgentSessionWithState,
     ApiProviderSettings,
     ModelProvider,
 } from "@hyaenidae/bridge";
@@ -110,18 +111,24 @@ export const createAgentSession = async (
     return await hyaenidae.bridge.request("agent:session-create", name);
 };
 
+export const getAgentSession = async (
+    sessionId: number,
+): Promise<AgentSessionWithState | null> => {
+    return await hyaenidae.bridge.request("agent:session-get", sessionId);
+};
+
 export const askAgent = async (input: {
     session: number;
     provider: AgentProviderItem;
     model: string;
     message: string;
-    locale: string;
+    language: string;
 }): Promise<number> => {
     return await hyaenidae.bridge.request("agent:chat-ask", {
         modelProvider: toModelProvider(input.provider, input.model),
         session: input.session,
         message: input.message,
-        locale: input.locale,
+        language: input.language,
     });
 };
 

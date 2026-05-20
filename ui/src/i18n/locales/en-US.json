@@ -47,6 +47,7 @@
         "emptyHistory": "No conversations yet.",
         "loadingSessions": "Loading conversations...",
         "failedToLoadSessions": "Failed to load conversations.",
+        "failedToLoadSession": "Failed to load conversation history.",
         "failedToCreateSession": "Failed to create a conversation.",
         "failedToSend": "Failed to send the message.",
         "failedToStop": "Failed to stop the response.",

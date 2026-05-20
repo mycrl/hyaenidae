@@ -56,6 +56,16 @@ export interface AgentSession {
 }
 
 /**
+ * Extended Agent session information including conversation history
+ */
+export interface AgentSessionWithState extends AgentSession {
+    chats: {
+        role: "user" | "assistant";
+        content: string;
+    }[];
+}
+
+/**
  * Parameters required to make an ask request to an Agent.
  */
 export interface AgentAskOptions {
@@ -75,9 +85,9 @@ export interface AgentAskOptions {
     message: string;
 
     /**
-     * locale for the request
+     * language for the request
      */
-    locale: string;
+    language: string;
 }
 
 /**

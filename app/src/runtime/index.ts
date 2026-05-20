@@ -6,7 +6,7 @@ import type {
     BrowserScriptResult,
     BrowserTabSummary,
     BrowserImageSnapshot,
-} from "@hyaenidae/core";
+} from "@hyaenidae/mavis";
 import type { WebContents } from "electron";
 import type { Browser } from "../browser";
 import type { Tab } from "../browser/tab";

@@ -1,7 +1,11 @@
+/**
+ * AI SDK tool definitions that wrap {@link BrowserRuntime}.
+ */
+
 import { generateText, tool } from "ai";
 import { z as zod, ZodObject, ZodRawShape } from "zod";
-import { AskOptions } from ".";
-import { createModelWithModelProvider } from "./helper";
+import { BrowserRuntime } from "./browser";
+import { Model } from "./provider";
 
 /**
  * Shared tab-target schema used by browser tools.
@@ -24,13 +28,34 @@ export const withOptional = <T extends ZodRawShape, U extends ZodRawShape>(
 
 /**
  * Creates the browser tool set exposed to the AI SDK runtime.
+ *
+ * `inspect_vision` performs a follow-up `generateText` vision pass on the same
+ * model to interpret screenshots; other tools delegate directly to
+ * {@link BrowserRuntime}.
  */
-export const createBrowserUseTools = (askOptions: AskOptions) => ({
+export const createBrowserUseTools = ({
+    model,
+    language,
+    browserRuntime,
+}: {
+    /**
+     * Model used by vision inspection tools.
+     */
+    model: Model;
+    /**
+     * Language for vision analysis prompts.
+     */
+    language: string;
+    /**
+     * Browser implementation supplied by the host application.
+     */
+    browserRuntime: BrowserRuntime;
+}) => ({
     list_tabs: tool({
         description: "List all open browser tabs with focus and loading state.",
         inputSchema: zod.object({}),
         execute: async () => ({
-            tabs: await askOptions.browserRuntime.listTabs(),
+            tabs: await browserRuntime.listTabs(),
         }),
     }),
     open_tab: tool({
@@ -44,7 +69,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
                 ),
         }),
         execute: async ({ url }) => ({
-            tab: await askOptions.browserRuntime.openTab(url ?? undefined),
+            tab: await browserRuntime.openTab(url ?? undefined),
         }),
     }),
     focus_tab: tool({
@@ -53,7 +78,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => ({
-            tab: await askOptions.browserRuntime.focusTab(tabId),
+            tab: await browserRuntime.focusTab(tabId),
         }),
     }),
     close_tab: tool({
@@ -62,7 +87,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => {
-            await askOptions.browserRuntime.closeTab(tabId);
+            await browserRuntime.closeTab(tabId);
 
             return { ok: true, tabId };
         },
@@ -77,7 +102,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
                 url: zod.string().describe("The URL to load."),
             }),
         execute: async ({ tabId, url }) => ({
-            tab: await askOptions.browserRuntime.load(tabId, url),
+            tab: await browserRuntime.load(tabId, url),
         }),
     }),
     reload_tab: tool({
@@ -86,7 +111,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => {
-            await askOptions.browserRuntime.reload(tabId);
+            await browserRuntime.reload(tabId);
 
             return { ok: true, tabId };
         },
@@ -97,7 +122,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => {
-            await askOptions.browserRuntime.goBack(tabId);
+            await browserRuntime.goBack(tabId);
 
             return { ok: true, tabId };
         },
@@ -108,7 +133,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             tabId: zod.number().describe("The target tab id."),
         }),
         execute: async ({ tabId }) => {
-            await askOptions.browserRuntime.goForward(tabId);
+            await browserRuntime.goForward(tabId);
 
             return { ok: true, tabId };
         },
@@ -149,7 +174,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             }),
         ),
         execute: async ({ tabId, action, selector, text, direction, amount }) =>
-            askOptions.browserRuntime.act({
+            browserRuntime.act({
                 action,
                 ...(tabId == null ? {} : { tabId }),
                 ...(selector == null ? {} : { selector }),
@@ -182,7 +207,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             }),
         ),
         execute: async ({ tabId, action, x, y, text }) =>
-            askOptions.browserRuntime.actAtPoint({
+            browserRuntime.actAtPoint({
                 action,
                 x,
                 y,
@@ -195,7 +220,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             "Read the current page using a compact DOM snapshot plus accessibility data. Good for selectors and semantic structure, but it may miss visually obvious answer cards or rich widgets. If the snapshot does not answer the question and the missing information may be visible on screen but underrepresented in DOM mode, use inspect_vision.",
         inputSchema: optionalTabIdSchema,
         execute: async ({ tabId }) =>
-            askOptions.browserRuntime.snapshotDom(tabId ?? undefined),
+            browserRuntime.snapshotDom(tabId ?? undefined),
     }),
     inspect_vision: tool({
         description:
@@ -211,12 +236,12 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             }),
         ),
         execute: async ({ tabId, prompt }) => {
-            const snapshot = await askOptions.browserRuntime.captureScreenshot(
+            const snapshot = await browserRuntime.captureScreenshot(
                 tabId ?? undefined,
             );
 
             const response = await generateText({
-                model: createModelWithModelProvider(askOptions.modelProvider),
+                model,
                 messages: [
                     {
                         role: "user",
@@ -225,7 +250,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
                                 type: "text",
                                 text: [
                                     "You are inspecting a browser screenshot for a browser automation agent.",
-                                    `Write the analysis in ${askOptions.locale} unless the user explicitly asked for another language.`,
+                                    `Write the analysis in ${language} unless the user explicitly asked for another language.`,
                                     "Answer concisely with actionable observations.",
                                     prompt,
                                 ].join("\n"),
@@ -252,7 +277,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             "Capture a raw screenshot for debugging or external inspection.",
         inputSchema: optionalTabIdSchema,
         execute: async ({ tabId }) =>
-            askOptions.browserRuntime.captureScreenshot(tabId ?? undefined),
+            browserRuntime.captureScreenshot(tabId ?? undefined),
     }),
     run_tab_script: tool({
         description:
@@ -274,7 +299,7 @@ export const createBrowserUseTools = (askOptions: AskOptions) => ({
             }),
         ),
         execute: async ({ tabId, script, args }) =>
-            askOptions.browserRuntime.runScript(
+            browserRuntime.runScript(
                 tabId == null
                     ? args == null
                         ? { script }
