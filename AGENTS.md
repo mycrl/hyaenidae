@@ -10,7 +10,7 @@ Design priorities (from product/runtime prompts):
 
 - **DOM-first** automation; vision and mouse only when DOM is insufficient
 - **Tab-aware** workflows (open, switch, close tabs)
-- **Multi-provider** LLM support (OpenAI, Google, custom OpenAI-compatible endpoints, local runners)
+- **Multi-provider** LLM support (OpenAI, Google, custom OpenAI-compatible HTTP endpoints)
 - Long-running sessions with **compressed context** between turns
 
 License: **GPL-3.0-only**.
@@ -19,14 +19,14 @@ License: **GPL-3.0-only**.
 
 Yarn workspaces (`package.json` at repo root):
 
-| Package             | Path      | Role                                                                                                 |
-| ------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
-| `@hyaenidae/app`    | `app/`    | Electron **main process**: window, tabs, downloads, settings persistence, model runner, RPC handlers |
-| `@hyaenidae/ui`     | `ui/`     | **Renderer**: React 19 + Vite + Tailwind 4 + Zustand + i18next                                       |
-| `@hyaenidae/mavis`  | `mavis/`  | **Agent runtime**: AI SDK streaming, browser tools, in-memory sessions                               |
-| `@hyaenidae/bridge` | `bridge/` | **IPC contract**: typed `Events` map, `BridgeMain` / `BridgeRenderer`                                |
+| Package             | Path      | Role                                                                                         |
+| ------------------- | --------- | -------------------------------------------------------------------------------------------- |
+| `@hyaenidae/app`    | `app/`    | Electron **main process**: window, tabs, downloads, settings persistence, agent RPC handlers |
+| `@hyaenidae/ui`     | `ui/`     | **Renderer**: React 19 + Vite + Tailwind 4 + Zustand + i18next                               |
+| `@hyaenidae/mavis`  | `mavis/`  | **Agent runtime**: AI SDK streaming, browser tools, in-memory sessions                       |
+| `@hyaenidae/bridge` | `bridge/` | **IPC contract**: typed `Events` map, `BridgeMain` / `BridgeRenderer`                        |
 
-There is no separate `core/` package anymore; agent logic lives in **mavis**.
+Agent logic lives in **mavis** (there is no `core/` package).
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -40,7 +40,7 @@ There is no separate `core/` package anymore; agent logic lives in **mavis**.
 └───────────────────────────────┬─────────────────────────────┘
                                 │
 ┌───────────────────────────────▼─────────────────────────────┐
-│  mavis                  Mavis.ask(), SessionManager, tools  │
+│  mavis                  Mavis.ask(), SessionManager, tools    │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -50,7 +50,7 @@ There is no separate `core/` package anymore; agent logic lives in **mavis**.
 2. **Types and event names** are defined once in `bridge/src/index.ts` (`Events` interface) and `bridge/src/types.ts`.
 3. **Main handlers** are registered in:
     - `app/src/index.ts` — shell tabs, window chrome, **all `agent:*` RPC**
-    - `app/src/browser/tab.ts` — per-tab views: settings, downloads, local model search/runner
+    - `app/src/browser/tab.ts` — per-tab views: settings and downloads
 4. **UI callers** use thin wrappers in `ui/src/services/*.ts` (e.g. `agent.ts`, `shell.ts`, `settings.ts`).
 
 When adding or changing an API:
@@ -89,6 +89,8 @@ Renderer global typing: `ui/src/vite-env.d.ts`.
 - On success, `SessionManager.finishing()` compresses context, may rename session, appends user/assistant pair to `chats`
 - `ElectronBrowserRuntime` in `app/src/runtime/` implements `BrowserRuntime` for tools (DOM, scripts, tabs, screenshots)
 
+**Provider types** (settings + agent): `openai`, `google`, `custom` (OpenAI-compatible base URL). Legacy `local-runner` entries in saved settings are ignored or mapped to `custom` in the UI filter only.
+
 ## UI architecture
 
 - **Entry**: `ui/src/main.tsx` — routes: `/` shell, `/settings`, `/downloads`
@@ -96,15 +98,16 @@ Renderer global typing: `ui/src/vite-env.d.ts`.
 - **Dev**: `BrowserRouter` for normal Vite dev
 - **State**: Zustand stores in `ui/src/services/*.state.ts`; RPC helpers in sibling `*.ts` files
 - **i18n**: `ui/src/i18n/` — keys in `locales/en-US.json` and `zh-CN.json` (add both when adding user-visible strings)
-- **Styles**: feature CSS under `ui/src/styles/`; components use optional `tag` prop for debugging (see `vite-env.d.ts`)
+- **Styles**: feature CSS under `ui/src/styles/`; global `select` option styling in `index.css`; components use optional `tag` prop for debugging (see `vite-env.d.ts`)
 
-Key shell UI: `ui/src/pages/shell/` (tabs, nav bar, agent panel).
+Key shell UI: `ui/src/pages/shell/` (tabs, nav bar, agent panel).  
+Settings sections: **Providers** (`provider.tsx`), **Browser** (`browser.tsx`).
 
 ## App / browser architecture
 
 - `app/src/browser/` — `Browser`, `Tab`, protocol handler `hyaenidae://`, context menus, downloads
-- `app/src/runner/` — local model download (Hugging Face) and runner lifecycle
-- `app/src/settings.ts` — program settings read/write
+- `app/src/settings.ts` — encrypted user settings on disk
+- `app/src/runtime/` — `ElectronBrowserRuntime` for mavis browser tools
 - Content tabs vs shell webview: shell loads built UI from `ui/dist` (packaged as `webview/` via electron-builder)
 
 **Platform**: `app/package.json` targets **win32** only.
@@ -158,8 +161,8 @@ Typical local dev:
 | Browser tool implementation          | `mavis/src/tools.ts` + `app/src/runtime/`                                   |
 | Agent panel UX                       | `ui/src/pages/shell/agent-panel.tsx`, `agent.state.ts`                      |
 | Tab / navigation                     | `ui/src/pages/shell/`, `app/src/browser/`                                   |
-| Provider / model settings UI         | `ui/src/pages/settings/`                                                    |
-| Local model download/runner          | `app/src/runner/`, settings local-model pages                               |
+| API provider settings UI             | `ui/src/pages/settings/provider.tsx`                                        |
+| Browser / font / homepage settings   | `ui/src/pages/settings/browser.tsx`                                         |
 
 ## Dependencies worth knowing
 
@@ -169,7 +172,7 @@ Typical local dev:
 
 ## Out of scope / pitfalls
 
-- README still mentions a generic “core package”; use **mavis** instead
+- **No local model runner** — Hugging Face download, on-device runners, and `model:*` IPC were removed; do not reintroduce without an explicit product decision
 - UI user messages may differ from stored `chats` content (UI sends display text; main stores full prompt with injected browser context)
 - Reloading session history while `isResponding` is intentionally skipped to avoid clobbering the stream
 - `agent:session-get` uses `includeSummary: false` in the handler; summaries are for prompt building, not the chat transcript UI

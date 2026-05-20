@@ -15,15 +15,15 @@
 
 Hyaenidae combines a browser shell, agent runtime, and UI layer into one desktop app for running autonomous web tasks. It focuses on reliable navigation and page interaction first, then falls back to vision when DOM access is not enough.
 
-The app is designed for long-running agent sessions, tab-aware workflows, and provider flexibility. It can stream agent activity while keeping browser state, settings, and downloads coordinated across the shell and renderer.
+The app is designed for long-running agent sessions, tab-aware workflows, and remote API provider flexibility (OpenAI, Google, and custom OpenAI-compatible endpoints). It streams agent activity while keeping browser state, settings, and downloads coordinated across the shell and renderer.
 
 ## How It Works
 
-The Electron main process owns browser control and IPC, while the core package handles agent turns, session management, and model routing. The bridge package keeps the shared event and type contract between layers so the UI and runtime stay in sync.
+The Electron main process owns browser control and IPC. **Mavis** handles agent turns, session management, and model routing. **Bridge** keeps the typed event contract between main and renderer in sync.
 
-The renderer is built separately with Vite and focuses on presentation, while the runtime code in app coordinates browser tabs, downloads, and execution helpers. That split keeps automation logic, browser control, and UI concerns isolated without making the app fragmented.
+The renderer is built separately with Vite and focuses on presentation. Code in `app` coordinates browser tabs, downloads, and the Electron implementation of browser tools used by mavis. That split keeps automation logic, browser control, and UI concerns isolated without fragmenting the product.
 
 ## License
 
-[GPL-3.0](./LICENSE)
+[GPL-3.0](./LICENSE)  
 Copyright (c) 2026 Mycrl.
