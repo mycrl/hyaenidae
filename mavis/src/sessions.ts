@@ -4,6 +4,7 @@
 
 import { Model } from "./provider";
 import { ResponseStream } from "./response";
+import { randomUUID } from "node:crypto";
 
 /**
  * Maximum characters kept for a generated session display name.
@@ -160,9 +161,8 @@ export class SessionCompressor {
  * above core so the runtime can decide when and how sessions are stored.
  */
 export class SessionManager {
-    private counter = 0;
     private sessions: Map<
-        number,
+        string,
         {
             name?: string;
             summary?: string;
@@ -177,7 +177,7 @@ export class SessionManager {
      * Returns each session's numeric id and optional display name for UI lists.
      */
     list() {
-        return Object.values(this.sessions).map(({ name }, id) => ({
+        return Array.from(this.sessions.entries()).map(([id, { name }]) => ({
             id,
             name,
         }));
@@ -186,7 +186,7 @@ export class SessionManager {
     /**
      * Looks up the live in-memory state for a session.
      */
-    get(id: number, includeSummary = true) {
+    get(id: string, includeSummary = true) {
         const session = this.sessions.get(id);
         if (!session) {
             return null;
@@ -204,7 +204,7 @@ export class SessionManager {
      * Creates a new empty session with no prior conversation state.
      */
     create(name?: string) {
-        const id = this.counter++;
+        const id = randomUUID();
 
         this.sessions.set(id, {
             name,
@@ -217,7 +217,7 @@ export class SessionManager {
     /**
      * Deletes a session and its associated conversation state.
      */
-    remove(id: number) {
+    remove(id: string) {
         this.sessions.delete(id);
     }
 
@@ -228,7 +228,7 @@ export class SessionManager {
      * prepended so the model can continue without replaying the full thread.
      * Brand-new sessions return the raw latest user message unchanged.
      */
-    createPrompt(id: number, message: string) {
+    createPrompt(id: string, message: string) {
         const session = this.sessions.get(id);
         if (!session) {
             throw new Error(`Session with id ${id} not found`);
@@ -266,7 +266,7 @@ export class SessionManager {
      * any name the session already had.
      */
     async finishing(
-        id: number,
+        id: string,
         responseStream: ResponseStream,
         {
             model,

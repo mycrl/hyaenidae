@@ -247,7 +247,7 @@ export interface Events {
     /**
      * Get agent chat session with session id.
      */
-    "agent:session-get": [number, Types.AgentSessionWithState | null];
+    "agent:session-get": [string, Types.AgentSessionWithState | null];
 
     /**
      * Creates a new agent conversation session.
@@ -261,14 +261,14 @@ export interface Events {
      *
      * @param sessionId - Agent session id (`AgentSession.id`).
      */
-    "agent:session-remove": [number, void];
+    "agent:session-remove": [string, void];
 
     /**
      * Starts an agent turn (stream chunks on `agent:chat-response`).
      *
      * @returns Ask id used to correlate streamed events and `agent:chat-stop`.
      */
-    "agent:chat-ask": [Types.AgentAskOptions, number];
+    "agent:chat-ask": [Types.AgentAskOptions, string];
 
     /**
      * Streams text, tool activity, completion, and errors for one ask.
@@ -280,7 +280,7 @@ export interface Events {
      *
      * @param askId - Ask id returned from `agent:chat-ask`.
      */
-    "agent:chat-stop": [number, void];
+    "agent:chat-stop": [string, void];
 }
 
 /**

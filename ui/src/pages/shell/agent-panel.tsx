@@ -18,7 +18,7 @@ import {
     type AgentErrorCode,
     type AgentErrorState,
     type AgentMessage,
-    type AgentSessionItem,
+    type AgentSession,
 } from "../../services/agent.state";
 import { useAgentStore } from "../../services/agent.state";
 import { formatAgentActivity, isAgentActivityRunning } from "./agent-activity";
@@ -33,7 +33,7 @@ const renderMarkdown = (content: string) => ({
     __html: markdown.render(content),
 });
 
-const toggleExpandedId = (ids: number[], id: number) =>
+const toggleExpandedId = (ids: string[], id: string) =>
     ids.includes(id)
         ? ids.filter((currentId) => currentId !== id)
         : [...ids, id];
@@ -147,7 +147,7 @@ export default function AgentPanel() {
     >([]);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [expandedActivityMessageIds, setExpandedActivityMessageIds] =
-        useState<number[]>([]);
+        useState<string[]>([]);
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     const composerRef = useRef<HTMLTextAreaElement | null>(null);
     const sessions = useAgentStore((state) => state.sessions);
@@ -292,7 +292,7 @@ export default function AgentPanel() {
         });
     };
 
-    const toggleActivities = (messageId: number) => {
+    const toggleActivities = (messageId: string) => {
         setExpandedActivityMessageIds((current) =>
             toggleExpandedId(current, messageId),
         );
@@ -547,11 +547,11 @@ function SessionHistory({
     onSelectSession,
     emptyText,
 }: {
-    sessions: AgentSessionItem[];
-    conversations: Record<number, { title?: string }>;
-    activeSessionId: number | null;
+    sessions: AgentSession[];
+    conversations: Record<string, { title?: string }>;
+    activeSessionId: string | null;
     fallbackConversationTitle: string;
-    onSelectSession: (sessionId: number) => void;
+    onSelectSession: (sessionId: string) => void;
     emptyText: string;
 }) {
     if (sessions.length === 0) {

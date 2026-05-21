@@ -42,7 +42,7 @@ export interface AgentSession {
     /**
      * Unique session identifier.
      */
-    id: number;
+    id: string;
 
     /**
      * Optional human-readable name.
@@ -72,7 +72,7 @@ export interface AgentAskOptions {
     /**
      * target session id
      */
-    session: number;
+    session: string;
 
     /**
      * user input text
@@ -89,8 +89,8 @@ export interface AgentAskOptions {
  * A single text message item in the agent response stream (partial or final).
  */
 export interface AgentStreamItem {
-    sessionId: number;
-    askId: number;
+    sessionId: string;
+    askId: string;
     message: string;
 }
 
@@ -144,16 +144,16 @@ export type AgentActivityEvent =
  * tool calls).
  */
 export type AgentActivityItem = AgentActivityEvent & {
-    sessionId: number;
-    askId: number;
+    sessionId: string;
+    askId: string;
 };
 
 /**
  * Final result object for an Agent ask, optionally containing an error.
  */
 export interface AgentResult {
-    sessionId: number;
-    askId: number;
+    sessionId: string;
+    askId: string;
 
     /**
      * Error message if the ask failed.

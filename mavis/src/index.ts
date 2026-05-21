@@ -8,6 +8,7 @@ import { SessionManager } from "./sessions";
 import { BrowserRuntime } from "./browser";
 import { createBrowserUseTools } from "./tools";
 import { ModelProvider } from "./provider";
+import { randomUUID } from "node:crypto";
 
 export * from "./provider";
 export * from "./browser";
@@ -53,14 +54,9 @@ You are an autonomous browser operation agent running within an Electron applica
  */
 export class Mavis {
     /**
-     * Monotonic id assigned to each `ask` invocation.
-     */
-    private counter = 0;
-
-    /**
      * Abort controllers for in-flight asks, keyed by ask id.
      */
-    private activeAskControllers = new Map<number, AbortController>();
+    private activeAskControllers = new Map<string, AbortController>();
 
     /**
      * In-memory session store used when building prompts and after each turn.
@@ -91,12 +87,12 @@ export class Mavis {
         }: {
             browserRuntime: BrowserRuntime;
             modelProvider: ModelProvider;
-            session: number;
+            session: string;
             language: string;
         },
         listener: ResponseEventListener,
     ) {
-        const askId = this.counter++;
+        const askId = randomUUID();
         const abortController = new AbortController();
 
         this.activeAskControllers.set(askId, abortController);
@@ -168,7 +164,7 @@ export class Mavis {
     /**
      * Aborts an in-flight ask. Aborted runs skip session {@link SessionManager.finishing}.
      */
-    cancelAsk(askId: number) {
+    cancelAsk(askId: string) {
         this.activeAskControllers.get(askId)?.abort();
     }
 }
