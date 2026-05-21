@@ -9,10 +9,21 @@
         "bridge"
     ],
     "devDependencies": {
+        "@dotenvx/dotenvx": "^1.67.0",
+        "concurrently": "9.2.1",
         "prettier": "3.8.3",
         "typescript": "6.0.3"
     },
     "scripts": {
-        "format": "prettier --write ."
+        "format": "prettier --write .",
+        "build:app": "yarn workspace @hyaenidae/app build",
+        "build:bridge": "yarn workspace @hyaenidae/bridge build",
+        "build:mavis": "yarn workspace @hyaenidae/mavis build",
+        "build:ui": "yarn workspace @hyaenidae/ui build",
+        "dev:app": "yarn build:bridge & yarn build:mavis & yarn workspace @hyaenidae/app dev",
+        "dev:ui": "yarn build:bridge & yarn workspace @hyaenidae/ui dev",
+        "build": "yarn build:bridge & yarn build:mavis & yarn build:ui & yarn build:app",
+        "dev": "dotenvx run -- concurrently \"yarn dev:ui\" \"yarn dev:app\"",
+        "package": "yarn workspace @hyaenidae/app package"
     }
 }

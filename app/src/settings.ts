@@ -2,55 +2,23 @@ import { safeStorage } from "electron";
 import { writeFile } from "node:fs/promises";
 import { AppSettings } from "@hyaenidae/bridge";
 import { readFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
 import path from "node:path";
 
 const WorkDir = path.dirname(process.execPath);
 
-export let ProgramSettings = {
-    webviewDir: path.join(WorkDir, "./webview"),
-    defaultTabUrl: "https://google.com",
-    shellUrl: "hyaenidae://shell",
-    settingsUrl: "hyaenidae://settings",
-    downloadsUrl: "hyaenidae://downloads",
-    defaultWidth: 1280,
-    defaultHeight: 760,
-    openDevTools: false,
-    preloadScriptPath: require.resolve("../dist/preload.js"),
-    settingsFilePath: path.join(WorkDir, "./settings.dat"),
-    resourcesDir: path.join(WorkDir, "./resources"),
-    defaultLocalApiKey: randomUUID(),
+// prettier-ignore
+export const ProgramSettings = {
+    webviewDir: process.env.HYAENIDAE_WEBVIEW_DIR ?? path.join(WorkDir, "./webview"),
+    defaultTabUrl: process.env.HYAENIDAE_DEFAULT_TAB_URL ?? "https://google.com",
+    shellUrl: process.env.HYAENIDAE_SHELL_URL ?? "hyaenidae://shell",
+    settingsUrl: process.env.HYAENIDAE_SETTINGS_URL ?? "hyaenidae://settings",
+    downloadsUrl: process.env.HYAENIDAE_DOWNLOADS_URL ?? "hyaenidae://downloads",
+    defaultWidth: parseInt(process.env.HYAENIDAE_DEFAULT_WIDTH ?? "1280", 10),
+    defaultHeight: parseInt(process.env.HYAENIDAE_DEFAULT_HEIGHT ?? "760", 10),
+    openDevTools: process.env.HYAENIDAE_OPEN_DEV_TOOLS === "true",
+    preloadScriptPath: process.env.HYAENIDAE_PRELOAD_SCRIPT_PATH ?? require.resolve("../dist/preload.js"),
+    settingsFilePath: process.env.HYAENIDAE_SETTINGS_FILE_PATH ?? path.join(WorkDir, "./settings.dat"),
 };
-
-/**
- * Initializes the application configuration by reading from a JSON file. If the
- * file cannot be read or parsed, it falls back to default configuration values.
- *
- * @param path - The file path to the configuration JSON file.
- * Defaults to "../../config.json".
- */
-export function initProgramSettings() {
-    for (const filePath of [
-        process.env.CONFIG_FILE_PATH ??
-            path.join(__dirname, "../../config.json"),
-        path.join(WorkDir, "./config.json"),
-    ]) {
-        console.info("Initializing program settings from", filePath);
-
-        try {
-            ProgramSettings = Object.assign(
-                ProgramSettings,
-                JSON.parse(readFileSync(filePath, "utf-8")),
-            );
-
-            break;
-        } catch {
-            console.warn(`Failed to read program settings ${filePath}`);
-        }
-    }
-
-    console.info("Program settings initialized:", ProgramSettings);
-}
 
 /**
  * SettingsController is responsible for reading and writing application settings

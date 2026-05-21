@@ -10,7 +10,7 @@ export function DownloadIndicator() {
     const { t } = useTranslation();
 
     const openDownloadsTab = () => {
-        void createTab(__APP_CONFIG__.downloadsUrl);
+        void createTab(CONFIG.downloadsUrl);
     };
 
     return (

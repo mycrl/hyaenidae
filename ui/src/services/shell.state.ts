@@ -247,7 +247,7 @@ export const useShellStore = create<ShellState>((set, get) => ({
         await loadTab(
             activeTabId,
             useSettingsStore.getState().settings.homeUrl ??
-                __APP_CONFIG__.defaultTabUrl,
+                CONFIG.defaultTabUrl,
         );
     },
     navigateTo: async (url) => {

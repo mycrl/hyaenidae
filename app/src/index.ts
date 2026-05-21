@@ -1,10 +1,6 @@
 import { app } from "electron";
 import { Mavis, ModelProvider } from "@hyaenidae/mavis";
-import {
-    SettingsController,
-    initProgramSettings,
-    ProgramSettings,
-} from "./settings";
+import { SettingsController, ProgramSettings } from "./settings";
 import { ElectronBrowserRuntime } from "./runtime";
 import { Browser, registerApplicationProtocolHooks } from "./browser";
 import { registerLogger } from "./logger";
@@ -12,7 +8,6 @@ import { BaseTabInfo } from "@hyaenidae/bridge";
 import { DownloadController } from "./browser/download";
 
 registerLogger();
-initProgramSettings();
 registerApplicationProtocolHooks();
 
 const mavis = new Mavis();

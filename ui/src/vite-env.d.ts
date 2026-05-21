@@ -16,7 +16,7 @@ declare global {
 
     function queryLocalFonts(): Promise<FontData[]>;
 
-    const __APP_CONFIG__: {
+    const CONFIG: {
         settingsUrl: string;
         downloadsUrl: string;
         defaultTabUrl: string;

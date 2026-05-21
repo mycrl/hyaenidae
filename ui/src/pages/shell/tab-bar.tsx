@@ -42,7 +42,7 @@ export default function TabBar() {
     };
 
     const openSettingsTab = () => {
-        void createTab(__APP_CONFIG__.settingsUrl);
+        void createTab(CONFIG.settingsUrl);
     };
 
     return (
