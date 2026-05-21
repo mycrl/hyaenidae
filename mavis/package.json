@@ -9,7 +9,6 @@
         "build": "tsc"
     },
     "dependencies": {
-        "@hyaenidae/bridge": "workspace:*",
         "@langchain/core": "^1.1.47",
         "@langchain/google-genai": "^2.1.31",
         "@langchain/openai": "^1.4.6",

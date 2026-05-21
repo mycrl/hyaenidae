@@ -149,78 +149,67 @@ const summarizeToolOutput = (output: unknown) => {
     return undefined;
 };
 
+/** Whether the activity row should show the in-progress indicator. */
+export const isAgentActivityRunning = (activity: AgentActivity) =>
+    (activity.type === "tool" && activity.status === "running") ||
+    (activity.type === "compression" && activity.status === "running");
+
 export const formatAgentActivity = (activity: AgentActivity, t: TFunction) => {
-    if (activity.kind === "reasoning") {
-        return {
-            title:
-                activity.status === "running"
-                    ? t("chat.activityLabels.reasoningRunning")
-                    : t("chat.activityLabels.reasoningCompleted"),
-        };
-    }
+    switch (activity.type) {
+        case "reasoning":
+            return {
+                title: t("chat.activityLabels.reasoningRunning"),
+            };
 
-    if (activity.kind === "status") {
-        if (activity.name === "message_composing") {
-            return { title: t("chat.activityLabels.composing") };
-        }
+        case "tool": {
+            if (activity.status === "running") {
+                const detail = summarizeToolArguments(activity.data.arguments);
 
-        if (activity.name === "session_compression") {
-            const payload = isRecord(activity.data) ? activity.data : {};
+                return {
+                    title: t("chat.activityLabels.toolCalling", {
+                        name: activity.tool,
+                    }),
+                    ...(detail === undefined ? {} : { detail }),
+                };
+            }
+
+            const detail = summarizeToolOutput(activity.data.output);
 
             return {
-                title:
-                    activity.status === "running"
-                        ? t("chat.activityLabels.sessionCompressionRunning")
-                        : t("chat.activityLabels.sessionCompressionCompleted"),
-                ...(typeof payload.error === "string" && payload.error.trim()
-                    ? { detail: truncate(payload.error.trim()) }
-                    : {}),
+                title: t("chat.activityLabels.toolCompleted", {
+                    name: activity.tool,
+                }),
+                ...(detail === undefined ? {} : { detail }),
             };
         }
 
-        if (activity.name === "session_renamed" && isRecord(activity.data)) {
+        case "compression":
+            if (activity.status === "running") {
+                return {
+                    title: t("chat.activityLabels.compressionRunning"),
+                };
+            }
+
             return {
-                title: t("chat.activityLabels.sessionRenamed"),
-                ...(typeof activity.data.title === "string" &&
-                activity.data.title.trim()
+                title: t("chat.activityLabels.compressionCompleted"),
+                ...(activity.data?.error?.trim()
+                    ? { detail: truncate(activity.data.error.trim()) }
+                    : {}),
+            };
+
+        case "renamed":
+            return {
+                title: t("chat.activityLabels.renamed"),
+                ...(activity.data.title.trim()
                     ? { detail: truncate(activity.data.title.trim()) }
                     : {}),
             };
-        }
 
-        if (activity.name === "agent_switched" && isRecord(activity.data)) {
+        case "agentSwitched":
             return {
                 title: t("chat.activityLabels.agentSwitched", {
-                    name:
-                        typeof activity.data.agentName === "string"
-                            ? activity.data.agentName
-                            : "Agent",
+                    name: activity.data.agentName,
                 }),
             };
-        }
-
-        return { title: activity.name };
     }
-
-    if (activity.kind === "tool") {
-        const payload = isRecord(activity.data) ? activity.data : {};
-        const detail =
-            payload.phase === "output"
-                ? summarizeToolOutput(payload.output)
-                : summarizeToolArguments(payload.arguments);
-
-        return {
-            title:
-                activity.status === "running"
-                    ? t("chat.activityLabels.toolCalling", {
-                          name: activity.name,
-                      })
-                    : t("chat.activityLabels.toolCompleted", {
-                          name: activity.name,
-                      }),
-            ...(detail === undefined ? {} : { detail }),
-        };
-    }
-
-    return { title: activity.name };
 };

@@ -1,4 +1,5 @@
 import type {
+    AgentActivityEvent,
     AgentActivityItem,
     AgentResponseEvent,
     AgentResult,
@@ -149,13 +150,8 @@ export interface AgentMessage {
     activities?: AgentActivity[];
 }
 
-export interface AgentActivity {
-    key: string;
-    kind: "reasoning" | "tool" | "status";
-    status: "running" | "completed";
-    name: string;
-    data?: unknown;
-}
+/** Activity row stored on an in-flight or completed assistant message. */
+export type AgentActivity = AgentActivityEvent;
 
 export const AGENT_ERROR_CODE = {
     FAILED_TO_LOAD_SESSIONS: "failed_to_load_sessions",
@@ -388,39 +384,35 @@ const applyResponseChunk = (
     }));
 };
 
+const toAgentActivity = ({
+    sessionId: _sessionId,
+    askId: _askId,
+    ...activity
+}: AgentActivityItem): AgentActivity => activity;
+
 const mergeActivityItem = (
     existing: AgentActivity,
     incoming: AgentActivityItem,
 ): AgentActivity => {
-    const merged: AgentActivity = { ...existing, ...incoming };
+    const next = toAgentActivity(incoming);
 
-    if (
-        incoming.kind === "reasoning" &&
-        typeof incoming.data === "object" &&
-        incoming.data !== null &&
-        "text" in incoming.data &&
-        typeof incoming.data.text === "string"
-    ) {
-        const previousText =
-            typeof existing.data === "object" &&
-            existing.data !== null &&
-            "text" in existing.data &&
-            typeof existing.data.text === "string"
-                ? existing.data.text
-                : "";
-
-        return {
-            ...merged,
-            data: {
-                ...(typeof existing.data === "object" && existing.data !== null
-                    ? existing.data
-                    : {}),
-                text: previousText + incoming.data.text,
-            },
-        };
+    if (next.type !== "reasoning" || existing.type !== "reasoning") {
+        return next;
     }
 
-    return merged;
+    const incomingText = next.data?.text;
+
+    if (incomingText === undefined) {
+        return next;
+    }
+
+    return {
+        ...next,
+        type: "reasoning",
+        data: {
+            text: (existing.data?.text ?? "") + incomingText,
+        },
+    };
 };
 
 const applyActivityChunk = (
@@ -432,23 +424,16 @@ const applyActivityChunk = (
             (item) => item.key === payload.key,
         );
         if (existingIndex === -1) {
-            return [...activities, payload];
+            return [...activities, toAgentActivity(payload)];
         }
 
         return activities.map((item, index) =>
-            index === existingIndex
-                ? mergeActivityItem(item, payload)
-                : item,
+            index === existingIndex ? mergeActivityItem(item, payload) : item,
         );
     };
 
     const nextTitle =
-        payload.name === "session_renamed" &&
-        typeof payload.data === "object" &&
-        payload.data != null &&
-        "title" in payload.data &&
-        typeof payload.data.title === "string" &&
-        payload.data.title.trim()
+        payload.type === "renamed" && payload.data.title.trim()
             ? payload.data.title.trim()
             : null;
 
@@ -481,7 +466,7 @@ const applyActivityChunk = (
                         content: "",
                         timestamp: getTimestamp(),
                         status: "streaming",
-                        activities: [payload],
+                        activities: [toAgentActivity(payload)],
                     }),
                 ),
                 activeResponseId: payload.askId,
@@ -546,7 +531,7 @@ const applyResponseDone = (
 };
 
 const applyResponseEvent = (state: AgentState, payload: AgentResponseEvent) => {
-    switch (payload.type) {
+    switch (payload.kind) {
         case "text":
             return { conversations: applyResponseChunk(state, payload) };
         case "activity":

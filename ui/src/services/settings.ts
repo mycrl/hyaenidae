@@ -24,10 +24,7 @@ export const mergeSettings = (
         providers: patch.providers ?? current.providers,
     } satisfies AppSettings;
 
-    if (
-        "defaultProviderId" in patch &&
-        patch.defaultProviderId === undefined
-    ) {
+    if ("defaultProviderId" in patch && patch.defaultProviderId === undefined) {
         delete next.defaultProviderId;
     }
 

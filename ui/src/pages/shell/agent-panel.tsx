@@ -21,7 +21,7 @@ import {
     type AgentSessionItem,
 } from "../../services/agent.state";
 import { useAgentStore } from "../../services/agent.state";
-import { formatAgentActivity } from "./agent-activity";
+import { formatAgentActivity, isAgentActivityRunning } from "./agent-activity";
 
 const markdown = new MarkdownIt({
     html: false,
@@ -63,16 +63,11 @@ const getReasoningText = (activities: AgentMessage["activities"]) => {
     let text = "";
 
     for (const activity of activities ?? []) {
-        if (activity.kind !== "reasoning") {
+        if (activity.type !== "reasoning") {
             continue;
         }
 
-        if (
-            typeof activity.data === "object" &&
-            activity.data !== null &&
-            "text" in activity.data &&
-            typeof activity.data.text === "string"
-        ) {
+        if (activity.data?.text) {
             text += activity.data.text;
         }
     }
@@ -598,7 +593,7 @@ function MessageItem({
     const { t } = useTranslation();
     const hasActivities = Boolean(message.activities?.length);
     const hasOperationalActivities = Boolean(
-        message.activities?.some((activity) => activity.kind !== "reasoning"),
+        message.activities?.some((activity) => activity.type !== "reasoning"),
     );
     const isStreamingAssistant =
         message.role === "assistant" && message.status === "streaming";
@@ -606,8 +601,7 @@ function MessageItem({
         message.role === "assistant" && message.status === "error";
     const shouldShowActivityPanel =
         message.role === "assistant" &&
-        (hasOperationalActivities ||
-            (!isStreamingAssistant && hasActivities));
+        (hasOperationalActivities || (!isStreamingAssistant && hasActivities));
     const isPanelExpanded = isStreamingAssistant
         ? hasOperationalActivities
         : isActivityExpanded;
@@ -706,7 +700,7 @@ function ActivityPanel({
             {isExpanded ? (
                 <div className="agent-activity-panel">
                     {message.activities?.map((activity) => {
-                        if (activity.kind === "reasoning") {
+                        if (activity.type === "reasoning") {
                             return null;
                         }
                         const formatted = formatAgentActivity(activity, t);
@@ -720,7 +714,7 @@ function ActivityPanel({
                                     <span
                                         className={[
                                             "agent-activity-status-dot",
-                                            activity.status === "running"
+                                            isAgentActivityRunning(activity)
                                                 ? "agent-activity-status-dot-running"
                                                 : "agent-activity-status-dot-completed",
                                         ].join(" ")}

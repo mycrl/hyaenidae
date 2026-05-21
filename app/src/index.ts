@@ -122,13 +122,21 @@ browser.shell.bridge
                 browserRuntime,
             },
             (event) => {
+                if (event.type === "text") {
+                    browser.shell.bridge.send("agent:chat-response", {
+                        kind: "text",
+                        sessionId,
+                        askId,
+                        message: event.message,
+                    });
+                    return;
+                }
+
                 browser.shell.bridge.send("agent:chat-response", {
+                    kind: "activity",
                     sessionId,
-                    type: event.type as any, // pass through the event type
                     askId,
-                    ...(event.type === "text"
-                        ? { message: event.message }
-                        : event.activity),
+                    ...event.activity,
                 });
             },
         );
@@ -138,9 +146,9 @@ browser.shell.bridge
             .catch((error: Error) => error)
             .then((error) => {
                 browser.shell.bridge.send("agent:chat-response", {
+                    kind: "done",
                     sessionId,
                     askId,
-                    type: "done",
                     ...(error != null ? { error: error.message } : {}),
                 });
             });

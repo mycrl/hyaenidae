@@ -95,9 +95,7 @@ const normalizeLegacyProvider = (
 export const filterConfiguredProviders = (
     providers: ApiProviderSettings[],
 ): AgentProviderItem[] => {
-    return providers
-        .map(normalizeLegacyProvider)
-        .filter(isConfiguredProvider);
+    return providers.map(normalizeLegacyProvider).filter(isConfiguredProvider);
 };
 
 export const getProviderModels = async (

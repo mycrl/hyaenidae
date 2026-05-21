@@ -95,38 +95,58 @@ export interface AgentStreamItem {
 }
 
 /**
+ * Activity payload streamed from the agent runtime before IPC metadata.
+ */
+export type AgentActivityEvent =
+    | {
+          key: string;
+          type: "reasoning";
+          data?: { text: string };
+      }
+    | {
+          key: string;
+          type: "tool";
+          status: "running";
+          tool: string;
+          data: { arguments: Record<string, unknown> };
+      }
+    | {
+          key: string;
+          type: "tool";
+          status: "completed";
+          tool: string;
+          data: { output: unknown; isError: boolean };
+      }
+    | {
+          key: string;
+          type: "compression";
+          status: "running";
+      }
+    | {
+          key: string;
+          type: "compression";
+          status: "completed";
+          data?: { error?: string };
+      }
+    | {
+          key: string;
+          type: "renamed";
+          data: { title: string };
+      }
+    | {
+          key: string;
+          type: "agentSwitched";
+          data: { agentName: string };
+      };
+
+/**
  * Activity events emitted while an agent produces a response (e.g. reasoning,
  * tool calls).
  */
-export interface AgentActivityItem {
+export type AgentActivityItem = AgentActivityEvent & {
     sessionId: number;
     askId: number;
-
-    /**
-     * Unique key for the activity, useful for deduplication or updates in UI.
-     */
-    key: string;
-
-    /**
-     * Activity kind: reasoning, tool, or generic status.
-     */
-    kind: "reasoning" | "tool" | "status";
-
-    /**
-     * Progress status of the activity.
-     */
-    status: "running" | "completed";
-
-    /**
-     * Name of the activity or tool.
-     */
-    name: string;
-
-    /**
-     * Optional payload with extra activity-specific data.
-     */
-    data?: unknown;
-}
+};
 
 /**
  * Final result object for an Agent ask, optionally containing an error.
@@ -144,11 +164,14 @@ export interface AgentResult {
 /**
  * Union type for agent response events: text chunks, activity events, or
  * completion.
+ *
+ * Uses `kind` for the stream envelope so activity payloads can use `type`
+ * without colliding with `kind: "activity"`.
  */
 export type AgentResponseEvent =
-    | ({ type: "text" } & AgentStreamItem)
-    | ({ type: "activity" } & AgentActivityItem)
-    | ({ type: "done" } & AgentResult);
+    | ({ kind: "text" } & AgentStreamItem)
+    | ({ kind: "activity" } & AgentActivityItem)
+    | ({ kind: "done" } & AgentResult);
 
 /**
  * Metadata for a model (used to display available models in UI).

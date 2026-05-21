@@ -7,13 +7,47 @@ import type { AgentRunStream } from "langchain";
 /**
  * UI-facing activity item emitted while an agent run is progressing.
  */
-export interface AgentActivityEvent {
-    key: string;
-    kind: "reasoning" | "tool" | "status";
-    status: "running" | "completed";
-    name: string;
-    data?: unknown;
-}
+export type AgentActivityEvent =
+    | {
+          key: string;
+          type: "reasoning";
+          data?: { text: string };
+      }
+    | {
+          key: string;
+          type: "tool";
+          status: "running";
+          tool: string;
+          data: { arguments: Record<string, unknown> };
+      }
+    | {
+          key: string;
+          type: "tool";
+          status: "completed";
+          tool: string;
+          data: { output: unknown; isError: boolean };
+      }
+    | {
+          key: string;
+          type: "compression";
+          status: "running";
+      }
+    | {
+          key: string;
+          type: "compression";
+          status: "completed";
+          data?: { error?: string };
+      }
+    | {
+          key: string;
+          type: "renamed";
+          data: { title: string };
+      }
+    | {
+          key: string;
+          type: "agentSwitched";
+          data: { agentName: string };
+      };
 
 /**
  * Minimal turn shape for conversation history carried across agent runs.
@@ -126,9 +160,7 @@ export class ResponseStream {
                     type: "activity",
                     activity: {
                         key: `reasoning:step:${this.currentStep}`,
-                        kind: "reasoning",
-                        status: "running",
-                        name: "reasoning_started",
+                        type: "reasoning",
                     },
                 });
 
@@ -144,9 +176,7 @@ export class ResponseStream {
                                     type: "activity",
                                     activity: {
                                         key: `reasoning:step:${this.currentStep}`,
-                                        kind: "reasoning",
-                                        status: "running",
-                                        name: "reasoning_started",
+                                        type: "reasoning",
                                         data: { text: reasoningChunk },
                                     },
                                 });
@@ -165,33 +195,21 @@ export class ResponseStream {
                         });
                     }
                 });
-
-                this.listener({
-                    type: "activity",
-                    activity: {
-                        key: `message:step:${this.currentStep}`,
-                        kind: "status",
-                        status: "completed",
-                        name: "message_composing",
-                    },
-                });
             }),
             /**
              * Iterate over the tool calls in the run result.
              */
             asyncForEach(this.runResult.toolCalls, async (call) => {
                 const id = call.callId ?? call.name;
-
                 this.listener({
                     type: "activity",
                     activity: {
                         key: `tool:${id}`,
-                        kind: "tool",
+                        type: "tool",
                         status: "running",
-                        name: call.name,
+                        tool: call.name,
                         data: {
-                            phase: "called",
-                            arguments: call.input,
+                            arguments: call.input as Record<string, unknown>,
                         },
                     },
                 });
@@ -201,8 +219,9 @@ export class ResponseStream {
 
                 try {
                     output = await call.output;
-                } catch (error: any) {
-                    output = error?.message ?? String(error);
+                } catch (error: unknown) {
+                    output =
+                        error instanceof Error ? error.message : String(error);
                     isError = true;
                 }
 
@@ -210,11 +229,10 @@ export class ResponseStream {
                     type: "activity",
                     activity: {
                         key: `tool:${id}`,
-                        kind: "tool",
+                        type: "tool",
                         status: "completed",
-                        name: call.name,
+                        tool: call.name,
                         data: {
-                            phase: "output",
                             output,
                             isError,
                         },
@@ -234,8 +252,7 @@ export class ResponseStream {
             type: "activity",
             activity: {
                 key: "session:compression",
-                kind: "status",
-                name: "session_compression",
+                type: "compression",
                 status,
             },
         });
@@ -251,9 +268,7 @@ export class ResponseStream {
             type: "activity",
             activity: {
                 key: "session:rename",
-                kind: "status",
-                status: "completed",
-                name: "session_renamed",
+                type: "renamed",
                 data: { title },
             },
         });
