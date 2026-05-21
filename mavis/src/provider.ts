@@ -1,15 +1,14 @@
 /**
- * Provider configuration and model resolution for the AI SDK.
+ * Provider configuration and LangChain chat model resolution.
  */
 
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
-import { LanguageModel } from "ai";
+import { initChatModel } from "langchain";
+import { ConfigurableModel } from "langchain/chat_models/universal";
 
 /**
- * AI SDK language model handle passed into `streamText` and `generateText`.
+ * LangChain chat model passed into agent runs and one-off LLM calls.
  */
-export type Model = LanguageModel;
+export type Model = ConfigurableModel;
 
 /**
  * Resolves provider-specific models and OpenAI-compatible model listing.
@@ -32,32 +31,23 @@ export class ModelProvider {
     ) {}
 
     /**
-     * Resolves the language model instance consumed directly by AI SDK calls such
-     * as `streamText` and `generateText`.
+     * Resolves the chat model instance used by agent runs and session compression.
      */
-    createModel() {
-        switch (this.provider.type) {
-            case "google":
-                return createGoogleGenerativeAI(
-                    this.provider.apiKey === undefined
-                        ? {}
-                        : {
-                              apiKey: this.provider.apiKey,
-                          },
-                )(this.provider.model);
-            case "openai":
-            case "custom":
-                return createOpenAI({
-                    ...(this.provider.apiKey
-                        ? { apiKey: this.provider.apiKey }
-                        : {}),
-                    ...(this.provider.type === "custom"
-                        ? {
-                              baseURL: this.provider.baseUrl,
-                          }
-                        : {}),
-                }).chat(this.provider.model);
-        }
+    async createModel(): Promise<Model> {
+        return await initChatModel(
+            this.provider.model,
+            this.provider.type === "custom"
+                ? {
+                      modelProvider: "openai",
+                      configuration: {
+                          baseURL: this.provider.baseUrl,
+                          apiKey: this.provider.apiKey,
+                      },
+                  }
+                : {
+                      apiKey: this.provider.apiKey,
+                  },
+        );
     }
 
     /**
@@ -73,6 +63,7 @@ export class ModelProvider {
                 : this.provider.type === "custom"
                   ? this.provider.baseUrl.replace(/\/+$/, "")
                   : "https://api.openai.com/v1";
+
         const response = await fetch(`${baseUrl}/models`, {
             method: "GET",
             headers: {

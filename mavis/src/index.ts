@@ -2,8 +2,8 @@
  * Public entry point for the agent runtime, sessions, and re-exports.
  */
 
+import { createAgent } from "langchain";
 import { ResponseEventListener, ResponseStream } from "./response";
-import { isLoopFinished, streamText } from "ai";
 import { SessionManager } from "./sessions";
 import { BrowserRuntime } from "./browser";
 import { createBrowserUseTools } from "./tools";
@@ -105,27 +105,38 @@ export class Mavis {
             askId,
             task: async () => {
                 try {
-                    const model = modelProvider.createModel();
+                    const model = await modelProvider.createModel();
 
                     const response = new ResponseStream(
-                        streamText({
+                        await createAgent({
                             model,
-                            system: MAIN_SYSTEM_PROMPT.replaceAll(
+                            systemPrompt: MAIN_SYSTEM_PROMPT.replaceAll(
                                 "<LANGUAGE>",
                                 language,
-                            ),
-                            prompt: this.sessionManager.createPrompt(
-                                session,
-                                message,
                             ),
                             tools: createBrowserUseTools({
                                 model,
                                 language,
                                 browserRuntime,
                             }),
-                            abortSignal: abortController.signal,
-                            stopWhen: isLoopFinished(),
-                        }),
+                        }).streamEvents(
+                            {
+                                messages: [
+                                    {
+                                        role: "user",
+                                        content:
+                                            this.sessionManager.createPrompt(
+                                                session,
+                                                message,
+                                            ),
+                                    },
+                                ],
+                            },
+                            {
+                                version: "v3",
+                                signal: abortController.signal,
+                            },
+                        ),
                         listener,
                     );
 

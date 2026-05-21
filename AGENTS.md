@@ -85,7 +85,7 @@ Renderer global typing: `ui/src/vite-env.d.ts`.
 
 **Mavis** (`mavis/src/index.ts`):
 
-- `ask()` runs `streamText` with browser tools from `createBrowserUseTools`
+- `ask()` runs LangChain `createAgent` with browser tools from `createBrowserUseTools`
 - On success, `SessionManager.finishing()` compresses context, may rename session, appends user/assistant pair to `chats`
 - `ElectronBrowserRuntime` in `app/src/runtime/` implements `BrowserRuntime` for tools (DOM, scripts, tabs, screenshots)
 
@@ -166,7 +166,7 @@ Typical local dev:
 
 ## Dependencies worth knowing
 
-- **AI**: Vercel AI SDK (`ai`, `@ai-sdk/openai`, `@ai-sdk/google`) in mavis
+- **AI**: LangChain.js (`langchain`, `@langchain/openai`, `@langchain/google-genai`) in mavis
 - **UI**: React 19, Zustand, react-i18next, Heroicons, markdown-it
 - **Desktop**: Electron 41
 

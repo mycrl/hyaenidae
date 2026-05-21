@@ -2,7 +2,6 @@
  * In-memory session storage and LLM-backed title/summary compression.
  */
 
-import { generateText } from "ai";
 import { Model } from "./provider";
 import { ResponseStream } from "./response";
 
@@ -83,19 +82,24 @@ export class SessionCompressor {
         language: string;
         chat: SingleChat;
     }) {
-        const response = await generateText({
-            model,
-            system: SESSION_TITLE_PROMPT,
-            prompt: [
-                `Write the title in ${language} unless the user explicitly asked for another language.`,
-                `Keep the title no longer than ${MAX_SESSION_TITLE_LENGTH} characters.`,
-                "Current conversation turns:",
-                `"User": ${chat.user}`,
-                `"Assistant": ${chat.assistant}`,
-            ].join("\n\n"),
-        }).then((res) => res.text.trim());
+        const response = await model.invoke([
+            {
+                role: "system",
+                content: SESSION_TITLE_PROMPT,
+            },
+            {
+                role: "user",
+                content: [
+                    `Write the title in ${language} unless the user explicitly asked for another language.`,
+                    `Keep the title no longer than ${MAX_SESSION_TITLE_LENGTH} characters.`,
+                    "Current conversation turns:",
+                    `"User": ${chat.user}`,
+                    `"Assistant": ${chat.assistant}`,
+                ].join("\n\n"),
+            },
+        ]);
 
-        const title = response
+        const title = ResponseStream.extractText(response.content)
             .replace(/\s+/g, " ")
             .replace(
                 /^["'“”‘’【】\[\](){}<>\-:：;,，。.!！？]+|["'“”‘’【】\[\](){}<>\-:：;,，。.!！？]+$/g,
@@ -126,19 +130,26 @@ export class SessionCompressor {
         previousSummary?: string;
         chat: SingleChat;
     }) {
-        return generateText({
-            model,
-            system: CONTEXT_COMPRESSION_PROMPT,
-            prompt: [
-                `Write the compressed context in ${language} unless the user explicitly asked for another language.`,
-                previousSummary
-                    ? `Previous compressed context:\n${previousSummary}`
-                    : "Previous compressed context: none",
-                "Current conversation turns:",
-                `"User": ${chat.user}`,
-                `"Assistant": ${chat.assistant}`,
-            ].join("\n\n"),
-        }).then((res) => res.text.trim());
+        const response = await model.invoke([
+            {
+                role: "system",
+                content: CONTEXT_COMPRESSION_PROMPT,
+            },
+            {
+                role: "user",
+                content: [
+                    `Write the compressed context in ${language} unless the user explicitly asked for another language.`,
+                    previousSummary
+                        ? `Previous compressed context:\n${previousSummary}`
+                        : "Previous compressed context: none",
+                    "Current conversation turns:",
+                    `"User": ${chat.user}`,
+                    `"Assistant": ${chat.assistant}`,
+                ].join("\n\n"),
+            },
+        ]);
+
+        return ResponseStream.extractText(response.content);
     }
 }
 

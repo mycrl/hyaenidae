@@ -2,6 +2,8 @@
  * Stream adapters and shared event types for agent output.
  */
 
+import type { AgentRunStream } from "langchain";
+
 /**
  * UI-facing activity item emitted while an agent run is progressing.
  */
@@ -22,13 +24,6 @@ export interface AgentConversationTurn {
 }
 
 /**
- * Minimal `streamText` surface consumed by {@link ResponseStream}.
- */
-interface StreamTextResultLike {
-    fullStream: AsyncIterable<unknown>;
-}
-
-/**
  * Optional cross-turn metadata for provider-specific conversation resumption.
  *
  * Not used by the in-memory {@link SessionManager}; kept for callers that bridge
@@ -42,38 +37,6 @@ export interface AgentConversationContext {
 }
 
 /**
- * Normalized subset of AI SDK stream events handled by {@link ResponseStream}.
- */
-type AgentStreamEvent =
-    | {
-          type:
-              | "start-step"
-              | "reasoning-start"
-              | "reasoning-delta"
-              | "text-delta"
-              | "finish-step";
-          text?: string;
-          textDelta?: string;
-          delta?: string;
-      }
-    | {
-          type: "tool-call";
-          toolCallId?: string;
-          toolName?: string;
-          input?: unknown;
-      }
-    | {
-          type: "tool-result";
-          toolCallId?: string;
-          toolName?: string;
-          output?: unknown;
-      }
-    | {
-          type: "error";
-          error?: unknown;
-      };
-
-/**
  * Callback invoked as assistant text and coarse activity events arrive.
  */
 export type ResponseEventListener = (
@@ -83,121 +46,182 @@ export type ResponseEventListener = (
 ) => void;
 
 /**
- * Adapts the AI SDK stream into plain text chunks and coarse-grained activity
- * events that the application can render incrementally.
+ * Async version of the forEach method.
+ *
+ * @param iterator - The async iterable to iterate over.
+ * @param callback - The callback to invoke for each item.
+ * @returns A promise that resolves when the iteration is complete.
+ */
+const asyncForEach = async <T>(
+    iterator: AsyncIterable<T>,
+    callback: (item: T) => Promise<void> | void,
+) => {
+    for await (const item of iterator) {
+        await callback(item);
+    }
+};
+
+/**
+ * Adapts the LangChain v3 agent run stream into plain text chunks and
+ * coarse-grained activity events that the application can render incrementally.
  */
 export class ResponseStream {
     private outputText = "";
     private currentStep = 0;
 
     constructor(
-        private readonly runResult: StreamTextResultLike,
+        private readonly runResult: AgentRunStream,
         private readonly listener: ResponseEventListener,
     ) {}
 
     /**
-     * Drains the AI SDK stream and forwards text deltas and activity events.
+     * Extracts plain text from a LangChain model response message.
+     */
+    static extractText(content: unknown) {
+        if (typeof content === "string") {
+            return content.trim();
+        }
+
+        if (!Array.isArray(content)) {
+            return "";
+        }
+
+        return content
+            .map((item) => {
+                if (typeof item === "string") {
+                    return item;
+                }
+
+                if (
+                    item !== null &&
+                    typeof item === "object" &&
+                    "type" in item &&
+                    "text" in item &&
+                    item.type === "text" &&
+                    typeof item.text === "string"
+                ) {
+                    return item.text;
+                }
+
+                return "";
+            })
+            .join("\n")
+            .trim();
+    }
+
+    /**
+     * Drains the LangChain agent run stream and forwards text deltas and activity events.
      *
-     * Throws when the stream emits an error event. Ignores unrecognized chunks.
+     * Throws when either projection fails or the run rejects. Ignores unrecognized chunks.
      */
     async pumpStream() {
-        for await (const event of this.runResult
-            .fullStream as AsyncIterable<AgentStreamEvent>) {
-            if (
-                typeof event !== "object" ||
-                event === null ||
-                !("type" in event)
-            ) {
-                continue;
-            }
+        await Promise.all([
+            /**
+             * Iterate over the messages in the run result.
+             */
+            asyncForEach(this.runResult.messages, async (message) => {
+                this.currentStep += 1;
 
-            switch (event.type) {
-                case "start-step":
-                case "reasoning-start":
-                case "reasoning-delta":
-                    const text = event.text ?? event.textDelta ?? event.delta;
+                this.listener({
+                    type: "activity",
+                    activity: {
+                        key: `reasoning:step:${this.currentStep}`,
+                        kind: "reasoning",
+                        status: "running",
+                        name: "reasoning_started",
+                    },
+                });
 
-                    if (event.type === "start-step") {
-                        this.currentStep += 1;
-                    }
-
-                    this.listener({
-                        type: "activity",
-                        activity: {
-                            key: `reasoning:step:${this.currentStep}`,
-                            kind: "reasoning",
-                            status: "running",
-                            name: "reasoning_started",
-                            ...(text === undefined ? {} : { data: { text } }),
+                if (message.reasoning) {
+                    await asyncForEach(
+                        message.reasoning,
+                        async (reasoningChunk) => {
+                            if (
+                                typeof reasoningChunk === "string" &&
+                                reasoningChunk.length > 0
+                            ) {
+                                this.listener({
+                                    type: "activity",
+                                    activity: {
+                                        key: `reasoning:step:${this.currentStep}`,
+                                        kind: "reasoning",
+                                        status: "running",
+                                        name: "reasoning_started",
+                                        data: { text: reasoningChunk },
+                                    },
+                                });
+                            }
                         },
-                    });
+                    );
+                }
 
-                    break;
-                case "text-delta": {
-                    const message =
-                        event.text ?? event.textDelta ?? event.delta;
-
-                    if (typeof message === "string" && message.length > 0) {
-                        this.outputText += message;
+                await asyncForEach(message.text, async (token) => {
+                    if (typeof token === "string" && token.length > 0) {
+                        this.outputText += token;
 
                         this.listener({
                             type: "text",
-                            message,
+                            message: token,
                         });
                     }
+                });
 
-                    break;
+                this.listener({
+                    type: "activity",
+                    activity: {
+                        key: `message:step:${this.currentStep}`,
+                        kind: "status",
+                        status: "completed",
+                        name: "message_composing",
+                    },
+                });
+            }),
+            /**
+             * Iterate over the tool calls in the run result.
+             */
+            asyncForEach(this.runResult.toolCalls, async (call) => {
+                const id = call.callId ?? call.name;
+
+                this.listener({
+                    type: "activity",
+                    activity: {
+                        key: `tool:${id}`,
+                        kind: "tool",
+                        status: "running",
+                        name: call.name,
+                        data: {
+                            phase: "called",
+                            arguments: call.input,
+                        },
+                    },
+                });
+
+                let output: unknown;
+                let isError = false;
+
+                try {
+                    output = await call.output;
+                } catch (error: any) {
+                    output = error?.message ?? String(error);
+                    isError = true;
                 }
-                case "tool-call":
-                    this.listener({
-                        type: "activity",
-                        activity: {
-                            key: `tool:${String(event.toolCallId ?? event.toolName ?? "tool")}`,
-                            kind: "tool",
-                            status: "running",
-                            name: event.toolName ?? "tool",
-                            data: {
-                                phase: "called",
-                                arguments: event.input,
-                            },
+
+                this.listener({
+                    type: "activity",
+                    activity: {
+                        key: `tool:${id}`,
+                        kind: "tool",
+                        status: "completed",
+                        name: call.name,
+                        data: {
+                            phase: "output",
+                            output,
+                            isError,
                         },
-                    });
-
-                    break;
-                case "tool-result":
-                    this.listener({
-                        type: "activity",
-                        activity: {
-                            key: `tool:${String(event.toolCallId ?? event.toolName ?? "tool")}`,
-                            kind: "tool",
-                            status: "completed",
-                            name: event.toolName ?? "tool",
-                            data: {
-                                phase: "output",
-                                output: event.output,
-                                isError: false,
-                            },
-                        },
-                    });
-
-                    break;
-
-                case "finish-step":
-                    this.listener({
-                        type: "activity",
-                        activity: {
-                            key: `message:step:${this.currentStep}`,
-                            kind: "status",
-                            status: "completed",
-                            name: "message_composing",
-                        },
-                    });
-
-                    break;
-                case "error":
-                    throw new Error(String(event.error));
-            }
-        }
+                    },
+                });
+            }),
+        ]);
     }
 
     /**
